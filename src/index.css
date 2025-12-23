@@ -181,6 +181,13 @@ a {
   border: 1px solid var(--border);
 }
 
+.pill-active {
+  background: rgba(90, 200, 250, 0.18);
+  color: var(--text);
+  border-color: var(--primary);
+  box-shadow: var(--glow-primary);
+}
+
 .card-shell {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
@@ -223,6 +230,13 @@ a {
   font-weight: 600;
   font-size: 0.9rem;
   border: 1px solid var(--border);
+}
+
+.ai-placeholder {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-style: italic;
+  margin: 0 0 0.4rem;
 }
 
 .text-muted {

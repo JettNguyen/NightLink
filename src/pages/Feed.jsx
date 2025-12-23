@@ -2,15 +2,17 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import './Feed.css';
 
-export default function Feed({ user }) {
+export default function Feed() {
   const [dreams, setDreams] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const q = query(
       collection(db, 'dreams'),
-      where('visibility', '==', 'anonymous'),
+      where('visibility', 'in', ['anonymous', 'public']),
       orderBy('createdAt', 'desc'),
       limit(50)
     );
@@ -19,6 +21,7 @@ export default function Feed({ user }) {
       const dreamsList = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
+        visibility: doc.data().visibility || 'private',
         createdAt: doc.data().createdAt?.toDate()
       }));
       setDreams(dreamsList);
@@ -44,9 +47,21 @@ export default function Feed({ user }) {
           </div>
         ) : (
           dreams.map(dream => (
-            <div key={dream.id} className="feed-card">
+            <div
+              key={dream.id}
+              className="feed-card"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(`/journal/${dream.id}`)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  navigate(`/journal/${dream.id}`);
+                }
+              }}
+            >
               <div className="feed-card-head">
-                <div className="feed-author">Anonymous</div>
+                <div className="feed-author">{dream.visibility === 'anonymous' ? 'Anonymous' : 'Public dream'}</div>
                 <span className="feed-date">
                   {dream.createdAt && format(dream.createdAt, 'MMM d, yyyy')}
                 </span>

@@ -1,19 +1,21 @@
 import { useEffect, useState } from 'react';
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import './Search.css';
 
 const MIN_CHARS = 2;
 
-export default function Search({ user }) {
+export default function Search() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [userResults, setUserResults] = useState([]);
   const [dreamResults, setDreamResults] = useState([]);
   const [error, setError] = useState('');
   const [lastTerm, setLastTerm] = useState('');
-  const [filter, setFilter] = useState('people'); // 'people' | 'dreams'
+  const [filter, setFilter] = useState('people');
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -58,7 +60,7 @@ export default function Search({ user }) {
         const dreamsSnap = await getDocs(
           query(
             collection(db, 'dreams'),
-            where('visibility', '==', 'anonymous'),
+            where('visibility', 'in', ['anonymous', 'public']),
             limit(60)
           )
         );
@@ -69,6 +71,7 @@ export default function Search({ user }) {
             return {
               id: doc.id,
               ...data,
+              visibility: data.visibility || 'private',
               createdAt: data.createdAt?.toDate?.() ?? data.createdAt ?? null
             };
           })
@@ -79,7 +82,7 @@ export default function Search({ user }) {
           })
           .filter((d) => {
             const text = (d.content || '').toLowerCase();
-            const title = (d.aiTitle || '').toLowerCase();
+            const title = d.aiGenerated ? (d.aiTitle || '').toLowerCase() : '';
             return text.includes(lower) || title.includes(lower);
           })
           .slice(0, 24);
@@ -87,27 +90,43 @@ export default function Search({ user }) {
         setDreamResults(dreams);
         setUserResults([]);
       }
-    } catch (err) {
-      console.error('Search failed', err);
+    } catch {
       setError('Search hiccup. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDreamNavigation = (dreamId) => {
+    if (!dreamId) return;
+    navigate(`/journal/${dreamId}`);
+  };
+
   const renderDream = (dream) => {
-    const title = dream.aiTitle || (dream.content || 'Untitled dream').slice(0, 80);
+    const title = dream.aiGenerated ? dream.aiTitle?.trim() : '';
     const snippet = dream.content?.length > 200 ? `${dream.content.slice(0, 200)}…` : dream.content;
     const dateLabel = dream.createdAt ? format(dream.createdAt, 'MMM d, yyyy') : 'Recent';
 
     return (
-      <div className="search-dream-card" key={dream.id}>
+      <div
+        className="search-dream-card"
+        key={dream.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => handleDreamNavigation(dream.id)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleDreamNavigation(dream.id);
+          }
+        }}
+      >
         <div className="search-dream-meta">
           <span className="pill">{dateLabel}</span>
-          <span className="pill">Public dream</span>
+            <span className="pill">{dream.visibility === 'anonymous' ? 'Anonymous dream' : 'Public dream'}</span>
         </div>
-        <h3>{title}</h3>
-        {dream.aiInsights && <p className="dream-insight">{dream.aiInsights}</p>}
+        {title ? <h3>{title}</h3> : <p className="ai-placeholder">AI title will appear after analysis.</p>}
+        {dream.aiGenerated && dream.aiInsights && <p className="dream-insight">{dream.aiInsights}</p>}
         <p className="dream-snippet">{snippet}</p>
         {dream.tags?.length ? (
           <div className="dream-tags">

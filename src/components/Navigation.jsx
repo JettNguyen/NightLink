@@ -11,8 +11,8 @@ export default function Navigation() {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
-    } catch (error) {
-      console.warn('Sign out failed');
+    } catch {
+      alert('Sign out failed. Please try again.');
     }
   };
 

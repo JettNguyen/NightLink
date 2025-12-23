@@ -7,14 +7,17 @@
 .dream-card {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.03) 100%);
   border: 1px solid var(--border);
-  border-radius: 16px;
   padding: 1.2rem;
   box-shadow: var(--shadow-light);
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  min-height: 320px;
+  border-radius: 16px;
   transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
   backdrop-filter: blur(12px);
+  cursor: pointer;
+  position: relative;
 }
 
 .dream-card:hover {
@@ -23,12 +26,48 @@
   border-color: rgba(255, 255, 255, 0.14);
 }
 
-.dream-topline {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.75rem;
+.dream-card:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
 }
+
+.dream-card--pending {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.dream-footer {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: block;
+}
+
+.ai-summary {
+  flex: 1;
+}
+
+.dream-visibility-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
+  margin-left: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.dream-chevron {
+  font-size: 1.25rem;
+  color: var(--text-secondary);
+  transition: transform 0.16s ease;
+}
+
+.dream-card:hover .dream-chevron {
+  transform: translateX(2px);
+}
+
 
 .dream-title {
   font-weight: 700;
@@ -43,30 +82,6 @@
   font-size: 0.9rem;
 }
 
-.dream-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.dream-action {
-  padding: 0.4rem 0.75rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  transition: all 0.12s ease;
-  background: var(--surface-muted);
-}
-
-.dream-action:hover:not(:disabled) {
-  border-color: var(--primary);
-  color: var(--text);
-}
-
-.dream-action:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .dream-header {
   display: flex;
   justify-content: space-between;
@@ -77,21 +92,6 @@
 .dream-date {
   color: var(--text-secondary);
   font-size: 0.95rem;
-}
-
-.delete-btn {
-  background: none;
-  color: var(--text-secondary);
-  padding: 0.4rem 0.65rem;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  transition: all 0.14s ease;
-}
-
-.delete-btn:hover {
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.35);
-  background: rgba(239, 68, 68, 0.08);
 }
 
 .dream-content {

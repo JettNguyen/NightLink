@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+import { db } from '../firebase';
 import './DreamJournal.css';
+
+const VISIBILITY_LABELS = {
+  private: 'Private',
+  public: 'Public',
+  anonymous: 'Anonymous'
+};
+
+const CONTENT_PREVIEW_LIMIT = 240;
+const INSIGHT_PREVIEW_LIMIT = 180;
 
 export default function DreamJournal({ user }) {
   const [dreams, setDreams] = useState([]);
@@ -11,43 +21,15 @@ export default function DreamJournal({ user }) {
   const [tags, setTags] = useState([]);
   const [newTag, setNewTag] = useState('');
   const [loading, setLoading] = useState(false);
-  const [analyzingId, setAnalyzingId] = useState(null);
-  const [expandedIds, setExpandedIds] = useState(new Set());
   const [saveError, setSaveError] = useState('');
   const [listenError, setListenError] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
-    console.info('[AI] configured endpoint', import.meta.env.VITE_AI_ENDPOINT || 'missing');
-  }, []);
-
-  const deriveTitle = (text) => {
-    const clean = text.trim();
-    if (!clean) return 'Untitled dream';
-    const sentence = clean.split(/[.!?\n]/)[0];
-    const words = sentence.split(/\s+/).filter(Boolean);
-    const clippedWords = words.slice(0, 8).join(' ');
-    const clipped = clippedWords.length > 40 ? `${clippedWords.slice(0, 40).trim()}…` : clippedWords;
-    return clipped || 'Untitled dream';
-  };
-
-  const deriveInsights = (text) => {
-    const lower = text.toLowerCase();
-    const keywords = ['flight', 'water', 'teeth', 'falling', 'chase', 'exam', 'crowd'];
-    const hits = keywords.filter(k => lower.includes(k));
-    const tone = lower.includes('calm') || lower.includes('peace') ? 'calm' : lower.includes('anx') ? 'anxious' : 'mixed';
-    return `Tone: ${tone}. Notable motifs: ${hits.length ? hits.join(', ') : 'none spotted'}.`;
-  };
-
-  const toggleExpanded = (id) => {
-    setExpandedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  useEffect(() => {
-    if (!user?.uid) return () => {};
+    if (!user?.uid) {
+      setDreams([]);
+      return undefined;
+    }
 
     const q = query(
       collection(db, 'dreams'),
@@ -56,133 +38,151 @@ export default function DreamJournal({ user }) {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const dreamsList = snapshot.docs.map(d => {
-        const data = d.data();
+      const dreamsList = snapshot.docs.map((docSnapshot) => {
+        const data = docSnapshot.data();
         return {
-          id: d.id,
+          id: docSnapshot.id,
           ...data,
+          visibility: data.visibility || 'private',
           createdAt: data.createdAt?.toDate?.() ?? data.createdAt ?? null
         };
       });
       setDreams(dreamsList);
       setListenError('');
-    }, (error) => {
-      console.error('Dreams listener failed', error);
-      setListenError('Live sync failed. Check console for details and your Firestore rules.');
+    }, () => {
+      setListenError('Live sync failed. Check your Firestore rules.');
     });
 
     return unsubscribe;
-  }, [user.uid]);
+  }, [user?.uid]);
 
-  const handleAddTag = () => {
-    if (newTag.trim() && !tags.some(t => t.value === newTag.trim())) {
-      setTags([...tags, { category: 'theme', value: newTag.trim() }]);
-      setNewTag('');
-    }
+  const truncate = (text, limit) => {
+    if (!text) return '';
+    return text.length > limit ? `${text.slice(0, limit)}…` : text;
   };
 
-  const handleSaveDream = async (e) => {
-    e.preventDefault();
-    if (!content.trim()) return;
+  const handleAddTag = () => {
+    const trimmed = newTag.trim();
+    if (!trimmed || tags.some((tag) => tag.value === trimmed)) return;
+    setTags([...tags, { category: 'theme', value: trimmed }]);
+    setNewTag('');
+  };
+
+  const handleRemoveTag = (value) => {
+    setTags(tags.filter((tag) => tag.value !== value));
+  };
+
+  const resetForm = () => {
+    setContent('');
+    setTags([]);
+    setNewTag('');
+    setSaveError('');
+  };
+
+  const closeModal = () => {
+    if (loading) return;
+    setShowNewDream(false);
+    resetForm();
+  };
+
+  const handleSaveDream = async (event) => {
+    event.preventDefault();
+    if (!content.trim() || !user?.uid) return;
 
     setLoading(true);
     setSaveError('');
+
     const optimistic = {
       id: `local-${Date.now()}`,
       content: content.trim(),
       tags,
-      createdAt: new Date(),
-      optimistic: true,
-      aiTitle: deriveTitle(content),
-      aiInsights: deriveInsights(content)
+      visibility: 'private',
+      aiGenerated: false,
+      aiTitle: '',
+      aiInsights: '',
+      createdAt: new Date()
     };
-    setDreams(prev => [optimistic, ...prev]);
+
+    setDreams((prev) => [optimistic, ...prev]);
+
     try {
       await addDoc(collection(db, 'dreams'), {
         userId: user.uid,
         content: content.trim(),
         tags,
-        mentionedPeople: [],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
         visibility: 'private',
-        sharedWithUserIds: [],
-        hasReflection: false,
-        aiTitle: deriveTitle(content),
-        aiInsights: deriveInsights(content)
-      });
-
-      setContent('');
-      setTags([]);
-      setShowNewDream(false);
-    } catch (error) {
-      console.error('Failed to save dream', error);
-      setSaveError('Could not save. Check console and Firestore rules.');
-      setDreams(prev => prev.filter(d => !d.optimistic));
-    }
-    setLoading(false);
-  };
-
-  const handleDeleteDream = async (dreamId) => {
-    if (dreamId.startsWith('local-')) {
-      setDreams(prev => prev.filter(d => d.id !== dreamId));
-      return;
-    }
-    if (!window.confirm('Delete this dream?')) return;
-    
-    try {
-      await deleteDoc(doc(db, 'dreams', dreamId));
-    } catch (error) {
-      alert('Failed to delete dream');
-    }
-  };
-
-  const handleAnalyzeDream = async (dream) => {
-    if (dream.id.startsWith('local-')) return;
-    setAnalyzingId(dream.id);
-    const localTitle = deriveTitle(dream.content);
-    const localInsights = deriveInsights(dream.content);
-
-    let nextTitle = localTitle;
-    let nextInsights = localInsights;
-
-    try {
-      const endpoint = import.meta.env.VITE_AI_ENDPOINT;
-      if (endpoint) {
-        console.info('[AI] analyzing dream', { id: dream.id, endpoint });
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: dream.content })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          console.info('[AI] response', { status: res.status, data });
-          nextTitle = data.title || nextTitle;
-          nextInsights = data.insights || nextInsights;
-        } else {
-          const text = await res.text();
-          console.warn('[AI] non-200 response', { status: res.status, text });
-        }
-      } else {
-        console.warn('[AI] skipped: VITE_AI_ENDPOINT is missing');
-      }
-    } catch (error) {
-      console.error('AI analysis failed, using local heuristics', error);
-    }
-
-    try {
-      await updateDoc(doc(db, 'dreams', dream.id), {
-        aiTitle: nextTitle,
-        aiInsights: nextInsights,
+        aiGenerated: false,
+        aiTitle: '',
+        aiInsights: '',
+        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
-    } catch (error) {
-      console.error('Failed to save AI analysis', error);
+
+      setDreams((prev) => prev.filter((dream) => dream.id !== optimistic.id));
+      setShowNewDream(false);
+      resetForm();
+    } catch {
+      setDreams((prev) => prev.filter((dream) => dream.id !== optimistic.id));
+      setSaveError('Could not save your dream. Try again in a moment.');
     } finally {
-      setAnalyzingId(null);
-      setDreams(prev => prev.map(d => d.id === dream.id ? { ...d, aiTitle: nextTitle, aiInsights: nextInsights } : d));
+      setLoading(false);
     }
+  };
+
+  const handleCardNavigate = (dreamId) => {
+    if (!dreamId || dreamId.startsWith('local-')) return;
+    navigate(`/journal/${dreamId}`);
+  };
+
+  const renderDreamCard = (dream) => {
+    const dateLabel = dream.createdAt ? format(dream.createdAt, 'MMM d, yyyy') : 'Undated';
+    const visibilityLabel = VISIBILITY_LABELS[dream.visibility] || VISIBILITY_LABELS.private;
+
+    return (
+      <div
+        key={dream.id}
+        className={`dream-card ${dream.id.startsWith('local-') ? 'dream-card--pending' : ''}`}
+        onClick={() => handleCardNavigate(dream.id)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if ((event.key === 'Enter' || event.key === ' ') && !dream.id.startsWith('local-')) {
+            event.preventDefault();
+            handleCardNavigate(dream.id);
+          }
+        }}
+      >
+        <div className="dream-header">
+          <div>
+            <span className="dream-date">{dateLabel}</span>
+            <span className="dream-visibility-pill">{visibilityLabel}</span>
+          </div>
+          <span className="dream-chevron" aria-hidden="true">→</span>
+        </div>
+
+        <p className="dream-title">
+          {dream.aiGenerated && dream.aiTitle ? dream.aiTitle : 'Dream entry'}
+        </p>
+
+        <p className="dream-content">{truncate(dream.content, CONTENT_PREVIEW_LIMIT)}</p>
+
+        {dream.tags?.length ? (
+          <div className="dream-tags">
+            {dream.tags.slice(0, 3).map((tag, index) => (
+              <span className="tag" key={`${dream.id}-tag-${index}`}>
+                {tag.value}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        {dream.aiGenerated && dream.aiInsights ? (
+          <div className="dream-footer">
+            <p className="dream-insights">{truncate(dream.aiInsights, INSIGHT_PREVIEW_LIMIT)}</p>
+          </div>
+        ) : null}
+      </div>
+    );
   };
 
   return (
@@ -193,137 +193,89 @@ export default function DreamJournal({ user }) {
           <p className="page-subtitle">Capture every fragment while it is still cosmic.</p>
         </div>
         <div className="action-group">
-          <button onClick={() => setShowNewDream(true)} className="primary-btn">
+          <button type="button" onClick={() => setShowNewDream(true)} className="primary-btn">
             + New Dream
           </button>
         </div>
       </div>
 
+      {listenError && <div className="alert-banner">{listenError}</div>}
+
+      {dreams.length ? (
+        <div className="dreams-list">
+          {dreams.map((dream) => renderDreamCard(dream))}
+        </div>
+      ) : (
+        <p className="empty-state">No dreams yet. Record the first whisper.</p>
+      )}
+
       {showNewDream && (
-        <div className="modal-overlay" onClick={() => setShowNewDream(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <h2>New Dream</h2>
-              <button onClick={() => setShowNewDream(false)} className="close-btn">×</button>
+              <button type="button" className="close-btn" onClick={closeModal} aria-label="Close modal">×</button>
             </div>
 
             <form onSubmit={handleSaveDream}>
               <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Describe your dream..."
                 className="dream-textarea"
-                rows={8}
-                required
+                placeholder="Describe everything you remember…"
+                value={content}
+                onChange={(event) => setContent(event.target.value)}
+                disabled={loading}
               />
 
               <div className="tags-section">
+                <label htmlFor="dream-tag-input">Tags</label>
                 <div className="tags-input">
                   <input
+                    id="dream-tag-input"
                     type="text"
+                    placeholder="Add a tag and press enter"
                     value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    placeholder="Add tag..."
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
+                    onChange={(event) => setNewTag(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        handleAddTag();
+                      }
+                    }}
+                    disabled={loading}
                   />
-                  <button type="button" onClick={handleAddTag} className="add-tag-btn">
-                    Add
+                  <button type="button" className="add-tag-btn" onClick={handleAddTag} disabled={loading}>
+                    + Tag
                   </button>
                 </div>
 
-                <div className="tags-list">
-                  {tags.map((tag, index) => (
-                    <span key={index} className="tag">
-                      {tag.value}
-                      <button 
-                        type="button" 
-                        onClick={() => setTags(tags.filter((_, i) => i !== index))}
-                        className="remove-tag"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
+                {tags.length ? (
+                  <div className="tags-list">
+                    {tags.map((tag) => (
+                      <span className="tag" key={`form-tag-${tag.value}`}>
+                        {tag.value}
+                        <button type="button" className="remove-tag" onClick={() => handleRemoveTag(tag.value)} aria-label={`Remove tag ${tag.value}`}>
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
 
+              {saveError && <div className="alert-banner">{saveError}</div>}
+
               <div className="modal-actions">
-                <button type="button" onClick={() => setShowNewDream(false)} className="secondary-btn">
+                <button type="button" className="ghost-btn" onClick={closeModal} disabled={loading}>
                   Cancel
                 </button>
-                <button type="submit" disabled={loading} className="primary-btn">
-                  {loading ? 'Saving...' : 'Save Dream'}
+                <button type="submit" className="primary-btn" disabled={loading || !content.trim()}>
+                  {loading ? 'Saving…' : 'Save dream'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      {(saveError || listenError) && (
-        <div className="alert-banner">
-          {saveError || listenError}
-        </div>
-      )}
-
-      <div className="dreams-list">
-        {dreams.length === 0 ? (
-          <div className="empty-state">
-            <p>No dreams yet</p>
-            <p className="empty-subtitle">Start capturing your dreams</p>
-          </div>
-        ) : (
-          dreams.map(dream => (
-            <div key={dream.id} className="dream-card">
-              <div className="dream-topline">
-                <div>
-                  <p className="dream-title">{dream.aiTitle || deriveTitle(dream.content)}</p>
-                  {dream.aiInsights && <p className="dream-insights">{dream.aiInsights}</p>}
-                </div>
-                <div className="dream-actions">
-                  {!dream.id.startsWith('local-') && (
-                    <button
-                      type="button"
-                      className="ghost-btn dream-action"
-                      onClick={() => handleAnalyzeDream(dream)}
-                      disabled={analyzingId === dream.id}
-                    >
-                      {analyzingId === dream.id ? 'Analyzing…' : 'Analyze'}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="ghost-btn dream-action"
-                    onClick={() => toggleExpanded(dream.id)}
-                  >
-                    {expandedIds.has(dream.id) ? 'Collapse' : 'Expand'}
-                  </button>
-                </div>
-              </div>
-              <div className="dream-header">
-                <span className="dream-date">
-                  {dream.createdAt && format(dream.createdAt, 'MMM d, yyyy')}
-                </span>
-                <button onClick={() => handleDeleteDream(dream.id)} className="delete-btn">
-                  Delete
-                </button>
-              </div>
-              
-              <p className="dream-content">
-                {expandedIds.has(dream.id) ? dream.content : `${dream.content.slice(0, 200)}${dream.content.length > 200 ? '…' : ''}`}
-              </p>
-              
-              {dream.tags && dream.tags.length > 0 && (
-                <div className="dream-tags">
-                  {dream.tags.map((tag, index) => (
-                    <span key={index} className="tag">{tag.value}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))
-        )}
-      </div>
     </div>
   );
 }

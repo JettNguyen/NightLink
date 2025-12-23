@@ -4,6 +4,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
 import AuthPage from './pages/AuthPage';
 import DreamJournal from './pages/DreamJournal';
+import DreamDetail from './pages/DreamDetail';
 import Feed from './pages/Feed';
 import Navigation from './components/Navigation';
 import Profile from './pages/Profile';
@@ -51,6 +52,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/journal" />} />
             <Route path="/journal" element={<DreamJournal user={user} />} />
+            <Route path="/journal/:dreamId" element={<DreamDetail user={user} />} />
             <Route path="/feed" element={<Feed user={user} />} />
             <Route path="/profile" element={<Profile user={user} />} />
             <Route path="/search" element={<Search user={user} />} />
