@@ -3,6 +3,44 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+let geminiClientPromise;
+
+const getGeminiClient = async (apiKey) => {
+  if (!geminiClientPromise) {
+    geminiClientPromise = import('@google/genai').then(({ GoogleGenAI }) => new GoogleGenAI({ apiKey }));
+  }
+  return geminiClientPromise;
+};
+
+const extractGeminiText = async (response) => {
+  if (!response) return '';
+
+  const { text } = response;
+  if (typeof text === 'function') {
+    try {
+      const value = await text.call(response);
+      if (typeof value === 'string') return value;
+    } catch (err) {
+      console.warn('Gemini text() extraction failed', err?.message);
+    }
+  }
+
+  if (typeof text === 'string') {
+    return text;
+  }
+
+  const candidateSources = [response?.result?.candidates, response?.response?.candidates, response?.candidates];
+  for (const source of candidateSources) {
+    if (!Array.isArray(source) || !source.length) continue;
+    const parts = source[0]?.content?.parts?.map((part) => part.text).filter(Boolean);
+    if (parts?.length) {
+      return parts.join('\n').trim();
+    }
+  }
+
+  return '';
+};
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
@@ -69,35 +107,20 @@ Rules:
 - Insights: 1 short sentence on tone + key motifs, under 180 characters.
 - JSON only, no prose, no code fences.`;
 
-    const model = 'gemini-1.5-flash-latest';
-    const urls = [
-      `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`,
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
-    ];
+    const model = 'gemini-2.5-flash';
+    const ai = await getGeminiClient(apiKey);
+    const result = await ai.models.generateContent({
+      model,
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: prompt }]
+        }
+      ],
+      config: { temperature: 0.4, maxOutputTokens: 220 }
+    });
 
-    let raw = '';
-    let respStatus = null;
-    let lastErrorBody = '';
-
-    for (const url of urls) {
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.4, maxOutputTokens: 220 }
-        })
-      });
-      respStatus = resp.status;
-      if (!resp.ok) {
-        lastErrorBody = await resp.text();
-        console.error('Gemini non-200', resp.status, lastErrorBody, 'url', url);
-        continue;
-      }
-      const json = await resp.json();
-      raw = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      break;
-    }
+    const raw = await extractGeminiText(result);
 
     let aiTitle = fallbackTitle(content);
     let aiInsights = fallbackInsights(content);
@@ -127,9 +150,8 @@ Rules:
           provider: 'gemini',
           raw,
           envSeen: true,
-          respStatus,
           model,
-          lastErrorBody
+          sdk: '@google/genai'
         }
       })
     };
