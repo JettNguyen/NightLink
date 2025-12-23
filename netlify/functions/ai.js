@@ -1,5 +1,3 @@
-const { OpenAI } = require('openai');
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
@@ -26,17 +24,25 @@ exports.handler = async (event) => {
     return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Missing content' }) };
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.error('OPENAI_API_KEY is missing in Netlify environment');
+    console.error('GEMINI_API_KEY is missing in Netlify environment');
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: JSON.stringify({ error: 'AI key missing on server', debug: { keyPresent: false } })
+      body: JSON.stringify({
+        error: 'AI key missing on server',
+        debug: {
+          keyPresent: false,
+          provider: 'gemini',
+          envSeen: !!process.env.GEMINI_API_KEY,
+          hint: 'Set GEMINI_API_KEY in Netlify env and redeploy'
+        }
+      })
     };
   }
 
-  const client = new OpenAI({ apiKey });
+  console.info('Gemini key detected on server (length):', apiKey.length);
 
   const fallbackTitle = (text) => {
     if (!text) return 'Untitled dream';
@@ -54,26 +60,64 @@ exports.handler = async (event) => {
   };
 
   try {
-    const [titleResp, insightsResp] = await Promise.all([
-      client.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: `Short title (max 64 chars) for this dream:\n${content}` }],
-        max_tokens: 60,
-      }),
-      client.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: `1-2 gentle insights for this dream:\n${content}` }],
-        max_tokens: 120,
-      })
-    ]);
+    const prompt = `You are a concise dream summarizer. Reply ONLY with JSON like {"title":"...","insights":"..."}.
+Dream content:
+${content}
 
-    const title = titleResp.choices[0]?.message?.content?.trim() || 'Untitled dream';
-    const insights = insightsResp.choices[0]?.message?.content?.trim() || 'No insights available.';
+Rules:
+- Title: max 8 words, evocative, no quotes/emojis.
+- Insights: 1 short sentence on tone + key motifs, under 180 characters.
+- JSON only, no prose, no code fences.`;
+
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 220 }
+      })
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.error('Gemini non-200', resp.status, text);
+      throw new Error(`Gemini error ${resp.status}`);
+    }
+
+    const json = await resp.json();
+    const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    let aiTitle = fallbackTitle(content);
+    let aiInsights = fallbackInsights(content);
+
+    if (raw) {
+      try {
+        const cleaned = raw
+          .replace(/^```json\s*/i, '')
+          .replace(/```\s*$/i, '')
+          .trim();
+        const parsed = JSON.parse(cleaned);
+        aiTitle = parsed.title?.trim() || aiTitle;
+        aiInsights = parsed.insights?.trim() || aiInsights;
+      } catch (err) {
+        console.warn('Gemini JSON parse failed, using fallback', err, raw);
+      }
+    }
 
     return {
       statusCode: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, insights, debug: { keyPresent: true } })
+      body: JSON.stringify({
+        title: aiTitle,
+        insights: aiInsights,
+        debug: {
+          keyPresent: true,
+          provider: 'gemini',
+          raw,
+          envSeen: true,
+          respStatus: resp.status
+        }
+      })
     };
   } catch (err) {
     console.error('AI call failed', err?.response?.status, err?.message, err?.response?.data);

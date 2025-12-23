@@ -16,12 +16,18 @@ export default function DreamJournal({ user }) {
   const [saveError, setSaveError] = useState('');
   const [listenError, setListenError] = useState('');
 
+  useEffect(() => {
+    console.info('[AI] configured endpoint', import.meta.env.VITE_AI_ENDPOINT || 'missing');
+  }, []);
+
   const deriveTitle = (text) => {
     const clean = text.trim();
     if (!clean) return 'Untitled dream';
-    const sentence = clean.split(/(?<=[.!?])\s+/)[0];
-    const clipped = sentence.length > 64 ? `${sentence.slice(0, 64).trim()}…` : sentence;
-    return clipped;
+    const sentence = clean.split(/[.!?\n]/)[0];
+    const words = sentence.split(/\s+/).filter(Boolean);
+    const clippedWords = words.slice(0, 8).join(' ');
+    const clipped = clippedWords.length > 40 ? `${clippedWords.slice(0, 40).trim()}…` : clippedWords;
+    return clipped || 'Untitled dream';
   };
 
   const deriveInsights = (text) => {
@@ -143,6 +149,7 @@ export default function DreamJournal({ user }) {
     try {
       const endpoint = import.meta.env.VITE_AI_ENDPOINT;
       if (endpoint) {
+        console.info('[AI] analyzing dream', { id: dream.id, endpoint });
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -150,9 +157,15 @@ export default function DreamJournal({ user }) {
         });
         if (res.ok) {
           const data = await res.json();
+          console.info('[AI] response', { status: res.status, data });
           nextTitle = data.title || nextTitle;
           nextInsights = data.insights || nextInsights;
+        } else {
+          const text = await res.text();
+          console.warn('[AI] non-200 response', { status: res.status, text });
         }
+      } else {
+        console.warn('[AI] skipped: VITE_AI_ENDPOINT is missing');
       }
     } catch (error) {
       console.error('AI analysis failed, using local heuristics', error);

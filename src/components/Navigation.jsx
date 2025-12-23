@@ -32,6 +32,9 @@ export default function Navigation() {
           <Link to="/feed" className={linkClass('/feed')}>
             Feed
           </Link>
+          <Link to="/search" className={linkClass('/search')}>
+            Search
+          </Link>
           <Link to="/profile" className={linkClass('/profile')}>
             Profile
           </Link>

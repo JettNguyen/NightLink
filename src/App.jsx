@@ -7,6 +7,7 @@ import DreamJournal from './pages/DreamJournal';
 import Feed from './pages/Feed';
 import Navigation from './components/Navigation';
 import Profile from './pages/Profile';
+import Search from './pages/Search';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -52,6 +53,7 @@ function App() {
             <Route path="/journal" element={<DreamJournal user={user} />} />
             <Route path="/feed" element={<Feed user={user} />} />
             <Route path="/profile" element={<Profile user={user} />} />
+            <Route path="/search" element={<Search user={user} />} />
           </Routes>
         </main>
       </div>
