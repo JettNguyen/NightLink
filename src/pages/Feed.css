@@ -1,0 +1,57 @@
+.feed-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.feed-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.2rem;
+  box-shadow: var(--shadow-light);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+}
+
+.feed-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-soft);
+  border-color: var(--primary-strong);
+}
+
+.feed-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.feed-author {
+  color: var(--primary-strong);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.feed-date {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.feed-content {
+  color: var(--text);
+  line-height: 1.7;
+  margin: 0.35rem 0 0.75rem;
+}
+
+.feed-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .feed-list {
+    grid-template-columns: 1fr;
+  }
+}
