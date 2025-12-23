@@ -44,6 +44,24 @@ exports.handler = async (event) => {
 
   console.info('Gemini key detected on server (length):', apiKey.length);
 
+  const projectId = process.env.GEMINI_PROJECT_ID;
+  if (!projectId) {
+    console.error('GEMINI_PROJECT_ID is missing in Netlify environment');
+    return {
+      statusCode: 500,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        error: 'Gemini project ID missing on server',
+        debug: {
+          keyPresent: true,
+          provider: 'gemini',
+          projectIdPresent: false,
+          hint: 'Set GEMINI_PROJECT_ID in Netlify env to your Google Cloud project ID'
+        }
+      })
+    };
+  }
+
   const fallbackTitle = (text) => {
     if (!text) return 'Untitled dream';
     const clipped = text.trim().slice(0, 64);
@@ -70,8 +88,14 @@ Rules:
 - JSON only, no prose, no code fences.`;
 
     const model = 'gemini-1.5-flash-latest';
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const resp = await fetch(url, {
+    const region = 'us-central1';
+    const vertexUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:generateContent?key=${apiKey}`;
+
+    let raw = '';
+    let respStatus = null;
+    let lastErrorBody = '';
+
+    const resp = await fetch(vertexUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -79,15 +103,15 @@ Rules:
         generationConfig: { temperature: 0.4, maxOutputTokens: 220 }
       })
     });
-
+    respStatus = resp.status;
     if (!resp.ok) {
-      const text = await resp.text();
-      console.error('Gemini non-200', resp.status, text);
-      throw new Error(`Gemini error ${resp.status}: ${text}`);
+      lastErrorBody = await resp.text();
+      console.error('Gemini non-200', resp.status, lastErrorBody, 'url', vertexUrl);
+      throw new Error(`Gemini error ${resp.status}: ${lastErrorBody}`);
     }
 
     const json = await resp.json();
-    const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    raw = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     let aiTitle = fallbackTitle(content);
     let aiInsights = fallbackInsights(content);
@@ -117,8 +141,10 @@ Rules:
           provider: 'gemini',
           raw,
           envSeen: true,
-          respStatus: resp.status,
-          model
+          respStatus,
+          model,
+          projectId,
+          region
         }
       })
     };
