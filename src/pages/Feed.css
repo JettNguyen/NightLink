@@ -5,18 +5,20 @@
 }
 
 .feed-card {
-  background: var(--surface);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.03) 100%);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 1.2rem;
+  border-radius: 16px;
+  padding: 1.25rem;
   box-shadow: var(--shadow-light);
-  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+  backdrop-filter: blur(12px);
 }
 
 .feed-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-soft);
-  border-color: var(--primary-strong);
+  border-color: rgba(255, 255, 255, 0.14);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
 }
 
 .feed-card-head {

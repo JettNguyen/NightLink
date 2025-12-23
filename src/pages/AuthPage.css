@@ -3,18 +3,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--background);
+  background: transparent;
   padding: 1.5rem;
 }
 
 .auth-container {
-  background: var(--surface);
-  padding: 2.25rem;
-  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.03) 100%);
+  padding: 2.5rem;
+  border-radius: 18px;
   box-shadow: var(--shadow-soft);
   width: 100%;
   max-width: 420px;
   border: 1px solid var(--border);
+  backdrop-filter: blur(14px);
 }
 
 .auth-title {
@@ -37,7 +38,7 @@
   margin-bottom: 1.5rem;
   background: var(--surface-muted);
   padding: 0.25rem;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid var(--border);
 }
 
@@ -52,9 +53,9 @@
 }
 
 .auth-tabs button.active {
-  background: var(--surface);
-  color: var(--primary-strong);
-  box-shadow: var(--shadow-light);
+  background: linear-gradient(135deg, rgba(90, 200, 250, 0.16), rgba(10, 132, 255, 0.22));
+  color: #dff4ff;
+  box-shadow: var(--glow-primary);
 }
 
 .auth-form {
@@ -75,7 +76,7 @@
 
 .auth-input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(47, 111, 128, 0.14);
+  box-shadow: 0 0 0 3px rgba(90, 200, 250, 0.18);
 }
 
 .auth-error {
@@ -86,14 +87,14 @@
 
 .auth-submit {
   padding: 0.95rem;
-  background: var(--primary);
-  color: #f7fbfc;
-  border-radius: 10px;
+  background: linear-gradient(135deg, #5ac8fa 0%, #0a84ff 100%);
+  color: #041020;
+  border-radius: 12px;
   font-weight: 700;
   font-size: 1rem;
   transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
-  box-shadow: var(--shadow-light);
-  border: 1px solid var(--primary-strong);
+  box-shadow: var(--glow-primary);
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .auth-submit:hover:not(:disabled) {
@@ -136,7 +137,7 @@
   background: var(--surface-muted);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   font-weight: 600;
   transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
 }

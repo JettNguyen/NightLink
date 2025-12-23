@@ -3,8 +3,8 @@
   top: 0;
   left: 0;
   right: 0;
-  background: var(--surface);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 21, 28, 0.7);
+  backdrop-filter: blur(14px) saturate(150%);
   border-bottom: 1px solid var(--border);
   z-index: 100;
   height: 64px;
@@ -44,12 +44,25 @@
   transition: color 0.18s ease, border-color 0.18s ease;
   padding: 0.35rem 0;
   border-bottom: 2px solid transparent;
+  position: relative;
 }
 
 .nav-links a:hover,
 .nav-links a.active {
   color: var(--primary);
-  border-bottom-color: var(--primary);
+  border-bottom-color: transparent;
+}
+
+.nav-links a.active::after,
+.nav-links a:hover::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #5ac8fa 0%, #0a84ff 100%);
 }
 
 .nav-actions {
@@ -59,13 +72,13 @@
 }
 
 .sign-out-btn {
-  background: #f5e9e9;
-  color: #b23b3b;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
   padding: 0.55rem 1rem;
-  border-radius: 10px;
+  border-radius: 12px;
   font-weight: 600;
-  border: 1px solid #e3cfcf;
-  transition: transform 0.14s ease, box-shadow 0.14s ease, color 0.14s ease;
+  border: 1px solid var(--border);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, color 0.14s ease, border-color 0.14s ease;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -74,8 +87,9 @@
 
 .sign-out-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-  color: #a13232;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .sign-out-btn svg {
