@@ -69,7 +69,9 @@ Rules:
 - Insights: 1 short sentence on tone + key motifs, under 180 characters.
 - JSON only, no prose, no code fences.`;
 
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    const model = 'gemini-1.5-flash-latest';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -81,7 +83,7 @@ Rules:
     if (!resp.ok) {
       const text = await resp.text();
       console.error('Gemini non-200', resp.status, text);
-      throw new Error(`Gemini error ${resp.status}`);
+      throw new Error(`Gemini error ${resp.status}: ${text}`);
     }
 
     const json = await resp.json();
@@ -115,7 +117,8 @@ Rules:
           provider: 'gemini',
           raw,
           envSeen: true,
-          respStatus: resp.status
+          respStatus: resp.status,
+          model
         }
       })
     };
