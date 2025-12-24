@@ -2,10 +2,11 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-const isProd = process.env.NODE_ENV === 'production';
+const customBase = process.env.VITE_BASE_PATH;
+const base = customBase && customBase.trim() !== '' ? customBase : '/';
 
 export default defineConfig({
-  base: isProd ? '/NightLink/' : '/',
+  base,
   plugins: [
     react(),
     VitePWA({
