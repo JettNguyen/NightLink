@@ -67,43 +67,47 @@ export default function Navigation() {
         <div className="nav-links" ref={navLinksRef}>
           <Link
             to="/journal"
+            aria-label="Journal"
             className={linkClass('/journal')}
             ref={(el) => {
               linkRefs.current['/journal'] = el;
             }}
           >
             <FontAwesomeIcon icon={faBook} className="nav-icon" />
-            <span>Journal</span>
+            <span className="nav-tab-label">Journal</span>
           </Link>
           <Link
             to="/feed"
+            aria-label="Feed"
             className={linkClass('/feed')}
             ref={(el) => {
               linkRefs.current['/feed'] = el;
             }}
           >
             <FontAwesomeIcon icon={faCompass} className="nav-icon" />
-            <span>Feed</span>
+            <span className="nav-tab-label">Feed</span>
           </Link>
           <Link
             to="/search"
+            aria-label="Search"
             className={linkClass('/search')}
             ref={(el) => {
               linkRefs.current['/search'] = el;
             }}
           >
             <FontAwesomeIcon icon={faSearch} className="nav-icon" />
-            <span>Search</span>
+            <span className="nav-tab-label">Search</span>
           </Link>
           <Link
             to="/profile"
+            aria-label="Profile"
             className={linkClass('/profile')}
             ref={(el) => {
               linkRefs.current['/profile'] = el;
             }}
           >
             <FontAwesomeIcon icon={faUser} className="nav-icon" />
-            <span>Profile</span>
+            <span className="nav-tab-label">Profile</span>
           </Link>
           <span
             className="nav-indicator"

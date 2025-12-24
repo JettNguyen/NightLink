@@ -1,3 +1,11 @@
+.dream-detail-page {
+  padding-top: 72px;
+}
+
+.dream-detail-page .detail-card {
+  margin-top: 0.75rem;
+}
+
 .detail-card {
   margin-top: 1.5rem;
   padding: 2rem;
@@ -9,6 +17,45 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+
+.detail-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 0.25rem;
+}
+
+.detail-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  box-shadow: var(--shadow-light);
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.detail-back-btn:hover {
+  border-color: var(--primary);
+  background: rgba(90, 200, 250, 0.12);
+  transform: translateY(-1px);
+}
+
+.detail-back-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.9rem;
 }
 
 .detail-head {
@@ -269,5 +316,14 @@
 
   .detail-card {
     padding: 1.5rem;
+  }
+
+  .dream-detail-page {
+    padding-top: 64px;
+  }
+
+  .detail-back-btn {
+    width: 100%;
+    justify-content: center;
   }
 }

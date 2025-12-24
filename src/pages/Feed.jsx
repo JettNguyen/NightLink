@@ -55,9 +55,7 @@ export default function Feed({ user }) {
           });
           return updated;
         });
-      }, (err) => {
-        console.error(err);
-      });
+      }, () => {});
     });
 
     return () => {
@@ -106,8 +104,7 @@ export default function Feed({ user }) {
         const candidates = Array.from(byId.values()).filter((dream) => ['anonymous', 'public', 'following', 'followers'].includes(dream.visibility));
         setRawDreams(candidates);
         setLoading(false);
-      }, (err) => {
-        console.error(err);
+      }, () => {
         setError('Unable to load your following feed right now.');
         setLoading(false);
       });
@@ -147,7 +144,7 @@ export default function Feed({ user }) {
       <div className="page-header feed-header">
         <div>
           <h1>Following Feed</h1>
-          <p className="page-subtitle">Public, anonymous, and people-you-follow-only dreams from people you follow.</p>
+          <p className="page-subtitle">Dreams that are public, anonymous, and from people you follow.</p>
         </div>
         <div className="feed-actions">
           <span className="pill">Following {followingIds.length}</span>

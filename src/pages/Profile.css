@@ -5,6 +5,7 @@
 }
 
 .profile-avatar {
+  margin-top: 25px;
   margin-bottom: 1.5rem;
   animation: fadeIn 0.8s ease-out;
 }

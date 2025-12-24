@@ -48,6 +48,7 @@
   position: relative;
   align-items: center;
   padding-bottom: 10px;
+  margin-top: 5px;
 }
 
 .nav-links a {
@@ -76,6 +77,11 @@
 
 .nav-icon {
   display: none;
+}
+
+.nav-tab-label {
+  display: inline;
+  transition: opacity 0.2s ease;
 }
 
 .nav-actions {
@@ -166,6 +172,20 @@
 
   .nav-indicator {
     height: 2px;
+  }
+}
+
+@media (max-width: 620px) {
+  .nav-links {
+    gap: 0.2rem;
+  }
+
+  .nav-links a {
+    padding: 0.4rem 0.2rem;
+  }
+
+  .nav-links a .nav-tab-label {
+    display: none;
   }
 }
 

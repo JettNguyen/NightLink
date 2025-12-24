@@ -26,14 +26,6 @@ const INSIGHT_PREVIEW_LIMIT = 180;
 // AI endpoint (defaults to the Vercel function path)
 const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT || '/api/ai';
 
-// Fallback title generator (first 2-4 meaningful words)
-const generateFallbackTitle = (text) => {
-  if (!text) return 'Untitled Dream';
-  const words = text.trim().split(/\s+/).filter((w) => w.length > 2).slice(0, 3);
-  if (!words.length) return 'Untitled Dream';
-  return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-};
-
 // Call AI endpoint with timeout
 const fetchAIAnalysis = async (dreamText, userId, timeoutMs = 15000) => {
   const controller = new AbortController();
@@ -153,32 +145,34 @@ export default function DreamJournal({ user }) {
     const trimmedContent = content.trim();
     const userTitle = title.trim();
 
-    // Start with fallback values
-    let aiTitle = userTitle || generateFallbackTitle(trimmedContent);
+    let aiTitle = '';
     let aiThemes = '';
-    let aiGenerated = false;
 
-    // Call AI endpoint (non-blocking failure)
     try {
       const aiResult = await fetchAIAnalysis(trimmedContent, user.uid);
-      if (aiResult && !aiResult.fallback) {
-        aiTitle = userTitle || aiResult.title || aiTitle;
-        aiThemes = aiResult.themes || '';
-        aiGenerated = true;
-      } else if (aiResult) {
-        // Partial fallback from server
-        aiTitle = userTitle || aiResult.title || aiTitle;
-        aiThemes = aiResult.themes || '';
-      }
+      aiTitle = aiResult?.title?.trim() || '';
+      aiThemes = (aiResult?.themes || aiResult?.summary || '').trim();
     } catch (err) {
-      console.warn('AI analysis failed, using fallback:', err.message);
-    } finally {
       setAiLoading(false);
+      setLoading(false);
+      setSaveError(err.message || 'AI analysis failed. Please try again.');
+      return;
     }
+
+    setAiLoading(false);
+
+    if (!aiTitle || !aiThemes) {
+      setLoading(false);
+      setSaveError('AI response was incomplete. Please try again.');
+      return;
+    }
+
+    const resolvedTitle = userTitle || aiTitle;
+    const aiGenerated = true;
 
     const optimistic = {
       id: `local-${Date.now()}`,
-      title: userTitle,
+      title: resolvedTitle,
       content: trimmedContent,
       tags,
       visibility,
@@ -193,7 +187,7 @@ export default function DreamJournal({ user }) {
     try {
       await addDoc(collection(db, 'dreams'), {
         userId: user.uid,
-        title: userTitle,
+        title: resolvedTitle,
         content: trimmedContent,
         tags,
         visibility,
@@ -276,7 +270,7 @@ export default function DreamJournal({ user }) {
       <div className="page-header">
         <div>
           <h1>Dream Journal</h1>
-          <p className="page-subtitle">Capture every fragment while it is still cosmic.</p>
+          <p className="page-subtitle">Log every dream while it is still fresh.</p>
         </div>
         <div className="action-group">
           <button type="button" onClick={() => setShowNewDream(true)} className="primary-btn">

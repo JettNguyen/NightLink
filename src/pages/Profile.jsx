@@ -228,8 +228,7 @@ export default function Profile({ user }) {
       if (targetUserId) {
         await loadUserData(targetUserId);
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert(errorMessage || 'Unable to update following right now.');
     } finally {
       setFollowAction({ type: null });

@@ -1,13 +1,17 @@
 # [NightLink](https://jettnguyen.github.io/NightLink)
 
-A web client for a dream-sharing community. It mixes a private journal, a “people you follow” feed, and optional anonymous sharing so you can post without oversharing.
+A dream journal and social network. Log your dreams, get AI-generated titles and summaries, and share with friends, family, or the world.
 
 ## Features
 
-- Log dreams with titles, tags, and visibility settings (private, public, anonymous, or people you follow)
-- Browse personal history or jump into the social feed to see what your circle published
-- Lightweight PWA: installable, works offline-ish, and fast on phones
+- Private dream journal with tags and visibility controls
+- AI dream analysis (title and summary generation)
+- Social feed showing dreams from people you follow
+- User search and profile customization
 
-## Tech Stack
+## Stack
 
-React 18 + Vite, Firebase Auth/Firestore, and a tiny Netlify Function for AI summaries (coming soon).
+- React 18 + Vite
+- Firebase Auth and Firestore
+- OpenAI API for dream analysis
+- Deployed on Vercel

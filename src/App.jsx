@@ -44,7 +44,7 @@ function AppContent({ user, loading, authReady }) {
   return (
     <div className="app">
       {showNavigation && <Navigation />}
-      <main style={{ paddingTop: showNavigation ? '60px' : 0, minHeight: '100vh' }}>
+      <main style={{ paddingTop: showNavigation ? '0px' : 0, minHeight: '100vh' }}>
         <Routes>
           <Route path="/" element={<Navigate to={redirectPath} replace />} />
           <Route path="/login" element={user ? <Navigate to="/journal" replace /> : <AuthPage />} />

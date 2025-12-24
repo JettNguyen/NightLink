@@ -34,6 +34,8 @@ export default function DreamDetail({ user }) {
   const [newTag, setNewTag] = useState('');
   const [applyingAiTitle, setApplyingAiTitle] = useState(false);
 
+  const containerClass = 'page-container dream-detail-page';
+
   useEffect(() => {
     if (!dreamId) {
       setError('Missing dream id.');
@@ -58,17 +60,17 @@ export default function DreamDetail({ user }) {
         return;
       }
 
+      const createdAtDate = data.createdAt?.toDate?.() ?? data.createdAt ?? null;
+
       setDream({
         id: snapshot.id,
         ...data,
         visibility: data.visibility || 'private',
-        createdAt: data.createdAt?.toDate?.() ?? data.createdAt ?? null
+        createdAt: createdAtDate
       });
       setTitleInput(data.title || '');
-      if (data.createdAt?.toDate) {
-        setDateInput(format(data.createdAt.toDate(), 'yyyy-MM-dd'));
-      } else if (data.createdAt) {
-        setDateInput(format(new Date(data.createdAt), 'yyyy-MM-dd'));
+      if (createdAtDate) {
+        setDateInput(format(createdAtDate, 'yyyy-MM-dd'));
       }
       setContentInput(data.content || '');
       setEditableTags(Array.isArray(data.tags) ? data.tags : []);
@@ -199,7 +201,7 @@ export default function DreamDetail({ user }) {
       }
 
       const generatedTitle = payload?.title?.trim() || '';
-      const generatedInsights = (payload?.themes || payload?.insights || '').trim();
+      const generatedInsights = (payload?.themes || payload?.summary || payload?.insights || '').trim();
       const updates = { aiGenerated: true };
 
       if (generatedTitle) {
@@ -213,10 +215,8 @@ export default function DreamDetail({ user }) {
         updates.aiInsights = generatedInsights;
       }
 
-      if (!generatedTitle && !generatedInsights) {
-        setStatusMessage('No new summary was generated.');
-        setAnalyzing(false);
-        return;
+      if (!generatedTitle || !generatedInsights) {
+        throw new Error('AI response was incomplete.');
       }
 
       await updateDoc(doc(db, 'dreams', dream.id), {
@@ -224,11 +224,7 @@ export default function DreamDetail({ user }) {
         updatedAt: serverTimestamp()
       });
 
-      if (payload?.fallback) {
-        setStatusMessage('Summary updated using fallback titles.');
-      } else {
-        setStatusMessage('Title and summary updated.');
-      }
+      setStatusMessage('Title and summary updated.');
     } catch (err) {
       setStatusMessage(err.message || 'Summary generation failed.');
     } finally {
@@ -269,14 +265,19 @@ export default function DreamDetail({ user }) {
 
   if (loading) {
     return (
-      <div className="page-container"><div className="detail-placeholder">Loading dream…</div></div>
+      <div className={containerClass}>
+        <div className="detail-placeholder">Loading dream…</div>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <div className="page-container">
-        <button className="ghost-btn" onClick={() => navigate('/journal')}>&larr; Back to journal</button>
+      <div className={containerClass}>
+        <button className="detail-back-btn" type="button" onClick={() => navigate('/journal')}>
+          <span className="detail-back-icon" aria-hidden="true">&larr;</span>
+          <span>Back to journal</span>
+        </button>
         <div className="detail-error">{error}</div>
       </div>
     );
@@ -284,18 +285,29 @@ export default function DreamDetail({ user }) {
 
   if (!dream) {
     return (
-      <div className="page-container">
-        <button className="ghost-btn" onClick={() => navigate('/journal')}>&larr; Back to journal</button>
+      <div className={containerClass}>
+        <button className="detail-back-btn" type="button" onClick={() => navigate('/journal')}>
+          <span className="detail-back-icon" aria-hidden="true">&larr;</span>
+          <span>Back to journal</span>
+        </button>
         <div className="detail-error">Dream not available.</div>
       </div>
     );
   }
 
   return (
-    <div className="page-container">
-      <button className="ghost-btn" onClick={() => navigate('/journal')}>&larr; Back to journal</button>
-
+    <div className={containerClass}>
       <div className="detail-card">
+        <div className="detail-toolbar">
+          <button
+            type="button"
+            className="detail-back-btn"
+            onClick={() => navigate('/journal')}
+          >
+            <span className="detail-back-icon" aria-hidden="true">&larr;</span>
+            <span>Back to journal</span>
+          </button>
+        </div>
         <div className="detail-head">
           <div>
             {editingDate ? (
@@ -444,15 +456,31 @@ export default function DreamDetail({ user }) {
               <p className="detail-insight muted">No summary yet.</p>
             )}
           </div>
-          <button
-            type="button"
-            className="primary-btn"
-            onClick={handleAnalyzeDream}
-            disabled={analyzing}
-          >
-            {analyzing ? 'Generating…' : 'Generate title & summary'}
-          </button>
+          {!dream.aiGenerated ? (
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={handleAnalyzeDream}
+              disabled={analyzing}
+            >
+              {analyzing ? 'Generating title & summary…' : 'Generate title & summary'}
+            </button>
+          ) : null}
         </div>
+
+        {dream.aiGenerated && dream.aiTitle && dream.aiTitle !== (dream.title || '').trim() ? (
+          <div className="ai-title-hint">
+            <p className="ai-title-label">AI suggestion: <span>{dream.aiTitle}</span></p>
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={handleApplyAiTitle}
+              disabled={applyingAiTitle}
+            >
+              {applyingAiTitle ? 'Applying…' : 'Use AI title'}
+            </button>
+          </div>
+        ) : null}
 
         {statusMessage && <p className="detail-status-message">{statusMessage}</p>}
 
