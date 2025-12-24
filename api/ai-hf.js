@@ -189,7 +189,9 @@ module.exports = async function handler(req, res) {
   }
 
   const token = process.env.HF_API_TOKEN;
+  console.log('[ai-hf] HF_API_TOKEN present:', !!token);
   if (!token) {
+    console.error('[ai-hf] Missing HF_API_TOKEN env var');
     res.status(200).json({
       title: fallbackTitle(trimmedText),
       themes: fallbackThemes(),
@@ -202,7 +204,9 @@ module.exports = async function handler(req, res) {
   let rawOutput = '';
   try {
     rawOutput = await callHuggingFace(trimmedText, token);
+    console.log('[ai-hf] HF raw output:', rawOutput);
   } catch (err) {
+    console.error('[ai-hf] HF call failed:', err.message);
     res.status(200).json({
       title: fallbackTitle(trimmedText),
       themes: fallbackThemes(),
@@ -213,6 +217,7 @@ module.exports = async function handler(req, res) {
   }
 
   const { title: parsedTitle, themes: parsedThemes } = parseModelOutput(rawOutput);
+  console.log('[ai-hf] Parsed title:', parsedTitle, '| themes:', parsedThemes);
   const result = {
     title: parsedTitle || fallbackTitle(trimmedText),
     themes: parsedThemes || fallbackThemes(),
