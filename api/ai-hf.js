@@ -37,7 +37,7 @@ const DAILY_LIMIT = 5;
 const MAX_INPUT_LENGTH = 4000;
 
 const HF_MODEL = 'mistralai/Mistral-7B-Instruct-v0.2';
-const HF_ENDPOINT = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
+const HF_ENDPOINT = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}`;
 
 const hashDream = (text) => crypto.createHash('sha256').update(text).digest('hex');
 const todayString = () => new Date().toISOString().slice(0, 10);
