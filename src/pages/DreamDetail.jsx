@@ -12,6 +12,8 @@ const VISIBILITY_OPTIONS = [
   { value: 'anonymous', label: 'Anonymous', helper: 'Shared publicly without your identity.' }
 ];
 
+const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT || '/api/ai-hf';
+
 export default function DreamDetail({ user }) {
   const { dreamId } = useParams();
   const navigate = useNavigate();
@@ -30,6 +32,7 @@ export default function DreamDetail({ user }) {
   const [contentInput, setContentInput] = useState('');
   const [editableTags, setEditableTags] = useState([]);
   const [newTag, setNewTag] = useState('');
+  const [applyingAiTitle, setApplyingAiTitle] = useState(false);
 
   useEffect(() => {
     if (!dreamId) {
@@ -48,7 +51,7 @@ export default function DreamDetail({ user }) {
       }
 
       const data = snapshot.data();
-      if (data.userId && data.userId !== user.uid) {
+      if (data.userId && data.userId !== user?.uid) {
         setError('You do not have permission to view this dream.');
         setDream(null);
         setLoading(false);
@@ -76,7 +79,7 @@ export default function DreamDetail({ user }) {
     });
 
     return unsubscribe;
-  }, [dreamId, user.uid]);
+  }, [dreamId, user?.uid]);
 
   const formattedDate = useMemo(() => {
     if (!dream?.createdAt) return '';
@@ -163,62 +166,91 @@ export default function DreamDetail({ user }) {
 
   const handleAnalyzeDream = async () => {
     if (!dream || dream.id.startsWith('local-')) return;
-    const endpoint = import.meta.env.VITE_AI_ENDPOINT;
-    if (!endpoint) {
-      setStatusMessage('Summary generation is disabled.');
+
+    const trimmedContent = (dream.content || '').trim();
+    if (!trimmedContent) {
+      setStatusMessage('Dream content is empty, nothing to analyze.');
       return;
     }
 
     setAnalyzing(true);
     setStatusMessage('');
 
-    let generatedTitle = '';
-    let generatedInsights = '';
-
     try {
-      const res = await fetch(endpoint, {
+      const response = await fetch(AI_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: dream.content })
+        body: JSON.stringify({
+          dreamText: trimmedContent,
+          userId: dream.userId || user?.uid || undefined
+        })
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        generatedTitle = data.title?.trim() || '';
-        generatedInsights = data.insights?.trim() || '';
-      } else {
-        setStatusMessage('Summary service is unavailable. Please try again later.');
+      const raw = await response.text();
+      let payload = null;
+      try {
+        payload = raw ? JSON.parse(raw) : null;
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(payload?.error || `Summary service error (HTTP ${response.status})`);
+      }
+
+      const generatedTitle = payload?.title?.trim() || '';
+      const generatedInsights = (payload?.themes || payload?.insights || '').trim();
+      const updates = { aiGenerated: true };
+
+      if (generatedTitle) {
+        updates.aiTitle = generatedTitle;
+        if (!dream.title?.trim()) {
+          updates.title = generatedTitle;
+        }
+      }
+
+      if (generatedInsights) {
+        updates.aiInsights = generatedInsights;
+      }
+
+      if (!generatedTitle && !generatedInsights) {
+        setStatusMessage('No new summary was generated.');
         setAnalyzing(false);
         return;
       }
-    } catch {
-      setStatusMessage('Summary generation failed. Please try again.');
-      setAnalyzing(false);
-      return;
-    }
 
-    const updates = {};
-    if (generatedTitle) updates.aiTitle = generatedTitle;
-    if (generatedInsights) updates.aiInsights = generatedInsights;
-
-    if (!Object.keys(updates).length) {
-      setStatusMessage('No new summary was generated.');
-      setAnalyzing(false);
-      return;
-    }
-
-    updates.aiGenerated = true;
-
-    try {
       await updateDoc(doc(db, 'dreams', dream.id), {
         ...updates,
         updatedAt: serverTimestamp()
       });
-      setStatusMessage('Summary updated.');
-    } catch {
-      setStatusMessage('Could not save summary.');
+
+      if (payload?.fallback) {
+        setStatusMessage('Summary updated using fallback titles.');
+      } else {
+        setStatusMessage('Title and summary updated.');
+      }
+    } catch (err) {
+      setStatusMessage(err.message || 'Summary generation failed.');
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  const handleApplyAiTitle = async () => {
+    if (!dream?.aiTitle) return;
+    setApplyingAiTitle(true);
+    setStatusMessage('');
+
+    try {
+      await updateDoc(doc(db, 'dreams', dream.id), {
+        title: dream.aiTitle,
+        updatedAt: serverTimestamp()
+      });
+      setStatusMessage('Title updated from AI suggestion.');
+    } catch {
+      setStatusMessage('Could not apply AI title.');
+    } finally {
+      setApplyingAiTitle(false);
     }
   };
 
@@ -306,6 +338,11 @@ export default function DreamDetail({ user }) {
                 {dream.title || (dream.aiGenerated && dream.aiTitle) || 'Untitled dream'} <span className="edit-hint">✎</span>
               </h1>
             )}
+            {!editingTitle && dream.aiTitle && dream.aiTitle !== (dream.title || '').trim() ? (
+              <button type="button" className="ghost-btn" onClick={handleApplyAiTitle} disabled={applyingAiTitle}>
+                {applyingAiTitle ? 'Applying…' : 'Use AI title'}
+              </button>
+            ) : null}
           </div>
           <div className="detail-visibility">
             <p className="detail-label">Visibility</p>
@@ -413,7 +450,7 @@ export default function DreamDetail({ user }) {
             onClick={handleAnalyzeDream}
             disabled={analyzing}
           >
-            {analyzing ? 'Generating…' : 'Generate Summary'}
+            {analyzing ? 'Generating…' : 'Generate title & summary'}
           </button>
         </div>
 

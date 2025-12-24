@@ -1,9 +1,33 @@
 const crypto = require('crypto');
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'POST,OPTIONS',
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '*')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowWildcard = allowedOrigins.includes('*');
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  if (!allowedOrigins.length) return true;
+  if (allowWildcard) return true;
+  return allowedOrigins.includes(origin);
+};
+
+const applyCors = (req, res) => {
+  const origin = req.headers.origin || '';
+  const originAllowed = isOriginAllowed(origin);
+
+  if (originAllowed) {
+    res.setHeader('Access-Control-Allow-Origin', allowWildcard ? '*' : origin || '*');
+  }
+
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Max-Age', '86400');
+
+  return originAllowed;
 };
 
 const resultCache = new Map();
@@ -14,12 +38,6 @@ const MAX_INPUT_LENGTH = 4000;
 
 const HF_MODEL = 'mistralai/Mistral-7B-Instruct-v0.2';
 const HF_ENDPOINT = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
-
-const applyCors = (res) => {
-  Object.entries(corsHeaders).forEach(([key, value]) => {
-    res.setHeader(key, value);
-  });
-};
 
 const hashDream = (text) => crypto.createHash('sha256').update(text).digest('hex');
 const todayString = () => new Date().toISOString().slice(0, 10);
@@ -99,10 +117,15 @@ const parseModelOutput = (raw) => {
 };
 
 module.exports = async function handler(req, res) {
-  applyCors(res);
+  const originAllowed = applyCors(req, res);
+
+  if (!originAllowed) {
+    res.status(403).json({ error: 'Origin not allowed' });
+    return;
+  }
 
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
+    res.status(204).end();
     return;
   }
 

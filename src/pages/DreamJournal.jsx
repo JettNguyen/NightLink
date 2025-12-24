@@ -23,8 +23,8 @@ const VISIBILITY_OPTIONS = [
 const CONTENT_PREVIEW_LIMIT = 240;
 const INSIGHT_PREVIEW_LIMIT = 180;
 
-// AI endpoint (uses Hugging Face free tier)
-const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT || '/.netlify/functions/ai-hf';
+// AI endpoint (defaults to the Vercel function path)
+const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT || '/api/ai-hf';
 
 // Fallback title generator (first 2-4 meaningful words)
 const generateFallbackTitle = (text) => {
