@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { auth } from './firebase';
 import AuthPage from './pages/AuthPage';
 import DreamJournal from './pages/DreamJournal';
@@ -18,7 +18,7 @@ function ProtectedRoute({ user, children }) {
   return children;
 }
 
-function AppContent({ user, loading }) {
+function AppContent({ user, loading, authReady }) {
   const location = useLocation();
   const showNavigation = user && location.pathname !== '/login';
   const redirectPath = useMemo(() => (user ? '/journal' : '/login'), [user]);
@@ -34,6 +34,11 @@ function AppContent({ user, loading }) {
         <div style={{ color: '#e2e8f0', letterSpacing: '0.02em' }}>Loading your space…</div>
       </div>
     );
+  }
+
+  // If auth is ready and no user, force redirect to login (prevents blank screen)
+  if (authReady && !user && location.pathname !== '/login') {
+    return <Navigate to="/login" replace />;
   }
 
   return (
@@ -101,14 +106,22 @@ function AppContent({ user, loading }) {
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-    });
+    let unsubscribe = () => {};
 
-    return unsubscribe;
+    setPersistence(auth, browserLocalPersistence)
+      .catch(() => {})
+      .finally(() => {
+        unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+          setUser(currentUser);
+          setLoading(false);
+          setAuthReady(true);
+        });
+      });
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -117,7 +130,7 @@ function App() {
 
   return (
     <Router>
-      <AppContent user={user} loading={loading} />
+      <AppContent user={user} loading={loading} authReady={authReady} />
     </Router>
   );
 }

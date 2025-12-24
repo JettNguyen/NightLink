@@ -23,6 +23,47 @@ const VISIBILITY_OPTIONS = [
 const CONTENT_PREVIEW_LIMIT = 240;
 const INSIGHT_PREVIEW_LIMIT = 180;
 
+// AI endpoint (uses Hugging Face free tier)
+const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT || '/.netlify/functions/ai-hf';
+
+// Fallback title generator (first 2-4 meaningful words)
+const generateFallbackTitle = (text) => {
+  if (!text) return 'Untitled Dream';
+  const words = text.trim().split(/\s+/).filter((w) => w.length > 2).slice(0, 3);
+  if (!words.length) return 'Untitled Dream';
+  return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+};
+
+// Call AI endpoint with timeout
+const fetchAIAnalysis = async (dreamText, userId, timeoutMs = 15000) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(AI_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dreamText, userId }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error || `HTTP ${res.status}`);
+    }
+
+    return await res.json();
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('AI request timed out');
+    }
+    throw err;
+  }
+};
+
 export default function DreamJournal({ user }) {
   const [dreams, setDreams] = useState([]);
   const [showNewDream, setShowNewDream] = useState(false);
@@ -33,6 +74,7 @@ export default function DreamJournal({ user }) {
   const [newTag, setNewTag] = useState('');
   const [visibility, setVisibility] = useState('private');
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [listenError, setListenError] = useState('');
   const navigate = useNavigate();
@@ -105,17 +147,44 @@ export default function DreamJournal({ user }) {
     if (!content.trim() || !user?.uid) return;
 
     setLoading(true);
+    setAiLoading(true);
     setSaveError('');
+
+    const trimmedContent = content.trim();
+    const userTitle = title.trim();
+
+    // Start with fallback values
+    let aiTitle = userTitle || generateFallbackTitle(trimmedContent);
+    let aiThemes = '';
+    let aiGenerated = false;
+
+    // Call AI endpoint (non-blocking failure)
+    try {
+      const aiResult = await fetchAIAnalysis(trimmedContent, user.uid);
+      if (aiResult && !aiResult.fallback) {
+        aiTitle = userTitle || aiResult.title || aiTitle;
+        aiThemes = aiResult.themes || '';
+        aiGenerated = true;
+      } else if (aiResult) {
+        // Partial fallback from server
+        aiTitle = userTitle || aiResult.title || aiTitle;
+        aiThemes = aiResult.themes || '';
+      }
+    } catch (err) {
+      console.warn('AI analysis failed, using fallback:', err.message);
+    } finally {
+      setAiLoading(false);
+    }
 
     const optimistic = {
       id: `local-${Date.now()}`,
-      title: title.trim(),
-      content: content.trim(),
+      title: userTitle,
+      content: trimmedContent,
       tags,
       visibility,
-      aiGenerated: false,
-      aiTitle: '',
-      aiInsights: '',
+      aiGenerated,
+      aiTitle,
+      aiInsights: aiThemes,
       createdAt: new Date(dreamDate)
     };
 
@@ -124,13 +193,13 @@ export default function DreamJournal({ user }) {
     try {
       await addDoc(collection(db, 'dreams'), {
         userId: user.uid,
-        title: title.trim(),
-        content: content.trim(),
+        title: userTitle,
+        content: trimmedContent,
         tags,
         visibility,
-        aiGenerated: false,
-        aiTitle: '',
-        aiInsights: '',
+        aiGenerated,
+        aiTitle,
+        aiInsights: aiThemes,
         createdAt: new Date(dreamDate),
         updatedAt: serverTimestamp()
       });
@@ -328,7 +397,7 @@ export default function DreamJournal({ user }) {
                   Cancel
                 </button>
                 <button type="submit" className="primary-btn" disabled={loading || !content.trim()}>
-                  {loading ? 'Saving…' : 'Save dream'}
+                  {aiLoading ? 'Analyzing…' : loading ? 'Saving…' : 'Save dream'}
                 </button>
               </div>
             </form>
