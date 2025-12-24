@@ -64,7 +64,7 @@ const fallbackTitle = (text) => {
 const fallbackThemes = () => 'Unable to generate themes at this time. Try again later.';
 
 const callHuggingFace = async (dreamText, token) => {
-  const prompt = `You are a reflective dream interpreter.\n\nDream:\n\"\"\"${dreamText}\"\"\"\n\nReturn:\nTitle (2–4 words)\nThemes (1 short paragraph, speculative, non-clinical)`;
+  const prompt = `You are a reflective dream interpreter helping users title their dreams and summarize themes.\n\nInstructions:\n- Respond ONLY with minified JSON (no markdown, prose, or code fences).\n- Schema: {"title":"string (2-4 words)", "themes":"single short paragraph"}\n- Title should be evocative but non-clinical. Themes must use tentative language ("might", "could").\n- If details are unclear, still produce your best safe guess.\n\nDream:\n"""${dreamText}"""`;
 
   const payload = {
     inputs: prompt,
@@ -103,14 +103,34 @@ const parseModelOutput = (raw) => {
   let themes = null;
   if (!raw) return { title, themes };
 
-  const titleMatch = raw.match(/Title:\s*(.+)/i);
-  if (titleMatch) {
-    title = titleMatch[1].trim().replace(/^["']|["']$/g, '');
+  const trimmed = raw.trim();
+
+  if (trimmed.startsWith('{')) {
+    try {
+      const json = JSON.parse(trimmed);
+      if (typeof json.title === 'string') {
+        title = json.title.trim();
+      }
+      if (typeof json.themes === 'string') {
+        themes = json.themes.trim();
+      }
+    } catch {
+      // Ignore malformed JSON and continue to regex parsing
+    }
   }
 
-  const themesMatch = raw.match(/Themes:\s*([\s\S]+)/i);
-  if (themesMatch) {
-    themes = themesMatch[1].split(/\n{2,}/)[0].trim();
+  if (!title) {
+    const titleMatch = raw.match(/Title:\s*(.+)/i);
+    if (titleMatch) {
+      title = titleMatch[1].trim().replace(/^["']|["']$/g, '');
+    }
+  }
+
+  if (!themes) {
+    const themesMatch = raw.match(/Themes:\s*([\s\S]+)/i);
+    if (themesMatch) {
+      themes = themesMatch[1].split(/\n{2,}/)[0].trim();
+    }
   }
 
   return { title, themes };
