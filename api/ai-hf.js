@@ -37,7 +37,7 @@ const DAILY_LIMIT = 5;
 const MAX_INPUT_LENGTH = 4000;
 
 const HF_MODEL = 'mistralai/Mistral-7B-Instruct-v0.2';
-const HF_ENDPOINT = `https://router.huggingface.co/hf-inference/models/${encodeURIComponent(HF_MODEL)}`;
+const HF_ENDPOINT = 'https://router.huggingface.co/hf-inference/models';
 
 const hashDream = (text) => crypto.createHash('sha256').update(text).digest('hex');
 const todayString = () => new Date().toISOString().slice(0, 10);
@@ -67,6 +67,7 @@ const callHuggingFace = async (dreamText, token) => {
   const prompt = `You are a reflective dream interpreter helping users title their dreams and summarize themes.\n\nInstructions:\n- Respond ONLY with minified JSON (no markdown, prose, or code fences).\n- Schema: {"title":"string (2-4 words)", "themes":"single short paragraph"}\n- Title should be evocative but non-clinical. Themes must use tentative language ("might", "could").\n- If details are unclear, still produce your best safe guess.\n\nDream:\n"""${dreamText}"""`;
 
   const payload = {
+    model: HF_MODEL,
     inputs: prompt,
     parameters: {
       max_new_tokens: 180,
