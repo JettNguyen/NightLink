@@ -8,8 +8,17 @@ import './DreamJournal.css';
 const VISIBILITY_LABELS = {
   private: 'Private',
   public: 'Public',
+  following: 'People you follow',
+  followers: 'People you follow',
   anonymous: 'Anonymous'
 };
+
+const VISIBILITY_OPTIONS = [
+  { value: 'private', label: 'Private', helper: 'Only you can view this entry.' },
+  { value: 'public', label: 'Public', helper: 'Appears on your profile and Following feed.' },
+  { value: 'following', label: 'People you follow', helper: 'Only people you follow can view it.' },
+  { value: 'anonymous', label: 'Anonymous', helper: 'Shared publicly without your name attached.' }
+];
 
 const CONTENT_PREVIEW_LIMIT = 240;
 const INSIGHT_PREVIEW_LIMIT = 180;
@@ -17,9 +26,12 @@ const INSIGHT_PREVIEW_LIMIT = 180;
 export default function DreamJournal({ user }) {
   const [dreams, setDreams] = useState([]);
   const [showNewDream, setShowNewDream] = useState(false);
+  const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [dreamDate, setDreamDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [tags, setTags] = useState([]);
   const [newTag, setNewTag] = useState('');
+  const [visibility, setVisibility] = useState('private');
   const [loading, setLoading] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [listenError, setListenError] = useState('');
@@ -73,9 +85,12 @@ export default function DreamJournal({ user }) {
   };
 
   const resetForm = () => {
+    setTitle('');
     setContent('');
+    setDreamDate(format(new Date(), 'yyyy-MM-dd'));
     setTags([]);
     setNewTag('');
+    setVisibility('private');
     setSaveError('');
   };
 
@@ -94,13 +109,14 @@ export default function DreamJournal({ user }) {
 
     const optimistic = {
       id: `local-${Date.now()}`,
+      title: title.trim(),
       content: content.trim(),
       tags,
-      visibility: 'private',
+      visibility,
       aiGenerated: false,
       aiTitle: '',
       aiInsights: '',
-      createdAt: new Date()
+      createdAt: new Date(dreamDate)
     };
 
     setDreams((prev) => [optimistic, ...prev]);
@@ -108,13 +124,14 @@ export default function DreamJournal({ user }) {
     try {
       await addDoc(collection(db, 'dreams'), {
         userId: user.uid,
+        title: title.trim(),
         content: content.trim(),
         tags,
-        visibility: 'private',
+        visibility,
         aiGenerated: false,
         aiTitle: '',
         aiInsights: '',
-        createdAt: serverTimestamp(),
+        createdAt: new Date(dreamDate),
         updatedAt: serverTimestamp()
       });
 
@@ -161,7 +178,7 @@ export default function DreamJournal({ user }) {
         </div>
 
         <p className="dream-title">
-          {dream.aiGenerated && dream.aiTitle ? dream.aiTitle : 'Dream entry'}
+          {dream.title || (dream.aiGenerated && dream.aiTitle) || 'Untitled dream'}
         </p>
 
         <p className="dream-content">{truncate(dream.content, CONTENT_PREVIEW_LIMIT)}</p>
@@ -178,7 +195,7 @@ export default function DreamJournal({ user }) {
 
         {dream.aiGenerated && dream.aiInsights ? (
           <div className="dream-footer">
-            <p className="dream-insights">{truncate(dream.aiInsights, INSIGHT_PREVIEW_LIMIT)}</p>
+            <p className="dream-summary">{truncate(dream.aiInsights, INSIGHT_PREVIEW_LIMIT)}</p>
           </div>
         ) : null}
       </div>
@@ -218,6 +235,27 @@ export default function DreamJournal({ user }) {
             </div>
 
             <form onSubmit={handleSaveDream}>
+              <input
+                type="text"
+                className="dream-title-input"
+                placeholder="Title (optional)"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                disabled={loading}
+              />
+
+              <div className="dream-date-section">
+                <label htmlFor="dream-date-input">When did this dream happen?</label>
+                <input
+                  id="dream-date-input"
+                  type="date"
+                  className="dream-date-input"
+                  value={dreamDate}
+                  onChange={(event) => setDreamDate(event.target.value)}
+                  disabled={loading}
+                />
+              </div>
+
               <textarea
                 className="dream-textarea"
                 placeholder="Describe everything you remember…"
@@ -263,6 +301,27 @@ export default function DreamJournal({ user }) {
               </div>
 
               {saveError && <div className="alert-banner">{saveError}</div>}
+
+              <div className="visibility-section">
+                <p className="section-label">Who can see this dream?</p>
+                <div className="visibility-options">
+                  {VISIBILITY_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={visibility === option.value ? 'visibility-chip active' : 'visibility-chip'}
+                      onClick={() => setVisibility(option.value)}
+                      aria-pressed={visibility === option.value}
+                      disabled={loading}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="visibility-helper">
+                  {VISIBILITY_OPTIONS.find((option) => option.value === visibility)?.helper}
+                </p>
+              </div>
 
               <div className="modal-actions">
                 <button type="button" className="ghost-btn" onClick={closeModal} disabled={loading}>

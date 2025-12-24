@@ -1,7 +1,22 @@
+.feed-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.feed-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
 .feed-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.25rem;
+  margin-top: 1.5rem;
 }
 
 .feed-card {
@@ -35,9 +50,25 @@
   letter-spacing: -0.01em;
 }
 
+.feed-visibility {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
 .feed-date {
   color: var(--text-secondary);
   font-size: 0.95rem;
+}
+
+.feed-title {
+  margin: 0.35rem 0;
+  font-size: 1.1rem;
+}
+
+.feed-summary {
+  color: var(--primary);
+  font-weight: 600;
+  margin: 0.25rem 0 0.5rem;
 }
 
 .feed-content {
@@ -52,8 +83,32 @@
   gap: 0.5rem;
 }
 
+.feed-empty-card {
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.02);
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-items: center;
+  box-shadow: var(--shadow-light);
+}
+
+.feed-empty-card .primary-btn {
+  margin-top: 0.5rem;
+}
+
 @media (max-width: 640px) {
   .feed-list {
     grid-template-columns: 1fr;
+  }
+
+  .feed-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 }

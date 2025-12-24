@@ -1,62 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
-import { collection, doc, getDoc, limit, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
+import { arrayRemove, arrayUnion, collection, doc, getDoc, limit, onSnapshot, orderBy, query, runTransaction, updateDoc, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-  faUser,
-  faMoon,
-  faStar,
-  faCloud,
-  faCloudMoon,
-  faSun,
-  faFeather,
-  faBed,
-  faEye,
-  faSeedling,
-  faMountain,
-  faRainbow,
-  faBolt,
-  faCompass,
-  faRocket,
-  faTree,
-  faWater,
-  faGhost,
-  faHeart,
-  faLeaf,
-  faMagic
-} from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
 import './Profile.css';
 
-const AVATAR_ICONS = [
-  { id: 'moon', icon: faMoon, label: 'Moonrise' },
-  { id: 'star', icon: faStar, label: 'Starlight' },
-  { id: 'cloud', icon: faCloud, label: 'Cloud Drift' },
-  { id: 'cloud-moon', icon: faCloudMoon, label: 'Night Cloud' },
-  { id: 'sun', icon: faSun, label: 'Sunrise' },
-  { id: 'feather', icon: faFeather, label: 'Feather' },
-  { id: 'bed', icon: faBed, label: 'Bed' },
-  { id: 'eye', icon: faEye, label: 'Inner Eye' },
-  { id: 'seedling', icon: faSeedling, label: 'Seedling' },
-  { id: 'mountain', icon: faMountain, label: 'Summit' },
-  { id: 'rainbow', icon: faRainbow, label: 'Rainbow' },
-  { id: 'bolt', icon: faBolt, label: 'Spark' },
-  { id: 'compass', icon: faCompass, label: 'Compass' },
-  { id: 'rocket', icon: faRocket, label: 'Rocket' },
-  { id: 'tree', icon: faTree, label: 'Grove' },
-  { id: 'water', icon: faWater, label: 'Tide' },
-  { id: 'ghost', icon: faGhost, label: 'Spirit' },
-  { id: 'heart', icon: faHeart, label: 'Heart' },
-  { id: 'leaf', icon: faLeaf, label: 'Leaf' },
-  { id: 'magic', icon: faMagic, label: 'Wand' }
-];
-
-const AVATAR_BACKGROUNDS = ['#081427', '#0f1b2c', '#1f2a44', '#2e0f2c', '#301b35', '#142c24', '#1c1c38', '#2e1b14', '#062019', '#1b2338'];
-const AVATAR_COLORS = ['#fef9c3', '#ffe5ec', '#c7d2fe', '#e0e7ff', '#bbf7d0', '#bae6fd', '#f0abfc', '#fbcfe8', '#fdba74', '#a5f3fc'];
-
 export default function Profile({ user }) {
+  const { userId: routeUserId } = useParams();
+  const targetUserId = routeUserId || user?.uid || null;
+  const viewingOwnProfile = !routeUserId || routeUserId === user?.uid;
+
   const [userData, setUserData] = useState(null);
+  const [profileNotFound, setProfileNotFound] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
@@ -67,23 +24,83 @@ export default function Profile({ user }) {
   const [avatarIcon, setAvatarIcon] = useState(AVATAR_ICONS[0].id);
   const [avatarBackground, setAvatarBackground] = useState(AVATAR_BACKGROUNDS[0]);
   const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0]);
+  const [viewerData, setViewerData] = useState(null);
+  const [followAction, setFollowAction] = useState({ type: null });
+  const [connectionListType, setConnectionListType] = useState(null);
+  const [connectionProfiles, setConnectionProfiles] = useState([]);
+  const [connectionLoading, setConnectionLoading] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadUserData();
-  }, [user.uid]);
+  const loadUserData = async (uid) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (!userDoc.exists()) {
+        setProfileNotFound(true);
+        setUserData(null);
+        return;
+      }
+
+      const data = userDoc.data();
+      setProfileNotFound(false);
+      setUserData(data);
+      setDisplayName(data.displayName || '');
+      setUsername(data.username || '');
+      setBio(data.bio || '');
+      setAvatarIcon(data.avatarIcon || AVATAR_ICONS[0].id);
+      setAvatarBackground(data.avatarBackground || AVATAR_BACKGROUNDS[0]);
+      setAvatarColor(data.avatarColor || AVATAR_COLORS[0]);
+    } catch {
+      setProfileNotFound(true);
+      setUserData(null);
+    }
+  };
+
+  const fetchUsersByIds = async (ids = []) => {
+    if (!ids.length) return [];
+    const results = await Promise.all(
+      ids.map(async (id) => {
+        try {
+          const snapshot = await getDoc(doc(db, 'users', id));
+          return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
+        } catch {
+          return null;
+        }
+      })
+    );
+    return results.filter(Boolean);
+  };
 
   useEffect(() => {
     if (!user?.uid) return undefined;
 
-    const q = query(
+    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
+      setViewerData(snapshot.exists() ? snapshot.data() : null);
+    });
+
+    return unsubscribe;
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!targetUserId) return;
+    setProfileNotFound(false);
+    setUserData(null);
+    setDreams([]);
+    setDreamsLoading(true);
+    setIsEditing(false);
+    loadUserData(targetUserId);
+  }, [targetUserId]);
+
+  useEffect(() => {
+    if (!targetUserId) return undefined;
+
+    const dreamsQuery = query(
       collection(db, 'dreams'),
-      where('userId', '==', user.uid),
+      where('userId', '==', targetUserId),
       orderBy('createdAt', 'desc'),
       limit(12)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(dreamsQuery, (snapshot) => {
       const dreamsList = snapshot.docs.map((d) => {
         const data = d.data();
         return {
@@ -100,24 +117,51 @@ export default function Profile({ user }) {
     });
 
     return unsubscribe;
-  }, [user.uid]);
+  }, [targetUserId]);
 
-  const loadUserData = async () => {
-    const userDoc = await getDoc(doc(db, 'users', user.uid));
-    if (userDoc.exists()) {
-      const data = userDoc.data();
-      setUserData(data);
-      setDisplayName(data.displayName || '');
-      setUsername(data.username || '');
-      setBio(data.bio || '');
-      setAvatarIcon(data.avatarIcon || AVATAR_ICONS[0].id);
-      setAvatarBackground(data.avatarBackground || AVATAR_BACKGROUNDS[0]);
-      setAvatarColor(data.avatarColor || AVATAR_COLORS[0]);
+  useEffect(() => {
+    if (!connectionListType) {
+      setConnectionProfiles([]);
+      setConnectionLoading(false);
+      return;
     }
-  };
+
+    const sourceIds = connectionListType === 'followers'
+      ? (userData?.followerIds || [])
+      : (userData?.followingIds || []);
+
+    if (!sourceIds.length) {
+      setConnectionProfiles([]);
+      setConnectionLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setConnectionLoading(true);
+
+    const loadConnections = async () => {
+      try {
+        const profiles = await fetchUsersByIds(sourceIds);
+        if (!cancelled) {
+          setConnectionProfiles(profiles);
+        }
+      } finally {
+        if (!cancelled) {
+          setConnectionLoading(false);
+        }
+      }
+    };
+
+    loadConnections();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionListType, userData?.followerIds, userData?.followingIds]);
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
+    if (!viewingOwnProfile || !user?.uid) return;
     setLoading(true);
 
     try {
@@ -131,22 +175,117 @@ export default function Profile({ user }) {
         updatedAt: new Date()
       });
 
-      await loadUserData();
+      await loadUserData(user.uid);
       setIsEditing(false);
-    } catch (error) {
+    } catch {
       alert('Failed to update profile');
     }
 
     setLoading(false);
   };
 
-  const selectedIcon = useMemo(() => {
-    const iconEntry = AVATAR_ICONS.find((entry) => entry.id === avatarIcon);
-    return iconEntry?.icon || faUser;
-  }, [avatarIcon]);
+  const viewerId = user?.uid || null;
+  const viewerFollowingIds = viewerData?.followingIds || [];
+  const targetFollowerIds = userData?.followerIds || [];
+  const targetFollowingIds = userData?.followingIds || [];
+  const connectionHeadingName = userData?.displayName || 'this dreamer';
+
+  const displayAvatarIconId = viewingOwnProfile
+    ? (avatarIcon || AVATAR_ICONS[0].id)
+    : (userData?.avatarIcon || AVATAR_ICONS[0].id);
+  const displayAvatarBackground = viewingOwnProfile
+    ? (avatarBackground || AVATAR_BACKGROUNDS[0])
+    : (userData?.avatarBackground || AVATAR_BACKGROUNDS[0]);
+  const displayAvatarColor = viewingOwnProfile
+    ? (avatarColor || AVATAR_COLORS[0])
+    : (userData?.avatarColor || AVATAR_COLORS[0]);
+
+  const isFollowingTarget = !viewingOwnProfile && viewerFollowingIds.includes(targetUserId);
+  const followsYou = !viewingOwnProfile && targetFollowerIds.includes(user?.uid);
+
+  const selectedIcon = useMemo(() => getAvatarIconById(displayAvatarIconId), [displayAvatarIconId]);
+  const isFollowActionBusy = Boolean(followAction.type);
+  const viewerFollowedByTarget = useMemo(() => {
+    if (viewingOwnProfile || !viewerId) return false;
+    return targetFollowingIds.includes(viewerId);
+  }, [viewerId, viewingOwnProfile, targetFollowingIds]);
+  const displayedDreams = useMemo(() => {
+    if (viewingOwnProfile) return dreams;
+    return dreams.filter((dream) => {
+      const visibility = dream.visibility || 'private';
+      if (visibility === 'public') return true;
+      if ((visibility === 'following' || visibility === 'followers') && viewerFollowedByTarget) {
+        return true;
+      }
+      return false;
+    });
+  }, [dreams, viewingOwnProfile, viewerFollowedByTarget]);
+
+  const performFollowAction = async (type, operation, errorMessage) => {
+    setFollowAction({ type });
+    try {
+      await operation();
+      if (targetUserId) {
+        await loadUserData(targetUserId);
+      }
+    } catch (err) {
+      console.error(err);
+      alert(errorMessage || 'Unable to update following right now.');
+    } finally {
+      setFollowAction({ type: null });
+    }
+  };
+
+  const handleFollow = () => {
+    if (!user?.uid || !targetUserId || viewingOwnProfile || isFollowActionBusy) return;
+    return performFollowAction('follow', async () => {
+      await runTransaction(db, async (transaction) => {
+        const viewerRef = doc(db, 'users', user.uid);
+        const targetRef = doc(db, 'users', targetUserId);
+        const targetSnap = await transaction.get(targetRef);
+        if (!targetSnap.exists()) {
+          throw new Error('profile-missing');
+        }
+
+        transaction.update(viewerRef, {
+          followingIds: arrayUnion(targetUserId)
+        });
+
+        transaction.update(targetRef, {
+          followerIds: arrayUnion(user.uid)
+        });
+      });
+    }, 'Unable to follow this user.');
+  };
+
+  const handleUnfollow = () => {
+    if (!user?.uid || !targetUserId || viewingOwnProfile || isFollowActionBusy) return;
+    return performFollowAction('unfollow', async () => {
+      await runTransaction(db, async (transaction) => {
+        const viewerRef = doc(db, 'users', user.uid);
+        const targetRef = doc(db, 'users', targetUserId);
+
+        transaction.update(viewerRef, {
+          followingIds: arrayRemove(targetUserId)
+        });
+
+        transaction.update(targetRef, {
+          followerIds: arrayRemove(user.uid)
+        });
+      });
+    }, 'Unable to unfollow right now.');
+  };
+
+  if (!targetUserId) {
+    return <div className="page-container">Profile unavailable.</div>;
+  }
+
+  if (profileNotFound) {
+    return <div className="page-container">We could not find that dreamer.</div>;
+  }
 
   if (!userData) {
-    return <div className="page-container">Loading...</div>;
+    return <div className="page-container">Loading…</div>;
   }
 
   const handleDreamNavigation = (dreamId) => {
@@ -154,16 +293,20 @@ export default function Profile({ user }) {
     navigate(`/journal/${dreamId}`);
   };
 
+  const handleProfileNavigation = (profileId) => {
+    if (!profileId) return;
+    navigate(`/profile/${profileId}`);
+    setConnectionListType(null);
+  };
+
   const renderDreamPreview = (dream) => {
-    const title = dream.aiGenerated ? dream.aiTitle?.trim() : '';
+    const title = dream.title || (dream.aiGenerated ? dream.aiTitle?.trim() : '');
     const snippet = dream.content?.length > 180 ? `${dream.content.slice(0, 180)}…` : dream.content;
     const dateLabel = dream.createdAt ? format(dream.createdAt, 'MMM d, yyyy') : 'Pending sync';
-    const visibilityLabel =
-      dream.visibility === 'anonymous'
-        ? 'Shared anonymously'
-        : dream.visibility === 'public'
-          ? 'Public dream'
-          : 'Private';
+    let visibilityLabel = 'Private';
+    if (dream.visibility === 'anonymous') visibilityLabel = 'Shared anonymously';
+    else if (dream.visibility === 'public') visibilityLabel = 'Public dream';
+    else if (dream.visibility === 'following' || dream.visibility === 'followers') visibilityLabel = 'People you follow';
 
     return (
       <div
@@ -186,10 +329,10 @@ export default function Profile({ user }) {
         {title ? (
           <h3 className="profile-dream-title">{title}</h3>
         ) : (
-          <p className="ai-placeholder">AI title not generated yet.</p>
+          <p className="pending-title">Title pending</p>
         )}
         {dream.aiGenerated && dream.aiInsights && (
-          <p className="profile-dream-insights">{dream.aiInsights}</p>
+          <p className="profile-dream-summary">{dream.aiInsights}</p>
         )}
         <p className="profile-dream-snippet">{snippet}</p>
         {dream.tags?.length ? (
@@ -203,36 +346,25 @@ export default function Profile({ user }) {
     );
   };
 
+  const dreamSectionTitle = viewingOwnProfile ? 'Your dreams' : 'Recent dreams';
+  const dreamSectionSubtitle = viewingOwnProfile
+    ? 'A gentle gallery of your latest entries.'
+    : 'Only entries they have shared with you appear here.';
+
   return (
     <div className="page-container">
       <div className="profile-header">
         <div className="profile-avatar">
           <div
             className="avatar-circle"
-            style={{ background: avatarBackground }}
+            style={{ background: displayAvatarBackground }}
             aria-label="Profile avatar"
           >
-            <FontAwesomeIcon icon={selectedIcon} style={{ color: avatarColor, fontSize: '2.4rem' }} />
+            <FontAwesomeIcon icon={selectedIcon} style={{ color: displayAvatarColor, fontSize: '2.4rem' }} />
           </div>
         </div>
 
-        {!isEditing ? (
-          <div className="profile-info">
-            <h1>{userData.displayName}</h1>
-            {userData.username && (
-              <p className="profile-username">@{userData.username}</p>
-            )}
-            {userData.bio && (
-              <p className="profile-bio">{userData.bio}</p>
-            )}
-            {userData.email && !userData.isAnonymous && (
-              <p className="profile-email">{userData.email}</p>
-            )}
-            <button onClick={() => setIsEditing(true)} className="edit-profile-btn">
-              Edit Profile
-            </button>
-          </div>
-        ) : (
+        {viewingOwnProfile && isEditing ? (
           <form onSubmit={handleSaveProfile} className="profile-edit-form">
             <input
               type="text"
@@ -321,40 +453,134 @@ export default function Profile({ user }) {
               </button>
             </div>
           </form>
+        ) : (
+          <div className="profile-info">
+            <h1>{userData.displayName || 'Dreamer'}</h1>
+            {userData.username && <p className="profile-username">@{userData.username}</p>}
+            {userData.bio && <p className="profile-bio">{userData.bio}</p>}
+            {viewingOwnProfile && userData.email && !userData.isAnonymous && (
+              <p className="profile-email">{userData.email}</p>
+            )}
+            {viewingOwnProfile && (
+              <button onClick={() => setIsEditing(true)} className="edit-profile-btn">
+                Edit Profile
+              </button>
+            )}
+            {!viewingOwnProfile && (
+              <div className="follow-actions">
+                <button
+                  type="button"
+                  className={isFollowingTarget ? 'ghost-btn' : 'primary-btn'}
+                  onClick={isFollowingTarget ? handleUnfollow : handleFollow}
+                  disabled={isFollowActionBusy}
+                >
+                  {isFollowActionBusy ? 'Working…' : isFollowingTarget ? 'Following' : 'Follow'}
+                </button>
+                {followsYou && <span className="follow-note">Follows you</span>}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
       <div className="profile-stats">
-        <div className="stat-item">
-          <div className="stat-value">{userData.friendIds?.length || 0}</div>
-          <div className="stat-label">Friends</div>
-        </div>
-        <div className="stat-item">
-          <div className="stat-value">{userData.isAnonymous ? 'Guest' : 'Member'}</div>
-          <div className="stat-label">Status</div>
-        </div>
+        <button
+          type="button"
+          className="stat-item stat-button"
+          onClick={() => setConnectionListType((prev) => (prev === 'followers' ? null : 'followers'))}
+          aria-expanded={connectionListType === 'followers'}
+        >
+          <div className="stat-value">{targetFollowerIds.length}</div>
+          <div className="stat-label">Followers</div>
+        </button>
+        <button
+          type="button"
+          className="stat-item stat-button"
+          onClick={() => setConnectionListType((prev) => (prev === 'following' ? null : 'following'))}
+          aria-expanded={connectionListType === 'following'}
+        >
+          <div className="stat-value">{targetFollowingIds.length}</div>
+          <div className="stat-label">Following</div>
+        </button>
       </div>
+
+      {connectionListType && (
+        <div className="connection-panel">
+          <div className="connection-panel-head">
+            <div>
+              <h2>
+                {connectionListType === 'followers'
+                  ? viewingOwnProfile ? 'Your followers' : `Followers of ${connectionHeadingName}`
+                  : viewingOwnProfile ? 'People you follow' : `People ${connectionHeadingName} follows`}
+              </h2>
+              <p className="connection-panel-subtitle">Tap anyone to jump into their profile.</p>
+            </div>
+            <button type="button" className="ghost-btn" onClick={() => setConnectionListType(null)}>
+              Close
+            </button>
+          </div>
+
+          {connectionLoading ? (
+            <p className="connection-panel-placeholder">Loading…</p>
+          ) : connectionProfiles.length === 0 ? (
+            <p className="connection-panel-placeholder">
+              {connectionListType === 'followers'
+                ? viewingOwnProfile ? 'No followers yet.' : 'No followers to show yet.'
+                : viewingOwnProfile ? 'You are not following anyone yet.' : 'No following info to show yet.'}
+            </p>
+          ) : (
+            <div className="connection-list">
+              {connectionProfiles.map((connection) => (
+                <button
+                  type="button"
+                  key={connection.id}
+                  className="connection-card"
+                  onClick={() => handleProfileNavigation(connection.id)}
+                >
+                  <div
+                    className="connection-avatar"
+                    style={{ background: connection.avatarBackground || DEFAULT_AVATAR_BACKGROUND }}
+                  >
+                    <FontAwesomeIcon
+                      icon={getAvatarIconById(connection.avatarIcon)}
+                      style={{ color: connection.avatarColor || DEFAULT_AVATAR_COLOR }}
+                    />
+                  </div>
+                  <div className="connection-meta">
+                    <div className="connection-name">{connection.displayName || 'Dreamer'}</div>
+                    {connection.username && <div className="connection-username">@{connection.username}</div>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="profile-dreams">
         <div className="profile-dreams-head">
           <div>
-            <h2>Your dreams</h2>
-            <p className="profile-dreams-subtitle">A gentle gallery of your latest entries.</p>
+            <h2>{dreamSectionTitle}</h2>
+            <p className="profile-dreams-subtitle">{dreamSectionSubtitle}</p>
           </div>
-          <Link to="/journal" className="ghost-btn">Open journal</Link>
         </div>
 
         {dreamsLoading ? (
-          <div className="profile-dreams-loading">Loading your dreams…</div>
-        ) : dreams.length === 0 ? (
+          <div className="profile-dreams-loading">Loading dreams…</div>
+        ) : displayedDreams.length === 0 ? (
           <div className="profile-dreams-empty">
-            <p>No dreams yet</p>
-            <p className="empty-subtitle">Start a new entry to see it here</p>
-            <Link to="/journal" className="primary-btn">Write a dream</Link>
+            <p>{viewingOwnProfile ? 'No dreams yet' : 'No dreams shared with you yet'}</p>
+            <p className="empty-subtitle">
+              {viewingOwnProfile
+                ? 'Start a new entry to see it here.'
+                : viewerFollowedByTarget
+                  ? 'They have not shared any public or limited dreams recently.'
+                  : 'This dreamer only shares entries with people they follow.'}
+            </p>
           </div>
         ) : (
           <div className="profile-dream-grid">
-            {dreams.map(renderDreamPreview)}
+            {displayedDreams.map(renderDreamPreview)}
           </div>
         )}
       </div>

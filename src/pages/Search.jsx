@@ -3,11 +3,13 @@ import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
 import './Search.css';
 
 const MIN_CHARS = 2;
 
-export default function Search() {
+export default function Search({ user }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [userResults, setUserResults] = useState([]);
@@ -16,6 +18,60 @@ export default function Search() {
   const [lastTerm, setLastTerm] = useState('');
   const [filter, setFilter] = useState('people');
   const navigate = useNavigate();
+  const currentUserId = user?.uid || null;
+  const filters = [
+    { id: 'people', label: 'People' },
+    { id: 'dreams', label: 'Dreams' }
+  ];
+
+  const normalizeText = (value = '') => value.trim().toLowerCase();
+
+  const getTimestampValue = (value) => {
+    if (!value) return 0;
+    if (typeof value.toDate === 'function') {
+      const date = value.toDate();
+      return date?.getTime?.() ?? 0;
+    }
+    if (typeof value.seconds === 'number') {
+      return value.seconds * 1000;
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+  };
+
+  const scoreUserResult = (user) => {
+    let score = 0;
+    if (user.username) score += 4;
+    if (user.displayName) score += 2;
+    const freshness = getTimestampValue(user.updatedAt) || getTimestampValue(user.createdAt);
+    if (freshness) score += freshness / 1_000_000_000_000;
+    return score;
+  };
+
+  const dedupeUsers = (users) => {
+    const uniqueMap = new Map();
+
+    users.forEach((user) => {
+      const key = normalizeText(user.normalizedUsername || user.username || user.email) || user.id;
+      const existing = uniqueMap.get(key);
+
+      if (!existing) {
+        uniqueMap.set(key, user);
+        return;
+      }
+
+      if (scoreUserResult(user) > scoreUserResult(existing)) {
+        uniqueMap.set(key, user);
+      }
+    });
+
+    return Array.from(uniqueMap.values());
+  };
+
+  const handleProfileNavigation = (userId) => {
+    if (!userId) return;
+    navigate(`/profile/${userId}`);
+  };
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -41,20 +97,22 @@ export default function Search() {
     setLastTerm(term);
 
     try {
-      const lower = term.toLowerCase();
+      const lower = normalizeText(term);
 
       if (filter === 'people') {
         const usersSnap = await getDocs(query(collection(db, 'users'), limit(50)));
         const users = usersSnap.docs
           .map((doc) => ({ id: doc.id, ...doc.data() }))
           .filter((u) => {
-            const name = (u.displayName || '').toLowerCase();
-            const username = (u.username || '').toLowerCase();
+            if (currentUserId && u.id === currentUserId) return false;
+            const name = normalizeText(u.displayName || '');
+            const username = normalizeText(u.username || '');
             return name.includes(lower) || username.includes(lower);
-          })
-          .slice(0, 15);
+          });
 
-        setUserResults(users);
+        const uniqueUsers = dedupeUsers(users).slice(0, 15);
+
+        setUserResults(uniqueUsers);
         setDreamResults([]);
       } else {
         const dreamsSnap = await getDocs(
@@ -74,6 +132,10 @@ export default function Search() {
               visibility: data.visibility || 'private',
               createdAt: data.createdAt?.toDate?.() ?? data.createdAt ?? null
             };
+          })
+          .filter((d) => {
+            if (!currentUserId) return true;
+            return d.userId !== currentUserId;
           })
           .sort((a, b) => {
             const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -103,7 +165,7 @@ export default function Search() {
   };
 
   const renderDream = (dream) => {
-    const title = dream.aiGenerated ? dream.aiTitle?.trim() : '';
+    const title = dream.title || (dream.aiGenerated ? dream.aiTitle?.trim() : '');
     const snippet = dream.content?.length > 200 ? `${dream.content.slice(0, 200)}…` : dream.content;
     const dateLabel = dream.createdAt ? format(dream.createdAt, 'MMM d, yyyy') : 'Recent';
 
@@ -125,8 +187,8 @@ export default function Search() {
           <span className="pill">{dateLabel}</span>
             <span className="pill">{dream.visibility === 'anonymous' ? 'Anonymous dream' : 'Public dream'}</span>
         </div>
-        {title ? <h3>{title}</h3> : <p className="ai-placeholder">AI title will appear after analysis.</p>}
-        {dream.aiGenerated && dream.aiInsights && <p className="dream-insight">{dream.aiInsights}</p>}
+        {title ? <h3>{title}</h3> : <p className="pending-title">Untitled dream</p>}
+        {dream.aiGenerated && dream.aiInsights && <p className="dream-summary">{dream.aiInsights}</p>}
         <p className="dream-snippet">{snippet}</p>
         {dream.tags?.length ? (
           <div className="dream-tags">
@@ -144,26 +206,24 @@ export default function Search() {
       <div className="page-header">
         <div>
           <h1>Search</h1>
-          <p className="page-subtitle">Find friends and wander through public dreams.</p>
+          <p className="page-subtitle">Find people and explore public dreams.</p>
         </div>
       </div>
 
       <div className="search-box card-shell">
-        <div className="filter-toggle" role="group" aria-label="Search filter">
-          <button
-            className={filter === 'people' ? 'chip chip-active' : 'chip'}
-            onClick={() => setFilter('people')}
-            type="button"
-          >
-            People
-          </button>
-          <button
-            className={filter === 'dreams' ? 'chip chip-active' : 'chip'}
-            onClick={() => setFilter('dreams')}
-            type="button"
-          >
-            Dreams
-          </button>
+        <div className="filter-toggle">
+          <span className="filter-label">Filter by:</span>
+          {filters.map((option) => (
+            <button
+              key={option.id}
+              className={filter === option.id ? 'chip chip-active' : 'chip'}
+              onClick={() => setFilter(option.id)}
+              type="button"
+              aria-pressed={filter === option.id}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
         <div className="search-input-wrap">
           <input
@@ -199,10 +259,32 @@ export default function Search() {
               ) : (
                 <div className="people-grid">
                   {userResults.map((u) => (
-                    <div className="person-card" key={u.id}>
-                      <div className="avatar-fallback">{(u.displayName || 'N')[0].toUpperCase()}</div>
+                    <div
+                      className="person-card"
+                      key={u.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleProfileNavigation(u.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          handleProfileNavigation(u.id);
+                        }
+                      }}
+                    >
+                      <div
+                        className="person-avatar"
+                        style={{
+                          background: u.avatarBackground || DEFAULT_AVATAR_BACKGROUND
+                        }}
+                      >
+                        <FontAwesomeIcon
+                          icon={getAvatarIconById(u.avatarIcon)}
+                          style={{ color: u.avatarColor || DEFAULT_AVATAR_COLOR }}
+                        />
+                      </div>
                       <div>
-                        <div className="person-name">{u.displayName || 'Unnamed'}</div>
+                        <div className="person-name">{u.displayName || 'Dreamer'}</div>
                         {u.username && <div className="person-username">@{u.username}</div>}
                       </div>
                     </div>

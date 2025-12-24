@@ -7,7 +7,8 @@ import './DreamDetail.css';
 
 const VISIBILITY_OPTIONS = [
   { value: 'private', label: 'Private', helper: 'Only you can see this dream.' },
-  { value: 'public', label: 'Public', helper: 'Visible on your profile and friends feed.' },
+  { value: 'public', label: 'Public', helper: 'Visible on your profile and following feed.' },
+  { value: 'following', label: 'People you follow', helper: 'Shared only with the people you follow.' },
   { value: 'anonymous', label: 'Anonymous', helper: 'Shared publicly without your identity.' }
 ];
 
@@ -20,7 +21,15 @@ export default function DreamDetail({ user }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [updatingVisibility, setUpdatingVisibility] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [aiStatus, setAiStatus] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editingDate, setEditingDate] = useState(false);
+  const [titleInput, setTitleInput] = useState('');
+  const [dateInput, setDateInput] = useState('');
+  const [editingContent, setEditingContent] = useState(false);
+  const [contentInput, setContentInput] = useState('');
+  const [editableTags, setEditableTags] = useState([]);
+  const [newTag, setNewTag] = useState('');
 
   useEffect(() => {
     if (!dreamId) {
@@ -52,6 +61,14 @@ export default function DreamDetail({ user }) {
         visibility: data.visibility || 'private',
         createdAt: data.createdAt?.toDate?.() ?? data.createdAt ?? null
       });
+      setTitleInput(data.title || '');
+      if (data.createdAt?.toDate) {
+        setDateInput(format(data.createdAt.toDate(), 'yyyy-MM-dd'));
+      } else if (data.createdAt) {
+        setDateInput(format(new Date(data.createdAt), 'yyyy-MM-dd'));
+      }
+      setContentInput(data.content || '');
+      setEditableTags(Array.isArray(data.tags) ? data.tags : []);
       setLoading(false);
     }, () => {
       setError('Failed to load this dream.');
@@ -85,16 +102,75 @@ export default function DreamDetail({ user }) {
     }
   };
 
+  const handleSaveTitle = async () => {
+    if (!dream) return;
+    try {
+      await updateDoc(doc(db, 'dreams', dream.id), {
+        title: titleInput.trim(),
+        updatedAt: serverTimestamp()
+      });
+      setEditingTitle(false);
+    } catch {
+      setError('Could not update title.');
+    }
+  };
+
+  const handleSaveDate = async () => {
+    if (!dream || !dateInput) return;
+    try {
+      await updateDoc(doc(db, 'dreams', dream.id), {
+        createdAt: new Date(dateInput),
+        updatedAt: serverTimestamp()
+      });
+      setEditingDate(false);
+    } catch {
+      setError('Could not update date.');
+    }
+  };
+
+  const handleCancelContentEdit = () => {
+    setEditingContent(false);
+    setContentInput(dream?.content || '');
+    setEditableTags(Array.isArray(dream?.tags) ? dream.tags : []);
+    setNewTag('');
+  };
+
+  const handleSaveContent = async () => {
+    if (!dream || !contentInput.trim()) return;
+    try {
+      await updateDoc(doc(db, 'dreams', dream.id), {
+        content: contentInput.trim(),
+        tags: editableTags,
+        updatedAt: serverTimestamp()
+      });
+      setEditingContent(false);
+      setNewTag('');
+    } catch {
+      setError('Could not update dream content.');
+    }
+  };
+
+  const handleAddTag = () => {
+    const trimmed = newTag.trim();
+    if (!trimmed || editableTags.some((tag) => tag.value === trimmed)) return;
+    setEditableTags((prev) => [...prev, { value: trimmed, category: 'theme' }]);
+    setNewTag('');
+  };
+
+  const handleRemoveTag = (value) => {
+    setEditableTags((prev) => prev.filter((tag) => tag.value !== value));
+  };
+
   const handleAnalyzeDream = async () => {
     if (!dream || dream.id.startsWith('local-')) return;
     const endpoint = import.meta.env.VITE_AI_ENDPOINT;
     if (!endpoint) {
-      setAiStatus('AI analysis is disabled. Configure VITE_AI_ENDPOINT to enable it.');
+      setStatusMessage('Summary generation is disabled.');
       return;
     }
 
     setAnalyzing(true);
-    setAiStatus('');
+    setStatusMessage('');
 
     let generatedTitle = '';
     let generatedInsights = '';
@@ -111,12 +187,12 @@ export default function DreamDetail({ user }) {
         generatedTitle = data.title?.trim() || '';
         generatedInsights = data.insights?.trim() || '';
       } else {
-        setAiStatus('AI service is unavailable. Please try again later.');
+        setStatusMessage('Summary service is unavailable. Please try again later.');
         setAnalyzing(false);
         return;
       }
     } catch {
-      setAiStatus('AI analysis failed. Please try again.');
+      setStatusMessage('Summary generation failed. Please try again.');
       setAnalyzing(false);
       return;
     }
@@ -126,7 +202,7 @@ export default function DreamDetail({ user }) {
     if (generatedInsights) updates.aiInsights = generatedInsights;
 
     if (!Object.keys(updates).length) {
-      setAiStatus('No new insights were generated.');
+      setStatusMessage('No new summary was generated.');
       setAnalyzing(false);
       return;
     }
@@ -138,9 +214,9 @@ export default function DreamDetail({ user }) {
         ...updates,
         updatedAt: serverTimestamp()
       });
-      setAiStatus('AI insight refreshed.');
+      setStatusMessage('Summary updated.');
     } catch {
-      setAiStatus('Could not save AI insight just now.');
+      setStatusMessage('Could not save summary.');
     } finally {
       setAnalyzing(false);
     }
@@ -190,8 +266,46 @@ export default function DreamDetail({ user }) {
       <div className="detail-card">
         <div className="detail-head">
           <div>
-            <p className="detail-date">{formattedDate}</p>
-            <h1>{dream.aiGenerated && dream.aiTitle ? dream.aiTitle : 'Dream entry'}</h1>
+            {editingDate ? (
+              <div className="detail-date-edit">
+                <input
+                  type="date"
+                  className="detail-date-input"
+                  value={dateInput}
+                  onChange={(e) => setDateInput(e.target.value)}
+                />
+                <button type="button" className="ghost-btn" onClick={handleSaveDate}>Save</button>
+                <button type="button" className="ghost-btn" onClick={() => setEditingDate(false)}>Cancel</button>
+              </div>
+            ) : (
+              <p className="detail-date" onClick={() => setEditingDate(true)} role="button" tabIndex={0}>
+                {formattedDate} <span className="edit-hint">✎</span>
+              </p>
+            )}
+            {editingTitle ? (
+              <div className="detail-title-edit">
+                <input
+                  type="text"
+                  className="detail-title-input"
+                  placeholder="Enter a title"
+                  value={titleInput}
+                  onChange={(e) => setTitleInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSaveTitle();
+                    }
+                  }}
+                  autoFocus
+                />
+                <button type="button" className="ghost-btn" onClick={handleSaveTitle}>Save</button>
+                <button type="button" className="ghost-btn" onClick={() => setEditingTitle(false)}>Cancel</button>
+              </div>
+            ) : (
+              <h1 onClick={() => setEditingTitle(true)} role="button" tabIndex={0}>
+                {dream.title || (dream.aiGenerated && dream.aiTitle) || 'Untitled dream'} <span className="edit-hint">✎</span>
+              </h1>
+            )}
           </div>
           <div className="detail-visibility">
             <p className="detail-label">Visibility</p>
@@ -200,7 +314,7 @@ export default function DreamDetail({ user }) {
                 <button
                   key={option.value}
                   type="button"
-                  className={dream.visibility === option.value ? 'pill pill-active' : 'pill'}
+                  className={(dream.visibility === option.value || (option.value === 'following' && dream.visibility === 'followers')) ? 'pill pill-active' : 'pill'}
                   onClick={() => handleVisibilityChange(option.value)}
                   disabled={updatingVisibility}
                 >
@@ -211,7 +325,7 @@ export default function DreamDetail({ user }) {
           </div>
         </div>
 
-        {dream.tags?.length ? (
+        {!editingContent && dream.tags?.length ? (
           <div className="detail-tags">
             {dream.tags.map((tag, index) => (
               <span className="tag" key={`${dream.id}-tag-${index}`}>{tag.value}</span>
@@ -220,16 +334,77 @@ export default function DreamDetail({ user }) {
         ) : null}
 
         <div className="detail-body">
-          <p>{dream.content}</p>
+          {editingContent ? (
+            <>
+              <textarea
+                className="detail-textarea"
+                value={contentInput}
+                onChange={(e) => setContentInput(e.target.value)}
+              />
+              <div className="detail-tags-editor">
+                <label htmlFor="detail-tag-input">Tags</label>
+                <div className="detail-tag-input-row">
+                  <input
+                    id="detail-tag-input"
+                    type="text"
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddTag();
+                      }
+                    }}
+                    placeholder="Add a tag"
+                  />
+                  <button type="button" className="add-tag-btn" onClick={handleAddTag}>+ Tag</button>
+                </div>
+                {editableTags.length ? (
+                  <div className="detail-tag-list">
+                    {editableTags.map((tag) => (
+                      <span className="detail-tag-chip" key={`edit-tag-${tag.value}`}>
+                        {tag.value}
+                        <button type="button" className="detail-tag-remove" onClick={() => handleRemoveTag(tag.value)} aria-label={`Remove tag ${tag.value}`}>
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              <div className="detail-edit-actions">
+                <button type="button" className="ghost-btn" onClick={handleCancelContentEdit}>Cancel</button>
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={handleSaveContent}
+                  disabled={!contentInput.trim()}
+                >
+                  Save changes
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p>{dream.content}</p>
+              <button type="button" className="ghost-btn" onClick={() => {
+                setEditingContent(true);
+                setContentInput(dream.content || '');
+                setEditableTags(Array.isArray(dream.tags) ? dream.tags : []);
+              }}>
+                Edit content
+              </button>
+            </>
+          )}
         </div>
 
-        <div className="detail-ai">
+        <div className="detail-summary">
           <div>
-            <h3>AI insight</h3>
+            <h3>Summary</h3>
             {dream.aiGenerated && dream.aiInsights ? (
               <p className="detail-insight">{dream.aiInsights}</p>
             ) : (
-              <p className="detail-insight muted">No AI insights yet.</p>
+              <p className="detail-insight muted">No summary yet.</p>
             )}
           </div>
           <button
@@ -238,11 +413,11 @@ export default function DreamDetail({ user }) {
             onClick={handleAnalyzeDream}
             disabled={analyzing}
           >
-            {analyzing ? 'Analyzing…' : 'Run Analyze'}
+            {analyzing ? 'Generating…' : 'Generate Summary'}
           </button>
         </div>
 
-        {aiStatus && <p className="detail-ai-message">{aiStatus}</p>}
+        {statusMessage && <p className="detail-status-message">{statusMessage}</p>}
 
         <div className="detail-actions">
           <button type="button" className="secondary-btn" onClick={() => navigate('/journal')}>
