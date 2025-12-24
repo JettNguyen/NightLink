@@ -24,7 +24,7 @@ const CONTENT_PREVIEW_LIMIT = 240;
 const INSIGHT_PREVIEW_LIMIT = 180;
 
 // AI endpoint (defaults to the Vercel function path)
-const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT || '/api/ai-hf';
+const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT || '/api/ai';
 
 // Fallback title generator (first 2-4 meaningful words)
 const generateFallbackTitle = (text) => {

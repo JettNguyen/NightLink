@@ -12,7 +12,7 @@ const VISIBILITY_OPTIONS = [
   { value: 'anonymous', label: 'Anonymous', helper: 'Shared publicly without your identity.' }
 ];
 
-const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT || '/api/ai-hf';
+const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT || '/api/ai';
 
 export default function DreamDetail({ user }) {
   const { dreamId } = useParams();
