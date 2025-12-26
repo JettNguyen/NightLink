@@ -1,4 +1,4 @@
-# [NightLink](https://nightlink-iota.vercel.app/)
+# [NightLink](https://nightlink.dev)
 
 A dream journal and social network. Log your dreams, get AI-generated titles and summaries, and share with friends, family, or the world.
 
