@@ -1,37 +1,17 @@
-
 const crypto = require('crypto');
-const fetch = require('node-fetch');
-const admin = require('firebase-admin');
-
-// Initialize Firebase Admin SDK if not already initialized
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-  });
-}
 
 const resultCache = new Map();
-const rateLimits = new Map();
-const DAILY_USER_LIMIT = 10;
-const DAILY_IP_LIMIT = 25;
+const userLimits = new Map();
+const DAILY_LIMIT = 10;
 const MAX_INPUT_LENGTH = 4000;
 const OPENAI_MODEL = 'gpt-4o-mini';
 const OPENAI_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 
-// Hardened CORS: only allow your deployed frontend and localhost
-const ALLOWED_ORIGINS = [
-  'https://nightlink.vercel.app',
-  'https://nightlink.web.app',
-  'http://localhost:3000',
-  'http://localhost:3001',
-];
 const applyCors = (req, res) => {
-  const origin = req.headers.origin;
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
+  const origin = req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
   res.setHeader('Access-Control-Max-Age', '86400');
 };
@@ -39,25 +19,17 @@ const applyCors = (req, res) => {
 const hashText = (text) => crypto.createHash('sha256').update(text).digest('hex');
 const todayString = () => new Date().toISOString().slice(0, 10);
 
-const checkRateLimit = (key, limit) => {
-  if (!key) return true;
+const checkRateLimit = (userId) => {
+  if (!userId) return true;
   const today = todayString();
-  const record = rateLimits.get(key);
+  const record = userLimits.get(userId);
   if (!record || record.date !== today) {
-    rateLimits.set(key, { date: today, count: 1 });
+    userLimits.set(userId, { date: today, count: 1 });
     return true;
   }
-  if (record.count >= limit) return false;
+  if (record.count >= DAILY_LIMIT) return false;
   record.count += 1;
   return true;
-};
-
-const getClientIp = (req) => {
-  const header = req.headers['x-forwarded-for'] || req.headers['x-real-ip'];
-  if (header && typeof header === 'string') {
-    return header.split(',')[0].trim();
-  }
-  return req.socket?.remoteAddress || req.connection?.remoteAddress || null;
 };
 
 const callOpenAI = async (dreamText, apiKey) => {
@@ -96,12 +68,6 @@ const callOpenAI = async (dreamText, apiKey) => {
   return content;
 };
 
-// Basic sanitization to prevent XSS or prompt injection
-const sanitize = (text) => {
-  if (!text) return '';
-  return text.replace(/[<>]/g, '').slice(0, 1000);
-};
-
 const parseOutput = (raw) => {
   let title = null;
   let themes = null;
@@ -112,8 +78,8 @@ const parseOutput = (raw) => {
   if (trimmed.startsWith('{')) {
     try {
       const json = JSON.parse(trimmed);
-      if (typeof json.title === 'string') title = sanitize(json.title.trim());
-      if (typeof json.themes === 'string') themes = sanitize(json.themes.trim());
+      if (typeof json.title === 'string') title = json.title.trim();
+      if (typeof json.themes === 'string') themes = json.themes.trim();
     } catch {
       // fall through to regex
     }
@@ -121,11 +87,11 @@ const parseOutput = (raw) => {
 
   if (!title) {
     const m = raw.match(/"title"\s*:\s*"([^"]+)"/i);
-    if (m) title = sanitize(m[1].trim());
+    if (m) title = m[1].trim();
   }
   if (!themes) {
     const m = raw.match(/"themes"\s*:\s*"([^"]+)"/i);
-    if (m) themes = sanitize(m[1].trim());
+    if (m) themes = m[1].trim();
   }
 
   return { title, themes };
@@ -155,23 +121,9 @@ module.exports = async function handler(req, res) {
   }
   body = body || {};
 
-  // Require Firebase ID token for user authentication
-  const { dreamText, idToken } = body;
+  const { dreamText, userId } = body;
   if (!dreamText || typeof dreamText !== 'string') {
     res.status(400).json({ error: 'Missing dreamText' });
-    return;
-  }
-  if (!idToken || typeof idToken !== 'string') {
-    res.status(401).json({ error: 'Missing Firebase ID token' });
-    return;
-  }
-
-  let userId = null;
-  try {
-    const decoded = await admin.auth().verifyIdToken(idToken);
-    userId = decoded.uid;
-  } catch {
-    res.status(401).json({ error: 'Invalid or expired Firebase ID token' });
     return;
   }
 
@@ -187,15 +139,8 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const clientIp = getClientIp(req) || 'unknown';
-
-  if (userId && !checkRateLimit(`user:${userId}`, DAILY_USER_LIMIT)) {
-    res.status(429).json({ error: 'Daily analysis limit reached for this account. Try again tomorrow.' });
-    return;
-  }
-
-  if (!checkRateLimit(`ip:${clientIp}`, DAILY_IP_LIMIT)) {
-    res.status(429).json({ error: 'This device has reached today\'s analysis limit. Try again tomorrow.' });
+  if (!checkRateLimit(userId)) {
+    res.status(429).json({ error: 'Daily analysis limit reached. Try again tomorrow.' });
     return;
   }
 
