@@ -73,7 +73,6 @@
 .auth-tabs button.active {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);
-  transform: translateY(-1px);
   box-shadow: none;
 }
 
@@ -120,7 +119,6 @@
 .auth-input:focus {
   border-color: rgba(90, 200, 250, 0.75);
   background: rgba(255, 255, 255, 0.06);
-  transform: translateY(-1px);
 }
 
 .auth-error {
@@ -142,13 +140,12 @@
 }
 
 .auth-submit:hover:not(:disabled) {
-  transform: translateY(-2px);
-  filter: brightness(1.08);
+  filter: brightness(1.12);
 }
 
 .auth-submit:disabled {
   opacity: 0.6;
-  cursor: not-allowed;
+  cursor: wait;
 }
 
 

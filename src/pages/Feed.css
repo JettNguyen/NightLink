@@ -4,12 +4,22 @@
   gap: 1rem;
   flex-wrap: wrap;
   align-items: flex-end;
+  animation: fadeIn 0.4s ease;
+}
+
+.feed-header h1 {
+  animation: slideInUp 0.4s ease 0.05s both;
+}
+
+.feed-header .page-subtitle {
+  animation: slideInUp 0.4s ease 0.1s both;
 }
 
 .feed-actions {
   display: flex;
   gap: 0.75rem;
   align-items: center;
+  animation: fadeIn 0.5s ease 0.15s both;
 }
 
 .feed-list {
@@ -17,6 +27,7 @@
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.25rem;
   margin-top: 1.5rem;
+  animation: fadeIn 0.5s ease 0.2s both;
 }
 
 .feed-card {
@@ -25,14 +36,14 @@
   border-radius: 16px;
   padding: 1.25rem;
   box-shadow: var(--shadow-light);
-  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+  transition: box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
   backdrop-filter: blur(12px);
+  animation: slideInUp 0.4s ease both;
 }
 
 .feed-card:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow-soft);
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(90, 200, 250, 0.4);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
 }
 
@@ -96,10 +107,27 @@
   gap: 0.6rem;
   align-items: center;
   box-shadow: var(--shadow-light);
+  animation: fadeIn 0.5s ease 0.2s both;
 }
 
 .feed-empty-card .primary-btn {
   margin-top: 0.5rem;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (max-width: 640px) {

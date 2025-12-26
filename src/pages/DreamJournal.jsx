@@ -26,8 +26,10 @@ const INSIGHT_PREVIEW_LIMIT = 180;
 // AI endpoint (defaults to the Vercel function path)
 const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT || '/api/ai';
 
-// Call AI endpoint with timeout
-const fetchAIAnalysis = async (dreamText, userId, timeoutMs = 15000) => {
+// Call AI endpoint with timeout and Firebase ID token
+const fetchAIAnalysis = async (dreamText, user, timeoutMs = 15000) => {
+  if (!user) throw new Error('User not authenticated');
+  const idToken = await user.getIdToken();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -35,7 +37,7 @@ const fetchAIAnalysis = async (dreamText, userId, timeoutMs = 15000) => {
     const res = await fetch(AI_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dreamText, userId }),
+      body: JSON.stringify({ dreamText, idToken }),
       signal: controller.signal,
     });
 
@@ -66,6 +68,7 @@ export default function DreamJournal({ user }) {
   const [newTag, setNewTag] = useState('');
   const [visibility, setVisibility] = useState('private');
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [aiLoading, setAiLoading] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [listenError, setListenError] = useState('');
@@ -94,9 +97,11 @@ export default function DreamJournal({ user }) {
         };
       });
       setDreams(dreamsList);
+      setInitialLoading(false);
       setListenError('');
     }, () => {
       setListenError('Live sync failed. Check your Firestore rules.');
+      setInitialLoading(false);
     });
 
     return unsubscribe;
@@ -149,7 +154,7 @@ export default function DreamJournal({ user }) {
     let aiThemes = '';
 
     try {
-      const aiResult = await fetchAIAnalysis(trimmedContent, user.uid);
+      const aiResult = await fetchAIAnalysis(trimmedContent, user);
       aiTitle = aiResult?.title?.trim() || '';
       aiThemes = (aiResult?.themes || aiResult?.summary || '').trim();
     } catch (err) {
@@ -267,7 +272,7 @@ export default function DreamJournal({ user }) {
 
   return (
     <div className="page-container">
-      <div className="page-header">
+      <div className="page-header journal-header">
         <div>
           <h1>Dream Journal</h1>
           <p className="page-subtitle">Log every dream while it is still fresh.</p>
@@ -281,7 +286,9 @@ export default function DreamJournal({ user }) {
 
       {listenError && <div className="alert-banner">{listenError}</div>}
 
-      {dreams.length ? (
+      {initialLoading ? (
+        <div className="dreams-loading">Loading your dreams…</div>
+      ) : dreams.length ? (
         <div className="dreams-list">
           {dreams.map((dream) => renderDreamCard(dream))}
         </div>

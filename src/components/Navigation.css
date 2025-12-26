@@ -7,8 +7,13 @@
   backdrop-filter: blur(14px) saturate(150%);
   border-bottom: 1px solid var(--border);
   z-index: 100;
-  height: 64px;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  height: 88px;
+  transition: background 0.35s ease, border-color 0.35s ease, height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.navigation-compact {
+  height: 56px;
+  background: rgba(10, 14, 18, 0.9);
 }
 
 .nav-container {
@@ -25,17 +30,18 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: bold;
   color: var(--text);
   letter-spacing: -0.02em;
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, font-size 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .nav-logo-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), height 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.4s ease;
 }
 
 .nav-logo:hover {
@@ -47,15 +53,20 @@
   gap: 2rem;
   position: relative;
   align-items: center;
-  padding-bottom: 10px;
-  margin-top: 5px;
+  padding-bottom: 12px;
+  margin-top: 12px;
 }
 
 .nav-links a {
   color: var(--text-secondary);
   font-weight: 600;
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, gap 0.35s ease;
   padding: 0.35rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  position: relative;
 }
 
 .nav-links a:hover,
@@ -63,20 +74,13 @@
   color: var(--primary);
 }
 
-.nav-indicator {
-  position: absolute;
-  bottom: 0;
-  height: 3px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #5ac8fa 0%, #0a84ff 100%);
-  transition: transform 0.3s ease, width 0.3s ease, opacity 0.2s ease;
-  pointer-events: none;
-  opacity: 0;
-  z-index: 1;
-}
-
 .nav-icon {
-  display: none;
+  font-size: 1.25rem;
+  color: currentColor;
+  opacity: 1;
+  max-height: 1.5em;
+  overflow: hidden;
+  transition: opacity 0.4s ease, max-height 0.4s ease;
 }
 
 .nav-tab-label {
@@ -97,7 +101,7 @@
   border-radius: 12px;
   font-weight: 600;
   border: 1px solid var(--border);
-  transition: transform 0.14s ease, box-shadow 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+  transition: color 0.25s ease, border-color 0.25s ease, background 0.25s ease;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -105,17 +109,47 @@
 }
 
 .sign-out-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
-  color: var(--text);
-  border-color: rgba(255, 255, 255, 0.18);
+  color: var(--primary);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .sign-out-btn svg {
   font-size: 1rem;
 }
 
+.navigation-compact .nav-logo {
+  font-size: 1.35rem;
+}
+
+.navigation-compact .nav-logo-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+}
+
+.navigation-compact .nav-links {
+  margin-top: 0;
+  padding-bottom: 8px;
+}
+
+.navigation-compact .nav-links a {
+  flex-direction: row;
+  gap: 0.4rem;
+}
+
+.navigation-compact .nav-icon {
+  opacity: 0;
+  max-height: 0;
+  pointer-events: none;
+}
+
 @media (max-width: 768px) {
+  /* Keep icons visible on mobile even when compact */
+  .navigation-compact .nav-icon {
+    opacity: 1;
+    max-height: 1.5em;
+    pointer-events: auto;
+  }
   .navigation {
     position: sticky;
     top: 0;
@@ -168,10 +202,6 @@
 
   .nav-actions {
     display: none;
-  }
-
-  .nav-indicator {
-    height: 2px;
   }
 }
 

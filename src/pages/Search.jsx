@@ -203,7 +203,7 @@ export default function Search({ user }) {
 
   return (
     <div className="page-container">
-      <div className="page-header">
+      <div className="page-header search-header">
         <div>
           <h1>Search</h1>
           <p className="page-subtitle">Find people and explore public dreams.</p>

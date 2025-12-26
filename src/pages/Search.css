@@ -1,8 +1,21 @@
+/* Page entry animations */
+.search-header {
+  animation: fadeIn 0.4s ease;
+}
+
+.search-header h1 {
+  animation: slideInUp 0.4s ease 0.05s both;
+}
+
+.search-header .page-subtitle {
+  animation: slideInUp 0.4s ease 0.1s both;
+}
+
 .search-box {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  animation: fadeIn 0.3s ease;
+  animation: fadeIn 0.5s ease 0.15s both;
 }
 
 .filter-toggle {
@@ -55,7 +68,6 @@
 
 .chip-active {
   color: var(--text);
-  transform: translateY(-1px);
 }
 
 .chip-active::before {
@@ -137,11 +149,9 @@
 
 .person-card:hover,
 .person-card:focus-visible {
-  transform: translateY(-2px);
   box-shadow: var(--shadow-light);
-  border-color: rgba(255, 255, 255, 0.2);
-  outline: 2px solid rgba(90, 200, 250, 0.4);
-  outline-offset: 2px;
+  border-color: rgba(90, 200, 250, 0.5);
+  background: rgba(90, 200, 250, 0.06);
 }
 
 .person-avatar {
@@ -184,9 +194,9 @@
 }
 
 .search-dream-card:hover {
-  transform: translateY(-3px) scale(1.005);
   box-shadow: var(--shadow-soft);
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(90, 200, 250, 0.45);
+  background: rgba(90, 200, 250, 0.05);
 }
 
 .search-dream-meta {
@@ -217,6 +227,42 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+}
+
+.search-results {
+  animation: fadeIn 0.5s ease 0.2s both;
+}
+
+.people-grid {
+  animation: fadeIn 0.4s ease;
+}
+
+.person-card {
+  animation: slideInUp 0.4s ease both;
+}
+
+.dream-grid {
+  animation: fadeIn 0.4s ease;
+}
+
+.search-dream-card {
+  animation: slideInUp 0.4s ease both;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (max-width: 640px) {

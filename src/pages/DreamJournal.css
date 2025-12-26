@@ -8,7 +8,7 @@
   font-size: 1.1rem;
   font-weight: 600;
   margin-bottom: 0.75rem;
-  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease;
 }
 
 .dream-title-input:focus {
@@ -41,7 +41,7 @@
   color: var(--text);
   font-size: 1rem;
   width: fit-content;
-  transition: border-color 0.14s ease;
+  transition: border-color 0.22s ease;
 }
 
 .dream-date-input:focus {
@@ -64,16 +64,16 @@
   gap: 0.65rem;
   min-height: 320px;
   border-radius: 16px;
-  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+  transition: box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
   backdrop-filter: blur(12px);
   cursor: pointer;
   position: relative;
 }
 
 .dream-card:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow-soft);
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(90, 200, 250, 0.4);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
 }
 
 .dream-card:focus-visible {
@@ -111,7 +111,7 @@
 }
 
 .dream-card:hover .dream-chevron {
-  transform: translateX(2px);
+  color: var(--primary);
 }
 
 
@@ -184,12 +184,12 @@
   background: var(--surface-muted);
   color: var(--text);
   font-weight: 600;
-  transition: all 0.14s ease;
+  transition: border-color 0.22s ease, color 0.22s ease;
 }
 
 .add-tag-btn:hover {
-  transform: translateY(-1px);
   border-color: var(--primary);
+  color: var(--primary);
 }
 
 .tags-list {
@@ -218,7 +218,7 @@
   line-height: 1.6;
   resize: vertical;
   min-height: 180px;
-  transition: all 0.14s ease;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease;
 }
 
 .dream-textarea:focus {
@@ -267,12 +267,12 @@
   place-items: center;
   font-size: 1.1rem;
   color: var(--text-secondary);
-  transition: all 0.14s ease;
+  transition: border-color 0.22s ease, color 0.22s ease, background 0.22s ease;
 }
 
 .close-btn:hover {
-  border-color: var(--text-secondary);
-  transform: rotate(6deg);
+  border-color: var(--primary);
+  color: var(--primary);
   background: rgba(255, 255, 255, 0.04);
 }
 
@@ -342,6 +342,55 @@
   background: rgba(208, 104, 104, 0.08);
   color: #f9d6d6;
   font-weight: 600;
+}
+
+.dreams-loading {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 3rem 1rem;
+  font-size: 1rem;
+  animation: fadeIn 0.4s ease;
+}
+
+/* Page entry animations */
+.journal-header {
+  animation: fadeIn 0.4s ease;
+}
+
+.journal-header h1 {
+  animation: slideInUp 0.4s ease 0.05s both;
+}
+
+.journal-header .page-subtitle {
+  animation: slideInUp 0.4s ease 0.1s both;
+}
+
+.journal-header .action-group {
+  animation: fadeIn 0.5s ease 0.15s both;
+}
+
+.dreams-list {
+  animation: fadeIn 0.5s ease 0.2s both;
+}
+
+.dream-card {
+  animation: slideInUp 0.4s ease both;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (max-width: 640px) {

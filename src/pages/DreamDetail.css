@@ -1,5 +1,6 @@
 .dream-detail-page {
   padding-top: 72px;
+  animation: fadeIn 0.4s ease;
 }
 
 .dream-detail-page .detail-card {
@@ -17,6 +18,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  animation: slideInUp 0.45s ease 0.1s both;
 }
 
 .detail-toolbar {
@@ -24,6 +26,7 @@
   align-items: center;
   justify-content: flex-start;
   margin-bottom: 0.25rem;
+  animation: fadeIn 0.4s ease;
 }
 
 .detail-back-btn {
@@ -44,7 +47,7 @@
 .detail-back-btn:hover {
   border-color: var(--primary);
   background: rgba(90, 200, 250, 0.12);
-  transform: translateY(-1px);
+  color: var(--primary);
 }
 
 .detail-back-icon {
@@ -299,13 +302,41 @@
 }
 
 .danger-btn:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.25);
-  transform: translateY(-1px);
+  background: rgba(239, 68, 68, 0.28);
+  border-color: rgba(239, 68, 68, 0.6);
 }
 
 .danger-btn:disabled {
   opacity: 0.6;
-  cursor: not-allowed;
+  cursor: wait;
+}
+
+@keyframes subtlePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.detail-status-message {
+  margin: 0.5rem 0;
+  color: var(--primary);
+  font-size: 0.92rem;
+  font-weight: 500;
 }
 
 @media (max-width: 640px) {

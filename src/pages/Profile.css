@@ -1,3 +1,11 @@
+.profile-loading {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 4rem 1rem;
+  font-size: 1rem;
+  animation: fadeIn 0.4s ease;
+}
+
 .profile-header {
   text-align: center;
   margin-bottom: 2.5rem;
@@ -35,8 +43,8 @@
 }
 
 .avatar-circle:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow-soft);
+  border-color: var(--primary);
 }
 
 .profile-info {
@@ -71,19 +79,46 @@
 }
 
 .edit-profile-btn {
-  background: var(--primary);
+  background: #45acdc;
   color: #f7fbfc;
   padding: 0.72rem 1.8rem;
   border-radius: 10px;
   font-weight: 700;
-  transition: transform 0.14s ease, box-shadow 0.14s ease;
+  transition: filter 0.22s ease, box-shadow 0.22s ease;
   box-shadow: var(--shadow-light);
   border: 1px solid var(--primary-strong);
 }
 
 .edit-profile-btn:hover {
-  transform: translateY(-1px);
+  filter: brightness(1.1);
   box-shadow: var(--shadow-soft);
+}
+
+.sign-out-profile-btn {
+  display: inline-flex;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border: 1px solid var(--border);
+  transition: color 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.sign-out-profile-btn:hover {
+  color: var(--primary);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.profile-btn-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .profile-edit-form {
@@ -103,7 +138,7 @@
   background: var(--surface);
   color: var(--text);
   font-size: 1rem;
-  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease;
 }
 
 .profile-textarea {
@@ -114,7 +149,6 @@
 .profile-textarea:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(47, 111, 128, 0.12);
-  transform: translateY(-1px);
 }
 
 .profile-actions {
@@ -138,8 +172,8 @@
 }
 
 .profile-stats:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow-soft);
+  border-color: rgba(90, 200, 250, 0.35);
 }
 
 .follow-actions {
@@ -183,7 +217,7 @@
 }
 
 .stat-item:hover {
-  transform: translateY(-2px);
+  color: var(--primary);
 }
 
 .connection-panel {
@@ -236,9 +270,9 @@
 }
 
 .connection-card:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow-soft);
-  border-color: rgba(90, 200, 250, 0.4);
+  border-color: rgba(90, 200, 250, 0.5);
+  background: rgba(90, 200, 250, 0.06);
 }
 
 .connection-card:focus-visible {
@@ -357,11 +391,11 @@
   cursor: pointer;
   appearance: none;
   background-clip: padding-box;
-  transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease;
 }
 
 .color-swatch:hover {
-  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .color-swatch.selected {
@@ -436,7 +470,6 @@
 }
 
 .profile-dream-card:hover {
-  transform: translateY(-3px);
   box-shadow: var(--shadow-soft);
   border-color: rgba(90, 200, 250, 0.5);
   background: linear-gradient(180deg, rgba(90, 200, 250, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);

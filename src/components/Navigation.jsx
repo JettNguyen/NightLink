@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { faRightFromBracket, faBook, faCompass, faSearch, faUser } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { signOut } from 'firebase/auth';
@@ -8,9 +8,7 @@ import './Navigation.css';
 
 export default function Navigation() {
   const location = useLocation();
-  const navLinksRef = useRef(null);
-  const linkRefs = useRef({});
-  const [indicatorStyle, setIndicatorStyle] = useState({ width: 0, left: 0, opacity: 0 });
+  const [isCompact, setIsCompact] = useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -30,48 +28,29 @@ export default function Navigation() {
 
   const linkClass = (path) => (normalizedPath === path ? 'active' : '');
 
-  const updateIndicator = useCallback(() => {
-    const container = navLinksRef.current;
-    const activeEl = linkRefs.current[normalizedPath];
-
-    if (!container || !activeEl) {
-      setIndicatorStyle((prev) => (prev.opacity ? { ...prev, opacity: 0 } : prev));
-      return;
-    }
-
-    const left = activeEl.offsetLeft - container.scrollLeft;
-    const width = activeEl.offsetWidth;
-    setIndicatorStyle({ width, left, opacity: 1 });
-  }, [normalizedPath]);
-
   useEffect(() => {
-    updateIndicator();
-    window.addEventListener('resize', updateIndicator);
-    const container = navLinksRef.current;
-    container?.addEventListener('scroll', updateIndicator, { passive: true });
-
-    return () => {
-      window.removeEventListener('resize', updateIndicator);
-      container?.removeEventListener('scroll', updateIndicator);
+    const handleScroll = () => {
+      setIsCompact(window.scrollY > 40);
     };
-  }, [updateIndicator]);
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
-    <nav className="navigation">
+    <nav className={`navigation${isCompact ? ' navigation-compact' : ''}`}>
       <div className="nav-container">
         <Link to="/journal" className="nav-logo">
           <img src="/favicon.svg" alt="" className="nav-logo-icon" />
           <span>NightLink</span>
         </Link>
 
-        <div className="nav-links" ref={navLinksRef}>
+        <div className="nav-links">
           <Link
             to="/journal"
             aria-label="Journal"
             className={linkClass('/journal')}
-            ref={(el) => {
-              linkRefs.current['/journal'] = el;
-            }}
           >
             <FontAwesomeIcon icon={faBook} className="nav-icon" />
             <span className="nav-tab-label">Journal</span>
@@ -80,9 +59,6 @@ export default function Navigation() {
             to="/feed"
             aria-label="Feed"
             className={linkClass('/feed')}
-            ref={(el) => {
-              linkRefs.current['/feed'] = el;
-            }}
           >
             <FontAwesomeIcon icon={faCompass} className="nav-icon" />
             <span className="nav-tab-label">Feed</span>
@@ -91,9 +67,6 @@ export default function Navigation() {
             to="/search"
             aria-label="Search"
             className={linkClass('/search')}
-            ref={(el) => {
-              linkRefs.current['/search'] = el;
-            }}
           >
             <FontAwesomeIcon icon={faSearch} className="nav-icon" />
             <span className="nav-tab-label">Search</span>
@@ -102,21 +75,10 @@ export default function Navigation() {
             to="/profile"
             aria-label="Profile"
             className={linkClass('/profile')}
-            ref={(el) => {
-              linkRefs.current['/profile'] = el;
-            }}
           >
             <FontAwesomeIcon icon={faUser} className="nav-icon" />
             <span className="nav-tab-label">Profile</span>
           </Link>
-          <span
-            className="nav-indicator"
-            style={{
-              width: `${indicatorStyle.width}px`,
-              transform: `translateX(${indicatorStyle.left}px)`,
-              opacity: indicatorStyle.opacity
-            }}
-          />
         </div>
 
         <div className="nav-actions">

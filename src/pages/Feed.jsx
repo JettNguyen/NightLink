@@ -8,6 +8,7 @@ import './Feed.css';
 export default function Feed({ user }) {
   const [rawDreams, setRawDreams] = useState([]);
   const [followingIds, setFollowingIds] = useState([]);
+  const [followingIdsLoaded, setFollowingIdsLoaded] = useState(false);
   const [followingProfiles, setFollowingProfiles] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -28,6 +29,7 @@ export default function Feed({ user }) {
     const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
       const data = snapshot.data();
       setFollowingIds(data?.followingIds || []);
+      setFollowingIdsLoaded(true);
     });
 
     return unsubscribe;
@@ -156,7 +158,11 @@ export default function Feed({ user }) {
 
       {error && <div className="alert-banner">{error}</div>}
 
-      {followingIds.length === 0 ? (
+      {!followingIdsLoaded ? (
+        <div className="feed-empty-card">
+          <p>Loading your following feed…</p>
+        </div>
+      ) : followingIds.length === 0 ? (
         <div className="feed-empty-card">
           <p>You are not following anyone yet.</p>
           <p className="empty-subtitle">Follow people from Search to see their dreams here.</p>

@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { arrayRemove, arrayUnion, collection, doc, getDoc, limit, onSnapshot, orderBy, query, runTransaction, updateDoc, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { signOut } from 'firebase/auth';
+import { auth, db } from '../firebase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
@@ -13,6 +15,7 @@ export default function Profile({ user }) {
   const viewingOwnProfile = !routeUserId || routeUserId === user?.uid;
 
   const [userData, setUserData] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [profileNotFound, setProfileNotFound] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState('');
@@ -37,6 +40,7 @@ export default function Profile({ user }) {
       if (!userDoc.exists()) {
         setProfileNotFound(true);
         setUserData(null);
+        setProfileLoading(false);
         return;
       }
 
@@ -49,9 +53,11 @@ export default function Profile({ user }) {
       setAvatarIcon(data.avatarIcon || AVATAR_ICONS[0].id);
       setAvatarBackground(data.avatarBackground || AVATAR_BACKGROUNDS[0]);
       setAvatarColor(data.avatarColor || AVATAR_COLORS[0]);
+      setProfileLoading(false);
     } catch {
       setProfileNotFound(true);
       setUserData(null);
+      setProfileLoading(false);
     }
   };
 
@@ -83,6 +89,7 @@ export default function Profile({ user }) {
   useEffect(() => {
     if (!targetUserId) return;
     setProfileNotFound(false);
+    setProfileLoading(true);
     setUserData(null);
     setDreams([]);
     setDreamsLoading(true);
@@ -350,6 +357,14 @@ export default function Profile({ user }) {
     ? 'A gentle gallery of your latest entries.'
     : 'Only entries they have shared with you appear here.';
 
+  if (profileLoading) {
+    return (
+      <div className="page-container">
+        <div className="profile-loading">Loading profile…</div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-container">
       <div className="profile-header">
@@ -461,9 +476,25 @@ export default function Profile({ user }) {
               <p className="profile-email">{userData.email}</p>
             )}
             {viewingOwnProfile && (
-              <button onClick={() => setIsEditing(true)} className="edit-profile-btn">
-                Edit Profile
-              </button>
+              <div className="profile-btn-row">
+                <button onClick={() => setIsEditing(true)} className="edit-profile-btn">
+                  Edit Profile
+                </button>
+                <button
+                  type="button"
+                  className="sign-out-profile-btn"
+                  onClick={async () => {
+                    try {
+                      await signOut(auth);
+                    } catch {
+                      alert('Sign out failed. Please try again.');
+                    }
+                  }}
+                >
+                  <FontAwesomeIcon icon={faRightFromBracket} />
+                  <span>Sign Out</span>
+                </button>
+              </div>
             )}
             {!viewingOwnProfile && (
               <div className="follow-actions">
