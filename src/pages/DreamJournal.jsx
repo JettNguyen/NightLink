@@ -275,7 +275,7 @@ export default function DreamJournal({ user }) {
       <div className="page-header journal-header">
         <div>
           <h1>Dream Journal</h1>
-          <p className="page-subtitle">Log every dream while it is still fresh.</p>
+          <p className="page-subtitle">Your own personal dream archive.</p>
         </div>
         <div className="action-group">
           <button type="button" onClick={() => setShowNewDream(true)} className="primary-btn">

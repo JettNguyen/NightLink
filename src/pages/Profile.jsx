@@ -354,7 +354,7 @@ export default function Profile({ user }) {
 
   const dreamSectionTitle = viewingOwnProfile ? 'Your dreams' : 'Recent dreams';
   const dreamSectionSubtitle = viewingOwnProfile
-    ? 'A gentle gallery of your latest entries.'
+    ? 'A gallery of your latest journal entries.'
     : 'Only entries they have shared with you appear here.';
 
   if (profileLoading) {
