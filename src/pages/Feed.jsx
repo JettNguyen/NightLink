@@ -123,6 +123,12 @@ export default function Feed({ user }) {
 
     const filtered = rawDreams.filter((dream) => {
       if (!dream) return false;
+      if (viewerId && Array.isArray(dream.excludedViewerIds) && dream.excludedViewerIds.includes(viewerId)) {
+        return false;
+      }
+      if (viewerId && Array.isArray(dream.taggedUserIds) && dream.taggedUserIds.includes(viewerId)) {
+        return true;
+      }
       if (dream.visibility === 'public' || dream.visibility === 'anonymous') {
         return true;
       }

@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { arrayRemove, arrayUnion, collection, doc, getDoc, limit, onSnapshot, orderBy, query, runTransaction, updateDoc, where } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
 import './Profile.css';
 
@@ -24,6 +24,9 @@ export default function Profile({ user }) {
   const [loading, setLoading] = useState(false);
   const [dreams, setDreams] = useState([]);
   const [dreamsLoading, setDreamsLoading] = useState(true);
+  const [taggedDreams, setTaggedDreams] = useState([]);
+  const [taggedDreamsLoading, setTaggedDreamsLoading] = useState(true);
+  const [dreamTab, setDreamTab] = useState('authored');
   const [avatarIcon, setAvatarIcon] = useState(AVATAR_ICONS[0].id);
   const [avatarBackground, setAvatarBackground] = useState(AVATAR_BACKGROUNDS[0]);
   const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0]);
@@ -33,6 +36,7 @@ export default function Profile({ user }) {
   const [connectionProfiles, setConnectionProfiles] = useState([]);
   const [connectionLoading, setConnectionLoading] = useState(false);
   const navigate = useNavigate();
+  const viewerId = user?.uid || null;
 
   const loadUserData = async (uid) => {
     try {
@@ -61,7 +65,7 @@ export default function Profile({ user }) {
     }
   };
 
-  const fetchUsersByIds = async (ids = []) => {
+  const fetchUsersByIds = useCallback(async (ids = []) => {
     if (!ids.length) return [];
     const results = await Promise.all(
       ids.map(async (id) => {
@@ -74,7 +78,7 @@ export default function Profile({ user }) {
       })
     );
     return results.filter(Boolean);
-  };
+  }, []);
 
   useEffect(() => {
     if (!user?.uid) return undefined;
@@ -94,6 +98,7 @@ export default function Profile({ user }) {
     setDreams([]);
     setDreamsLoading(true);
     setIsEditing(false);
+    setDreamTab('authored');
     loadUserData(targetUserId);
   }, [targetUserId]);
 
@@ -125,6 +130,77 @@ export default function Profile({ user }) {
 
     return unsubscribe;
   }, [targetUserId]);
+
+  useEffect(() => {
+    if (!targetUserId) {
+      setTaggedDreams([]);
+      setTaggedDreamsLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setTaggedDreamsLoading(true);
+
+    const taggedQuery = query(
+      collection(db, 'dreams'),
+      where('taggedUserIds', 'array-contains', targetUserId),
+      orderBy('createdAt', 'desc'),
+      limit(12)
+    );
+
+    const unsubscribe = onSnapshot(taggedQuery, async (snapshot) => {
+      const baseList = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.() ?? data.createdAt ?? null
+        };
+      });
+
+      try {
+        const authorIds = Array.from(new Set(
+          baseList.map((entry) => entry.userId).filter((id) => id && id !== targetUserId)
+        ));
+
+        let authorMap = {};
+        if (authorIds.length) {
+          const profiles = await fetchUsersByIds(authorIds);
+          authorMap = profiles.reduce((acc, profile) => {
+            acc[profile.id] = profile;
+            return acc;
+          }, {});
+        }
+
+        if (!cancelled) {
+          const enriched = baseList.map((entry) => (
+            authorMap[entry.userId]
+              ? { ...entry, authorProfile: authorMap[entry.userId] }
+              : entry
+          ));
+          setTaggedDreams(enriched);
+        }
+      } catch {
+        if (!cancelled) {
+          setTaggedDreams(baseList);
+        }
+      } finally {
+        if (!cancelled) {
+          setTaggedDreamsLoading(false);
+        }
+      }
+    }, () => {
+      if (!cancelled) {
+        setTaggedDreams([]);
+        setTaggedDreamsLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [targetUserId, fetchUsersByIds]);
 
   useEffect(() => {
     if (!connectionListType) {
@@ -164,7 +240,7 @@ export default function Profile({ user }) {
     return () => {
       cancelled = true;
     };
-  }, [connectionListType, userData?.followerIds, userData?.followingIds]);
+  }, [connectionListType, userData?.followerIds, userData?.followingIds, fetchUsersByIds]);
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -191,7 +267,6 @@ export default function Profile({ user }) {
     setLoading(false);
   };
 
-  const viewerId = user?.uid || null;
   const viewerFollowingIds = viewerData?.followingIds || [];
   const targetFollowerIds = userData?.followerIds || [];
   const targetFollowingIds = userData?.followingIds || [];
@@ -216,9 +291,35 @@ export default function Profile({ user }) {
     if (viewingOwnProfile || !viewerId) return false;
     return targetFollowingIds.includes(viewerId);
   }, [viewerId, viewingOwnProfile, targetFollowingIds]);
+  const viewerCanSeeTaggedDream = useCallback((dream) => {
+    if (!dream) return false;
+    if (viewerId && Array.isArray(dream.excludedViewerIds) && dream.excludedViewerIds.includes(viewerId)) {
+      return false;
+    }
+    if (viewerId && dream.userId === viewerId) return true;
+    if (viewerId && Array.isArray(dream.taggedUserIds) && dream.taggedUserIds.includes(viewerId)) {
+      return true;
+    }
+    if (viewerId === targetUserId) return true;
+    const visibility = dream.visibility || 'private';
+    if (visibility === 'public' || visibility === 'anonymous') return true;
+    if ((visibility === 'following' || visibility === 'followers') && viewerId) {
+      const authorFollowing = dream.authorProfile?.followingIds || [];
+      if (authorFollowing.includes(viewerId)) {
+        return true;
+      }
+    }
+    return false;
+  }, [viewerId, targetUserId]);
   const displayedDreams = useMemo(() => {
     if (viewingOwnProfile) return dreams;
     return dreams.filter((dream) => {
+      if (!dream) return false;
+      const excluded = viewerId && Array.isArray(dream.excludedViewerIds) && dream.excludedViewerIds.includes(viewerId);
+      if (excluded) return false;
+      if (viewerId && Array.isArray(dream.taggedUserIds) && dream.taggedUserIds.includes(viewerId)) {
+        return true;
+      }
       const visibility = dream.visibility || 'private';
       if (visibility === 'public') return true;
       if ((visibility === 'following' || visibility === 'followers') && viewerFollowedByTarget) {
@@ -226,7 +327,26 @@ export default function Profile({ user }) {
       }
       return false;
     });
-  }, [dreams, viewingOwnProfile, viewerFollowedByTarget]);
+  }, [dreams, viewingOwnProfile, viewerFollowedByTarget, viewerId]);
+  const taggedDreamsForProfile = useMemo(() => {
+    if (!targetUserId) return [];
+    return taggedDreams
+      .filter((dream) => {
+        if (!dream) return false;
+        if (!Array.isArray(dream.taggedUserIds) || !dream.taggedUserIds.includes(targetUserId)) {
+          return false;
+        }
+        if (viewerId === targetUserId) {
+          return true;
+        }
+        return viewerCanSeeTaggedDream(dream);
+      })
+      .sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
+      });
+  }, [taggedDreams, targetUserId, viewerId, viewerCanSeeTaggedDream]);
 
   const performFollowAction = async (type, operation, errorMessage) => {
     setFollowAction({ type });
@@ -282,6 +402,17 @@ export default function Profile({ user }) {
     }, 'Unable to unfollow right now.');
   };
 
+  const handleDreamNavigation = useCallback((dreamId) => {
+    if (!dreamId) return;
+    navigate(`/journal/${dreamId}`);
+  }, [navigate]);
+
+  const handleProfileNavigation = useCallback((profileId) => {
+    if (!profileId) return;
+    navigate(`/profile/${profileId}`);
+    setConnectionListType(null);
+  }, [navigate]);
+
   if (!targetUserId) {
     return <div className="page-container">Profile unavailable.</div>;
   }
@@ -294,17 +425,6 @@ export default function Profile({ user }) {
     return <div className="page-container">Loading…</div>;
   }
 
-  const handleDreamNavigation = (dreamId) => {
-    if (!dreamId) return;
-    navigate(`/journal/${dreamId}`);
-  };
-
-  const handleProfileNavigation = (profileId) => {
-    if (!profileId) return;
-    navigate(`/profile/${profileId}`);
-    setConnectionListType(null);
-  };
-
   const renderDreamPreview = (dream) => {
     const title = dream.title || (dream.aiGenerated ? dream.aiTitle?.trim() : '');
     const snippet = dream.content?.length > 180 ? `${dream.content.slice(0, 180)}…` : dream.content;
@@ -313,6 +433,9 @@ export default function Profile({ user }) {
     if (dream.visibility === 'anonymous') visibilityLabel = 'Shared anonymously';
     else if (dream.visibility === 'public') visibilityLabel = 'Public dream';
     else if (dream.visibility === 'following' || dream.visibility === 'followers') visibilityLabel = 'People you follow';
+    const taggedList = Array.isArray(dream.taggedUsers) ? dream.taggedUsers : [];
+    const visibleTagged = taggedList.slice(0, 3);
+    const remainingTagged = Math.max(taggedList.length - visibleTagged.length, 0);
 
     return (
       <div
@@ -341,6 +464,24 @@ export default function Profile({ user }) {
           <p className="profile-dream-summary">{dream.aiInsights}</p>
         )}
         <p className="profile-dream-snippet">{snippet}</p>
+        {taggedList.length ? (
+          <div className="profile-tagged-peek">
+            <span className="tagged-label">Tagged</span>
+            <div className="tagged-pill-row">
+              {visibleTagged.map((entry, index) => {
+                const label = entry.username ? `@${entry.username}` : (entry.displayName || 'Dreamer');
+                return (
+                  <span className="tagged-pill" key={`${dream.id}-tagged-${entry.userId || index}`}>
+                    {label}
+                  </span>
+                );
+              })}
+              {remainingTagged > 0 && (
+                <span className="tagged-pill extra">+{remainingTagged} more</span>
+              )}
+            </div>
+          </div>
+        ) : null}
         {dream.tags?.length ? (
           <div className="profile-dream-tags">
             {dream.tags.map((tag, index) => (
@@ -352,10 +493,89 @@ export default function Profile({ user }) {
     );
   };
 
-  const dreamSectionTitle = viewingOwnProfile ? 'Your dreams' : 'Recent dreams';
-  const dreamSectionSubtitle = viewingOwnProfile
-    ? 'A gallery of your latest journal entries.'
-    : 'Only entries they have shared with you appear here.';
+  const renderTaggedDream = (dream) => {
+    const authorProfile = dream.authorProfile || null;
+    const isAnonymous = dream.visibility === 'anonymous';
+    const authorName = isAnonymous
+      ? 'Anonymous dreamer'
+      : authorProfile?.displayName || dream.authorDisplayName || dream.userDisplayName || 'Dreamer';
+    const authorHandle = !isAnonymous ? (authorProfile?.username || dream.authorUsername || '') : '';
+    const dateLabel = dream.createdAt ? format(dream.createdAt, 'MMM d, yyyy') : 'Shared recently';
+    const snippet = dream.content?.length > 200 ? `${dream.content.slice(0, 200)}…` : (dream.content || 'No description yet.');
+    const summary = dream.aiGenerated && dream.aiInsights ? dream.aiInsights : '';
+
+    return (
+      <div
+        key={dream.id}
+        className="tagged-dream-card"
+        role="button"
+        tabIndex={0}
+        onClick={() => handleDreamNavigation(dream.id)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleDreamNavigation(dream.id);
+          }
+        }}
+      >
+        <div className="tagged-dream-head">
+          <div>
+            <p className="tagged-author">{authorName}</p>
+            <p className="tagged-meta">
+              {authorHandle ? `@${authorHandle} • ` : ''}
+              {dateLabel}
+            </p>
+          </div>
+          {!isAnonymous && dream.userId && (
+            <button
+              type="button"
+              className="tagged-view-profile"
+              onClick={(event) => {
+                event.stopPropagation();
+                handleProfileNavigation(dream.userId);
+              }}
+            >
+              View profile
+            </button>
+          )}
+        </div>
+        {summary ? <p className="tagged-summary">{summary}</p> : null}
+        <p className="tagged-snippet">{snippet}</p>
+        <div className="tagged-pill-row">
+          <span className="tagged-pill shared-pill">Shared with you</span>
+          {isAnonymous && <span className="tagged-pill muted-pill">Anonymous</span>}
+        </div>
+      </div>
+    );
+  };
+
+  const isTaggedTab = dreamTab === 'tagged';
+  const dreamSectionTitle = isTaggedTab
+    ? (viewingOwnProfile ? 'Tagged dreams' : 'Tagged for this dreamer')
+    : (viewingOwnProfile ? 'Your dreams' : 'Recent dreams');
+  const dreamSectionSubtitle = isTaggedTab
+    ? (viewingOwnProfile
+      ? 'Anytime someone mentions you, it lands in this list.'
+      : 'Entries that mention this dreamer and are visible to you.')
+    : (viewingOwnProfile
+      ? 'A gallery of your latest journal entries.'
+      : 'Only entries they have shared with you appear here.');
+  const activeDreams = isTaggedTab ? taggedDreamsForProfile : displayedDreams;
+  const activeDreamsLoading = isTaggedTab ? taggedDreamsLoading : dreamsLoading;
+  const emptyPrimary = isTaggedTab
+    ? (viewingOwnProfile ? 'Nobody has tagged you yet' : 'No tagged dreams to show')
+    : (viewingOwnProfile ? 'No dreams yet' : 'No dreams shared with you yet');
+  const emptySecondary = isTaggedTab
+    ? (viewingOwnProfile
+      ? 'When another dreamer mentions you, their entry appears here automatically.'
+      : 'As soon as a visible tagged entry exists, it will show up in this tab.')
+    : (viewingOwnProfile
+      ? 'Start a new entry to see it here.'
+      : viewerFollowedByTarget
+        ? 'They have not shared any public or limited dreams recently.'
+        : 'This dreamer only shares entries with people they follow.');
+  const authoredTabLabel = viewingOwnProfile ? 'Your dreams' : 'Their dreams';
+  const taggedTabLabel = viewingOwnProfile ? 'Tagged' : 'Tagged dreams';
 
   if (profileLoading) {
     return (
@@ -593,24 +813,38 @@ export default function Profile({ user }) {
             <h2>{dreamSectionTitle}</h2>
             <p className="profile-dreams-subtitle">{dreamSectionSubtitle}</p>
           </div>
+          <div className="dream-tab-group">
+            <button
+              type="button"
+              className={isTaggedTab ? 'dream-tab' : 'dream-tab active'}
+              onClick={() => setDreamTab('authored')}
+              aria-pressed={dreamTab === 'authored'}
+            >
+              {authoredTabLabel}
+            </button>
+            <button
+              type="button"
+              className={isTaggedTab ? 'dream-tab active' : 'dream-tab'}
+              onClick={() => setDreamTab('tagged')}
+              aria-pressed={dreamTab === 'tagged'}
+            >
+              {taggedTabLabel}
+            </button>
+          </div>
         </div>
 
-        {dreamsLoading ? (
+        {activeDreamsLoading ? (
           <div className="profile-dreams-loading">Loading dreams…</div>
-        ) : displayedDreams.length === 0 ? (
+        ) : activeDreams.length === 0 ? (
           <div className="profile-dreams-empty">
-            <p>{viewingOwnProfile ? 'No dreams yet' : 'No dreams shared with you yet'}</p>
-            <p className="empty-subtitle">
-              {viewingOwnProfile
-                ? 'Start a new entry to see it here.'
-                : viewerFollowedByTarget
-                  ? 'They have not shared any public or limited dreams recently.'
-                  : 'This dreamer only shares entries with people they follow.'}
-            </p>
+            <p>{emptyPrimary}</p>
+            <p className="empty-subtitle">{emptySecondary}</p>
           </div>
         ) : (
           <div className="profile-dream-grid">
-            {displayedDreams.map(renderDreamPreview)}
+            {isTaggedTab
+              ? activeDreams.map((dream) => renderTaggedDream(dream))
+              : activeDreams.map(renderDreamPreview)}
           </div>
         )}
       </div>

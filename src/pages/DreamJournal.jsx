@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useState, useEffect, useMemo } from 'react';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, getDocs, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
@@ -64,19 +64,25 @@ export default function DreamJournal({ user }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [dreamDate, setDreamDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
-  const [tags, setTags] = useState([]);
-  const [newTag, setNewTag] = useState('');
   const [visibility, setVisibility] = useState('private');
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [aiLoading, setAiLoading] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [listenError, setListenError] = useState('');
+  const [connectionOptions, setConnectionOptions] = useState([]);
+  const [audienceLoading, setAudienceLoading] = useState(false);
+  const [excludedViewerIds, setExcludedViewerIds] = useState([]);
+  const [taggedUsers, setTaggedUsers] = useState([]);
+  const [tagHandle, setTagHandle] = useState('');
+  const [taggingStatus, setTaggingStatus] = useState('');
+  const [taggingBusy, setTaggingBusy] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!user?.uid) {
       setDreams([]);
+      setConnectionOptions([]);
       return undefined;
     }
 
@@ -107,30 +113,180 @@ export default function DreamJournal({ user }) {
     return unsubscribe;
   }, [user?.uid]);
 
+  useEffect(() => {
+    if (!user?.uid) {
+      setConnectionOptions([]);
+      setAudienceLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const loadFollowing = async () => {
+      setAudienceLoading(true);
+      try {
+        const userSnap = await getDoc(doc(db, 'users', user.uid));
+        const data = userSnap.data() || {};
+        const followingIds = Array.isArray(data.followingIds) ? data.followingIds : [];
+        const followerIds = Array.isArray(data.followerIds) ? data.followerIds : [];
+        const connectionIds = Array.from(new Set([...followingIds, ...followerIds])).filter((id) => id && id !== user.uid);
+        if (!connectionIds.length) {
+          if (!cancelled) {
+            setConnectionOptions([]);
+          }
+          return;
+        }
+
+        const profiles = await Promise.all(
+          connectionIds.map(async (id) => {
+            try {
+              const snap = await getDoc(doc(db, 'users', id));
+              if (!snap.exists()) return null;
+              const data = snap.data();
+              return {
+                id,
+                displayName: data.displayName || 'Dreamer',
+                username: data.username || '',
+              };
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        if (!cancelled) {
+          setConnectionOptions(profiles.filter(Boolean));
+        }
+      } catch {
+        if (!cancelled) {
+          setConnectionOptions([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setAudienceLoading(false);
+        }
+      }
+    };
+
+    loadFollowing();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid]);
+
   const truncate = (text, limit) => {
     if (!text) return '';
     return text.length > limit ? `${text.slice(0, limit)}…` : text;
   };
 
-  const handleAddTag = () => {
-    const trimmed = newTag.trim();
-    if (!trimmed || tags.some((tag) => tag.value === trimmed)) return;
-    setTags([...tags, { category: 'theme', value: trimmed }]);
-    setNewTag('');
+  const normalizeHandle = (value = '') => value.replace(/^@/, '').trim().toLowerCase();
+
+  const tagSuggestions = useMemo(() => {
+    const normalized = normalizeHandle(tagHandle);
+    if (!normalized) return [];
+
+    return connectionOptions
+      .filter((profile) => {
+        if (!profile?.id) return false;
+        if (profile.id === user?.uid) return false;
+        if (taggedUsers.some((entry) => entry.userId === profile.id)) {
+          return false;
+        }
+        const username = (profile.username || '').toLowerCase();
+        const displayName = (profile.displayName || '').toLowerCase();
+        return username.includes(normalized) || displayName.includes(normalized);
+      })
+      .slice(0, 5);
+  }, [connectionOptions, tagHandle, taggedUsers, user?.uid]);
+
+  const toggleExcludedViewer = (viewerId) => {
+    if (!viewerId) return;
+    setExcludedViewerIds((prev) => (
+      prev.includes(viewerId) ? prev.filter((id) => id !== viewerId) : [...prev, viewerId]
+    ));
   };
 
-  const handleRemoveTag = (value) => {
-    setTags(tags.filter((tag) => tag.value !== value));
+  const handleRemoveTaggedPerson = (personId) => {
+    setTaggedUsers((prev) => prev.filter((entry) => entry.userId !== personId));
+  };
+
+  const handleSelectTagSuggestion = (profile) => {
+    if (!profile?.id) return;
+    if (taggedUsers.some((entry) => entry.userId === profile.id)) {
+      setTaggingStatus('Already tagged.');
+      return;
+    }
+
+    setTaggedUsers((prev) => ([
+      ...prev,
+      {
+        userId: profile.id,
+        username: profile.username || '',
+        displayName: profile.displayName || 'Dreamer'
+      }
+    ]));
+    setTagHandle('');
+    setTaggingStatus('Tagged successfully.');
+  };
+
+  const handleAddTaggedPerson = async () => {
+    const raw = tagHandle.trim();
+    if (!raw || !user?.uid) return;
+    const normalizedHandle = normalizeHandle(raw);
+    if (!normalizedHandle) return;
+    if (taggedUsers.some((entry) => entry.username?.toLowerCase() === normalizedHandle)) {
+      setTaggingStatus('Already tagged.');
+      setTagHandle('');
+      return;
+    }
+
+    setTaggingBusy(true);
+    setTaggingStatus('');
+    try {
+      const usersRef = collection(db, 'users');
+      const matches = await getDocs(query(usersRef, where('normalizedUsername', '==', normalizedHandle), limit(1)));
+      if (matches.empty) {
+        setTaggingStatus('No user found for that handle.');
+        return;
+      }
+
+      const match = matches.docs[0];
+      if (match.id === user.uid) {
+        setTaggingStatus('You are already the author.');
+        return;
+      }
+      if (taggedUsers.some((entry) => entry.userId === match.id)) {
+        setTaggingStatus('Already tagged.');
+        return;
+      }
+
+      const data = match.data();
+      setTaggedUsers((prev) => [
+        ...prev,
+        {
+          userId: match.id,
+          username: data.username || normalizedHandle,
+          displayName: data.displayName || 'Dreamer',
+        }
+      ]);
+      setTagHandle('');
+      setTaggingStatus('Tagged successfully.');
+    } catch {
+      setTaggingStatus('Could not tag that user.');
+    } finally {
+      setTaggingBusy(false);
+    }
   };
 
   const resetForm = () => {
     setTitle('');
     setContent('');
     setDreamDate(format(new Date(), 'yyyy-MM-dd'));
-    setTags([]);
-    setNewTag('');
     setVisibility('private');
     setSaveError('');
+    setExcludedViewerIds([]);
+    setTaggedUsers([]);
+    setTagHandle('');
+    setTaggingStatus('');
   };
 
   const closeModal = () => {
@@ -174,17 +330,24 @@ export default function DreamJournal({ user }) {
 
     const resolvedTitle = userTitle || aiTitle;
     const aiGenerated = true;
+    const taggedMeta = taggedUsers.map((entry) => ({
+      userId: entry.userId,
+      username: entry.username || '',
+      displayName: entry.displayName || ''
+    }));
 
     const optimistic = {
       id: `local-${Date.now()}`,
       title: resolvedTitle,
       content: trimmedContent,
-      tags,
       visibility,
       aiGenerated,
       aiTitle,
       aiInsights: aiThemes,
-      createdAt: new Date(dreamDate)
+      createdAt: new Date(dreamDate),
+      excludedViewerIds,
+      taggedUsers: taggedMeta,
+      taggedUserIds: taggedMeta.map((entry) => entry.userId)
     };
 
     setDreams((prev) => [optimistic, ...prev]);
@@ -194,11 +357,13 @@ export default function DreamJournal({ user }) {
         userId: user.uid,
         title: resolvedTitle,
         content: trimmedContent,
-        tags,
         visibility,
         aiGenerated,
         aiTitle,
         aiInsights: aiThemes,
+        excludedViewerIds,
+        taggedUsers: taggedMeta,
+        taggedUserIds: taggedMeta.map((entry) => entry.userId),
         createdAt: new Date(dreamDate),
         updatedAt: serverTimestamp()
       });
@@ -334,42 +499,6 @@ export default function DreamJournal({ user }) {
                 disabled={loading}
               />
 
-              <div className="tags-section">
-                <label htmlFor="dream-tag-input">Tags</label>
-                <div className="tags-input">
-                  <input
-                    id="dream-tag-input"
-                    type="text"
-                    placeholder="Add a tag and press enter"
-                    value={newTag}
-                    onChange={(event) => setNewTag(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        handleAddTag();
-                      }
-                    }}
-                    disabled={loading}
-                  />
-                  <button type="button" className="add-tag-btn" onClick={handleAddTag} disabled={loading}>
-                    + Tag
-                  </button>
-                </div>
-
-                {tags.length ? (
-                  <div className="tags-list">
-                    {tags.map((tag) => (
-                      <span className="tag" key={`form-tag-${tag.value}`}>
-                        {tag.value}
-                        <button type="button" className="remove-tag" onClick={() => handleRemoveTag(tag.value)} aria-label={`Remove tag ${tag.value}`}>
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
               {saveError && <div className="alert-banner">{saveError}</div>}
 
               <div className="visibility-section">
@@ -391,6 +520,97 @@ export default function DreamJournal({ user }) {
                 <p className="visibility-helper">
                   {VISIBILITY_OPTIONS.find((option) => option.value === visibility)?.helper}
                 </p>
+              </div>
+
+              <div className="audience-section">
+                <div className="control-headline">
+                  <p className="section-label">Hide from specific people</p>
+                  <p className="section-helper">Anyone you pick here will never see this entry, regardless of visibility.</p>
+                </div>
+                {audienceLoading ? (
+                  <p className="hint">Loading your connections…</p>
+                ) : connectionOptions.length === 0 ? (
+                  <p className="hint">Connect with people to curate who sees limited posts.</p>
+                ) : (
+                  <div className="audience-chip-grid">
+                    {connectionOptions.map((profile) => (
+                      <button
+                        key={profile.id}
+                        type="button"
+                        className={excludedViewerIds.includes(profile.id) ? 'audience-chip active' : 'audience-chip'}
+                        onClick={() => toggleExcludedViewer(profile.id)}
+                        disabled={loading}
+                      >
+                        <span className="chip-title">{profile.displayName}</span>
+                        {profile.username && <span className="chip-subtext">@{profile.username}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="tag-people-section">
+                <div className="control-headline">
+                  <p className="section-label">Tag people</p>
+                  <p className="section-helper">Let specific friends know this dream involves them.</p>
+                </div>
+                <div className="tag-people-input">
+                  <input
+                    type="text"
+                    placeholder="@username"
+                    value={tagHandle}
+                    onChange={(event) => {
+                      setTagHandle(event.target.value);
+                      setTaggingStatus('');
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        handleAddTaggedPerson();
+                      }
+                    }}
+                    disabled={loading || taggingBusy}
+                  />
+                  <button
+                    type="button"
+                    className="add-tag-btn"
+                    onClick={handleAddTaggedPerson}
+                    disabled={loading || taggingBusy || !tagHandle.trim()}
+                  >
+                    {taggingBusy ? 'Tagging…' : 'Tag'}
+                  </button>
+                </div>
+                {tagSuggestions.length > 0 && (
+                  <div className="tag-suggestion-list">
+                    {tagSuggestions.map((profile) => (
+                      <button
+                        type="button"
+                        key={profile.id}
+                        className="tag-suggestion-item"
+                        onClick={() => handleSelectTagSuggestion(profile)}
+                        disabled={loading}
+                      >
+                        <span className="suggestion-name">{profile.displayName}</span>
+                        {profile.username && <span className="suggestion-username">@{profile.username}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {taggingStatus && <p className="hint status-hint">{taggingStatus}</p>}
+                {taggedUsers.length ? (
+                  <div className="tagged-pill-row">
+                    {taggedUsers.map((entry) => (
+                      <span key={entry.userId} className="tagged-pill">
+                        @{entry.username || entry.displayName}
+                        <button type="button" aria-label={`Remove ${entry.username || entry.displayName}`} onClick={() => handleRemoveTaggedPerson(entry.userId)} disabled={loading}>
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="hint">Tagged dreamers will see this on their profile.</p>
+                )}
               </div>
 
               <div className="modal-actions">

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { doc, onSnapshot, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, deleteDoc, serverTimestamp, collection, query, where, limit, getDocs, getDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { db } from '../firebase';
 import './DreamDetail.css';
@@ -33,6 +33,13 @@ export default function DreamDetail({ user }) {
   const [editableTags, setEditableTags] = useState([]);
   const [newTag, setNewTag] = useState('');
   const [applyingAiTitle, setApplyingAiTitle] = useState(false);
+  const [audienceOptions, setAudienceOptions] = useState([]);
+  const [audienceBusy, setAudienceBusy] = useState(false);
+  const [excludedViewerIds, setExcludedViewerIds] = useState([]);
+  const [taggedPeople, setTaggedPeople] = useState([]);
+  const [tagHandle, setTagHandle] = useState('');
+  const [taggingBusy, setTaggingBusy] = useState(false);
+  const [taggingStatus, setTaggingStatus] = useState('');
 
   const containerClass = 'page-container dream-detail-page';
 
@@ -74,6 +81,10 @@ export default function DreamDetail({ user }) {
       }
       setContentInput(data.content || '');
       setEditableTags(Array.isArray(data.tags) ? data.tags : []);
+      setExcludedViewerIds(Array.isArray(data.excludedViewerIds) ? data.excludedViewerIds : []);
+      setTaggedPeople(Array.isArray(data.taggedUsers) ? data.taggedUsers : []);
+      setTaggingStatus('');
+      setTagHandle('');
       setLoading(false);
     }, () => {
       setError('Failed to load this dream.');
@@ -91,6 +102,56 @@ export default function DreamDetail({ user }) {
       return '';
     }
   }, [dream?.createdAt]);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setAudienceOptions([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const loadFollowing = async () => {
+      try {
+        const viewerSnap = await getDoc(doc(db, 'users', user.uid));
+        const viewerData = viewerSnap.data() || {};
+        const followingIds = Array.isArray(viewerData.followingIds) ? viewerData.followingIds : [];
+        const followerIds = Array.isArray(viewerData.followerIds) ? viewerData.followerIds : [];
+        const connectionIds = Array.from(new Set([...followingIds, ...followerIds])).filter((id) => id && id !== user.uid);
+        if (!connectionIds.length) {
+          if (!cancelled) setAudienceOptions([]);
+          return;
+        }
+
+        const profiles = await Promise.all(
+          connectionIds.map(async (id) => {
+            try {
+              const profileSnap = await getDoc(doc(db, 'users', id));
+              if (!profileSnap.exists()) return null;
+              const profileData = profileSnap.data();
+              return {
+                id,
+                displayName: profileData.displayName || 'Dreamer',
+                username: profileData.username || '',
+              };
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        if (!cancelled) {
+          setAudienceOptions(profiles.filter(Boolean));
+        }
+      } catch {
+        if (!cancelled) setAudienceOptions([]);
+      }
+    };
+
+    loadFollowing();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid]);
 
   const handleVisibilityChange = async (value) => {
     if (!dream || dream.visibility === value) return;
@@ -166,6 +227,140 @@ export default function DreamDetail({ user }) {
     setEditableTags((prev) => prev.filter((tag) => tag.value !== value));
   };
 
+  const persistAudience = async (nextIds) => {
+    if (!dream) return;
+    setAudienceBusy(true);
+    try {
+      await updateDoc(doc(db, 'dreams', dream.id), {
+        excludedViewerIds: nextIds,
+        updatedAt: serverTimestamp()
+      });
+      setExcludedViewerIds(nextIds);
+    } catch {
+      setError('Could not update audience overrides.');
+    } finally {
+      setAudienceBusy(false);
+    }
+  };
+
+  const handleToggleAudience = (viewerId) => {
+    if (!viewerId || !dream) return;
+    const next = excludedViewerIds.includes(viewerId)
+      ? excludedViewerIds.filter((id) => id !== viewerId)
+      : [...excludedViewerIds, viewerId];
+    persistAudience(next);
+  };
+
+  const normalizeHandle = (value = '') => value.replace(/^@/, '').trim().toLowerCase();
+
+  const tagSuggestions = useMemo(() => {
+    const normalized = normalizeHandle(tagHandle);
+    if (!normalized) return [];
+    return audienceOptions
+      .filter((profile) => {
+        if (!profile?.id) return false;
+        if (profile.id === user?.uid) return false;
+        if (taggedPeople.some((entry) => entry.userId === profile.id)) {
+          return false;
+        }
+        const username = (profile.username || '').toLowerCase();
+        const displayName = (profile.displayName || '').toLowerCase();
+        return username.includes(normalized) || displayName.includes(normalized);
+      })
+      .slice(0, 5);
+  }, [audienceOptions, tagHandle, taggedPeople, user?.uid]);
+
+  const persistTaggedPeople = async (nextList, successMessage) => {
+    if (!dream) return;
+    setTaggingBusy(true);
+    setTaggingStatus('');
+    try {
+      await updateDoc(doc(db, 'dreams', dream.id), {
+        taggedUsers: nextList,
+        taggedUserIds: nextList.map((entry) => entry.userId),
+        updatedAt: serverTimestamp()
+      });
+      setTaggedPeople(nextList);
+      setTagHandle('');
+      if (successMessage) {
+        setTaggingStatus(successMessage);
+      }
+    } catch {
+      setTaggingStatus('Could not update tagged dreamers.');
+    } finally {
+      setTaggingBusy(false);
+    }
+  };
+
+  const handleRemoveTaggedPerson = (personId) => {
+    const next = taggedPeople.filter((entry) => entry.userId !== personId);
+    persistTaggedPeople(next, 'Removed.');
+  };
+
+  const handleSelectTagSuggestion = (profile) => {
+    if (!profile?.id || taggingBusy) return;
+    if (taggedPeople.some((entry) => entry.userId === profile.id)) {
+      setTaggingStatus('Already tagged.');
+      return;
+    }
+    const next = [
+      ...taggedPeople,
+      {
+        userId: profile.id,
+        username: profile.username || '',
+        displayName: profile.displayName || 'Dreamer'
+      }
+    ];
+    setTagHandle('');
+    persistTaggedPeople(next, 'Tagged successfully.');
+  };
+
+  const handleAddTaggedPerson = async () => {
+    if (taggingBusy) return;
+    const raw = tagHandle.trim();
+    if (!raw || !user?.uid) return;
+    const normalizedHandle = normalizeHandle(raw);
+    if (!normalizedHandle) return;
+    if (taggedPeople.some((entry) => entry.username?.toLowerCase() === normalizedHandle)) {
+      setTaggingStatus('Already tagged.');
+      setTagHandle('');
+      return;
+    }
+
+    try {
+      const usersRef = collection(db, 'users');
+      const matches = await getDocs(query(usersRef, where('normalizedUsername', '==', normalizedHandle), limit(1)));
+      if (matches.empty) {
+        setTaggingStatus('No user found for that handle.');
+        return;
+      }
+
+      const match = matches.docs[0];
+      if (match.id === user.uid) {
+        setTaggingStatus('You are already the author.');
+        return;
+      }
+
+      if (taggedPeople.some((entry) => entry.userId === match.id)) {
+        setTaggingStatus('Already tagged.');
+        return;
+      }
+
+      const data = match.data();
+      const next = [
+        ...taggedPeople,
+        {
+          userId: match.id,
+          username: data.username || normalizedHandle,
+          displayName: data.displayName || 'Dreamer'
+        }
+      ];
+      await persistTaggedPeople(next, 'Tagged successfully.');
+    } catch {
+      setTaggingStatus('Could not tag that user.');
+    }
+  };
+
   const handleAnalyzeDream = async () => {
     if (!dream || dream.id.startsWith('local-')) return;
 
@@ -179,12 +374,19 @@ export default function DreamDetail({ user }) {
     setStatusMessage('');
 
     try {
+      const idToken = await user?.getIdToken?.();
+      if (!idToken) {
+        setStatusMessage('Please sign in again to use AI features.');
+        setAnalyzing(false);
+        return;
+      }
+
       const response = await fetch(AI_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           dreamText: trimmedContent,
-          userId: dream.userId || user?.uid || undefined
+          idToken
         })
       });
 
@@ -372,6 +574,86 @@ export default function DreamDetail({ user }) {
               ))}
             </div>
           </div>
+        </div>
+
+        {dream.visibility !== 'private' && (
+          <div className="detail-audience">
+            <p className="detail-label">Hide from specific people</p>
+            {audienceOptions.length === 0 ? (
+              <p className="detail-hint">No connections available.</p>
+            ) : (
+              <div className="audience-chip-grid">
+                {audienceOptions.map((profile) => (
+                  <button
+                    key={profile.id}
+                    type="button"
+                    className={excludedViewerIds.includes(profile.id) ? 'audience-chip active' : 'audience-chip'}
+                    onClick={() => handleToggleAudience(profile.id)}
+                    disabled={audienceBusy}
+                  >
+                    <span className="chip-title">{profile.displayName}</span>
+                    {profile.username && <span className="chip-subtext">@{profile.username}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            {audienceBusy && <p className="detail-hint">Updating…</p>}
+          </div>
+        )}
+
+        <div className="detail-tagged">
+          <p className="detail-label">Tag people</p>
+          <div className="tag-people-input">
+            <input
+              type="text"
+              placeholder="@username"
+              value={tagHandle}
+              onChange={(e) => {
+                setTagHandle(e.target.value);
+                setTaggingStatus('');
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddTaggedPerson();
+                }
+              }}
+            />
+            <button type="button" className="add-tag-btn" onClick={handleAddTaggedPerson} disabled={taggingBusy || !tagHandle.trim()}>
+              {taggingBusy ? 'Tagging…' : 'Tag'}
+            </button>
+          </div>
+          {tagSuggestions.length > 0 && (
+            <div className="tag-suggestion-list">
+              {tagSuggestions.map((profile) => (
+                <button
+                  type="button"
+                  key={profile.id}
+                  className="tag-suggestion-item"
+                  onClick={() => handleSelectTagSuggestion(profile)}
+                  disabled={taggingBusy}
+                >
+                  <span className="suggestion-name">{profile.displayName}</span>
+                  {profile.username && <span className="suggestion-username">@{profile.username}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+          {taggingStatus && <p className="detail-hint">{taggingStatus}</p>}
+          {taggedPeople.length ? (
+            <div className="tagged-pill-row">
+              {taggedPeople.map((entry) => (
+                <span key={entry.userId} className="tagged-pill">
+                  @{entry.username || entry.displayName}
+                  <button type="button" aria-label={`Remove ${entry.username || entry.displayName}`} onClick={() => handleRemoveTaggedPerson(entry.userId)} disabled={taggingBusy}>
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="detail-hint">Tagged dreamers will see this on their profile.</p>
+          )}
         </div>
 
         {!editingContent && dream.tags?.length ? (

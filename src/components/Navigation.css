@@ -54,7 +54,7 @@
   position: relative;
   align-items: center;
   padding-bottom: 12px;
-  margin-top: 12px;
+  margin-top: 15px;
 }
 
 .nav-links a {
@@ -129,7 +129,7 @@
 
 .navigation-compact .nav-links {
   margin-top: 0;
-  padding-bottom: 8px;
+  padding-bottom: 0px;
 }
 
 .navigation-compact .nav-links a {
