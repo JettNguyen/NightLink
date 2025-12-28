@@ -36,7 +36,7 @@
   border-radius: 16px;
   padding: 1.25rem;
   box-shadow: var(--shadow-light);
-  transition: box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+  transition: box-shadow 0.22s ease, border-color 0.22s ease;
   backdrop-filter: blur(12px);
   animation: slideInUp 0.4s ease both;
 }

@@ -67,7 +67,7 @@
   font-weight: 600;
   border-radius: 10px;
   letter-spacing: -0.01em;
-  transition: color 0.25s ease, background 0.3s ease, transform 0.3s ease;
+  transition: color 0.25s ease, background-color 0.3s ease, transform 0.3s ease;
 }
 
 .auth-tabs button.active {

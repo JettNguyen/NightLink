@@ -7,27 +7,27 @@
 }
 
 :root {
-  --primary: #5ac8fa;
-  --primary-strong: #0a84ff;
-  --accent: #ffd166;
-  --background: #060811;
-  --background-secondary: #0b0f1a;
-  --surface: rgba(255, 255, 255, 0.04);
+  --primary: #5abcea;
+  --primary-strong: #0a68ff;
+  --accent: #ffc266;
+  --background: #04060d;
+  --background-secondary: #0e121c;
+  --surface: rgba(255, 255, 255, 0.05);
   --surface-muted: rgba(255, 255, 255, 0.025);
-  --text: #e9edf5;
-  --text-secondary: #aab3c2;
-  --border: rgba(255, 255, 255, 0.08);
-  --shadow-soft: 0 20px 60px rgba(0, 0, 0, 0.35);
-  --shadow-light: 0 10px 30px rgba(0, 0, 0, 0.22);
+  --text: #f0f0f0;
+  --text-secondary: #a6adb9;
+  --border: rgba(255, 255, 255, 0.1);
+  --shadow-soft: 0 20px 60px rgba(0, 0, 0, 0.25);
+  --shadow-light: 0 10px 30px rgba(0, 0, 0, 0.2);
   --glow-primary: 0 0 60px rgba(90, 200, 250, 0.25);
-  --error: #ff6b6b;
-  --success: #2cd46b;
+  --error: #ff5050;
+  --success: #2cd44e;
 }
 
 html {
-  background: #05070f;
+  background: var(--background);
   min-height: 100%;
-  overscroll-behavior: contain;
+  overscroll-behavior: none;
   scroll-behavior: smooth;
 }
 
@@ -214,7 +214,7 @@ a {
   border-radius: 16px;
   padding: 1.5rem;
   box-shadow: var(--shadow-light);
-  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.16s ease, background 0.16s ease;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.16s ease, background-color 0.16s ease;
   backdrop-filter: blur(14px);
 }
 
