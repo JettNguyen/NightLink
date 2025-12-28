@@ -153,7 +153,11 @@
   .navigation {
     position: sticky;
     top: 0;
-    height: 56px;
+    height: 74px;
+  }
+
+  .navigation.navigation-compact {
+    height: 48px;
   }
 
   .nav-container {
@@ -161,12 +165,30 @@
   }
 
   .nav-logo {
-    font-size: 1.15rem;
+    font-size: 1rem;
   }
 
   .nav-logo-icon {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .navigation:not(.navigation-compact) .nav-logo {
+    font-size: 1.35rem;
+  }
+
+  .navigation.navigation-compact .nav-logo {
+    font-size: 1rem;
+  }
+
+  .navigation:not(.navigation-compact) .nav-logo-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .navigation.navigation-compact .nav-logo-icon {
+    width: 18px;
+    height: 18px;
   }
 
   .nav-links {
@@ -182,22 +204,49 @@
     display: none;
   }
 
+  .navigation:not(.navigation-compact) .nav-links a {
+    padding: 0.65rem 0.6rem;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
   .nav-links a {
     display: flex;
     align-items: center;
     justify-content: center;
     flex: 1 1 auto;
     min-width: 0;
-    gap: 0.3rem;
+    gap: 0.2rem;
     font-size: 0.85rem;
     padding: 0.35rem 0.4rem;
     border-radius: 12px;
     white-space: nowrap;
+    flex-direction: row;
+  }
+
+  .navigation.navigation-compact .nav-links a {
+    padding: 0.25rem 0.3rem;
+    gap: 0.15rem;
+    flex-direction: row;
   }
 
   .nav-icon {
     display: block;
-    font-size: 1.1rem;
+    font-size: 1rem;
+  }
+
+  .navigation:not(.navigation-compact) .nav-icon {
+    font-size: 1.3rem;
+  }
+
+  .nav-tab-label {
+    display: none;
+    font-size: 0.7rem;
+    line-height: 1;
+  }
+
+  .navigation:not(.navigation-compact) .nav-tab-label {
+    display: block;
   }
 
   .nav-actions {
@@ -212,10 +261,6 @@
 
   .nav-links a {
     padding: 0.4rem 0.2rem;
-  }
-
-  .nav-links a .nav-tab-label {
-    display: none;
   }
 }
 

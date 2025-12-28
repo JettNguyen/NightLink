@@ -3,6 +3,7 @@ import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp,
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
+import LoadingIndicator from '../components/LoadingIndicator';
 import './DreamJournal.css';
 
 const VISIBILITY_LABELS = {
@@ -452,7 +453,9 @@ export default function DreamJournal({ user }) {
       {listenError && <div className="alert-banner">{listenError}</div>}
 
       {initialLoading ? (
-        <div className="dreams-loading">Loading your dreams…</div>
+        <div className="dreams-loading loading-slot">
+          <LoadingIndicator label="Loading your dreams…" size="lg" />
+        </div>
       ) : dreams.length ? (
         <div className="dreams-list">
           {dreams.map((dream) => renderDreamCard(dream))}
@@ -528,7 +531,9 @@ export default function DreamJournal({ user }) {
                   <p className="section-helper">Anyone you pick here will never see this entry, regardless of visibility.</p>
                 </div>
                 {audienceLoading ? (
-                  <p className="hint">Loading your connections…</p>
+                  <div className="loading-inline">
+                    <LoadingIndicator label="Loading your connections…" size="sm" align="start" />
+                  </div>
                 ) : connectionOptions.length === 0 ? (
                   <p className="hint">Connect with people to curate who sees limited posts.</p>
                 ) : (

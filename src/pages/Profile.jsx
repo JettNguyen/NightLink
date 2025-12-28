@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { arrayRemove, arrayUnion, collection, doc, getDoc, limit, onSnapshot, orderBy, query, runTransaction, updateDoc, where } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
@@ -7,6 +7,7 @@ import { faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
+import LoadingIndicator from '../components/LoadingIndicator';
 import './Profile.css';
 
 export default function Profile({ user }) {
@@ -37,38 +38,28 @@ export default function Profile({ user }) {
   const [connectionLoading, setConnectionLoading] = useState(false);
   const navigate = useNavigate();
   const viewerId = user?.uid || null;
+  const editingRef = useRef(false);
 
-  const loadUserData = async (uid) => {
-    try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (!userDoc.exists()) {
-        setProfileNotFound(true);
-        setUserData(null);
-        setProfileLoading(false);
-        return;
-      }
-
-      const data = userDoc.data();
-      setProfileNotFound(false);
-      setUserData(data);
-      setDisplayName(data.displayName || '');
-      setUsername(data.username || '');
-      setBio(data.bio || '');
-      setAvatarIcon(data.avatarIcon || AVATAR_ICONS[0].id);
-      setAvatarBackground(data.avatarBackground || AVATAR_BACKGROUNDS[0]);
-      setAvatarColor(data.avatarColor || AVATAR_COLORS[0]);
-      setProfileLoading(false);
-    } catch {
-      setProfileNotFound(true);
-      setUserData(null);
-      setProfileLoading(false);
-    }
-  };
+  useEffect(() => {
+    editingRef.current = isEditing;
+  }, [isEditing]);
 
   const fetchUsersByIds = useCallback(async (ids = []) => {
-    if (!ids.length) return [];
+    const seen = new Set();
+    const normalizedIds = [];
+
+    ids.forEach((rawId) => {
+      if (typeof rawId !== 'string') return;
+      const trimmed = rawId.trim();
+      if (!trimmed || seen.has(trimmed)) return;
+      seen.add(trimmed);
+      normalizedIds.push(trimmed);
+    });
+
+    if (!normalizedIds.length) return [];
+
     const results = await Promise.all(
-      ids.map(async (id) => {
+      normalizedIds.map(async (id) => {
         try {
           const snapshot = await getDoc(doc(db, 'users', id));
           return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
@@ -91,16 +82,54 @@ export default function Profile({ user }) {
   }, [user?.uid]);
 
   useEffect(() => {
-    if (!targetUserId) return;
+    if (!targetUserId) return undefined;
+
     setProfileNotFound(false);
     setProfileLoading(true);
     setUserData(null);
     setDreams([]);
     setDreamsLoading(true);
+    setTaggedDreams([]);
+    setTaggedDreamsLoading(true);
+    setConnectionProfiles([]);
+    setConnectionLoading(false);
+    setConnectionListType(null);
     setIsEditing(false);
     setDreamTab('authored');
-    loadUserData(targetUserId);
-  }, [targetUserId]);
+
+    const userRef = doc(db, 'users', targetUserId);
+    const unsubscribe = onSnapshot(userRef, (snapshot) => {
+      if (!snapshot.exists()) {
+        setProfileNotFound(true);
+        setUserData(null);
+        setProfileLoading(false);
+        return;
+      }
+
+      const data = snapshot.data();
+      setProfileNotFound(false);
+      setUserData(data);
+
+      if (!viewingOwnProfile || !editingRef.current) {
+        setDisplayName(data.displayName || '');
+        setUsername(data.username || '');
+        setBio(data.bio || '');
+        if (viewingOwnProfile) {
+          setAvatarIcon(data.avatarIcon || AVATAR_ICONS[0].id);
+          setAvatarBackground(data.avatarBackground || AVATAR_BACKGROUNDS[0]);
+          setAvatarColor(data.avatarColor || AVATAR_COLORS[0]);
+        }
+      }
+
+      setProfileLoading(false);
+    }, () => {
+      setProfileNotFound(true);
+      setUserData(null);
+      setProfileLoading(false);
+    });
+
+    return unsubscribe;
+  }, [targetUserId, viewingOwnProfile]);
 
   useEffect(() => {
     if (!targetUserId) return undefined;
@@ -257,8 +286,6 @@ export default function Profile({ user }) {
         avatarColor,
         updatedAt: new Date()
       });
-
-      await loadUserData(user.uid);
       setIsEditing(false);
     } catch {
       alert('Failed to update profile');
@@ -283,7 +310,7 @@ export default function Profile({ user }) {
     : (userData?.avatarColor || AVATAR_COLORS[0]);
 
   const isFollowingTarget = !viewingOwnProfile && viewerFollowingIds.includes(targetUserId);
-  const followsYou = !viewingOwnProfile && targetFollowerIds.includes(user?.uid);
+  const followsYou = !viewingOwnProfile && targetFollowingIds.includes(user?.uid);
 
   const selectedIcon = useMemo(() => getAvatarIconById(displayAvatarIconId), [displayAvatarIconId]);
   const isFollowActionBusy = Boolean(followAction.type);
@@ -352,9 +379,6 @@ export default function Profile({ user }) {
     setFollowAction({ type });
     try {
       await operation();
-      if (targetUserId) {
-        await loadUserData(targetUserId);
-      }
     } catch {
       alert(errorMessage || 'Unable to update following right now.');
     } finally {
@@ -422,7 +446,13 @@ export default function Profile({ user }) {
   }
 
   if (!userData) {
-    return <div className="page-container">Loading…</div>;
+    return (
+      <div className="page-container">
+        <div className="profile-loading loading-slot">
+          <LoadingIndicator label="Loading profile…" size="lg" />
+        </div>
+      </div>
+    );
   }
 
   const renderDreamPreview = (dream) => {
@@ -580,7 +610,9 @@ export default function Profile({ user }) {
   if (profileLoading) {
     return (
       <div className="page-container">
-        <div className="profile-loading">Loading profile…</div>
+        <div className="profile-loading loading-slot">
+          <LoadingIndicator label="Loading profile…" size="lg" />
+        </div>
       </div>
     );
   }
@@ -771,7 +803,9 @@ export default function Profile({ user }) {
           </div>
 
           {connectionLoading ? (
-            <p className="connection-panel-placeholder">Loading…</p>
+            <div className="connection-panel-placeholder loading-slot">
+              <LoadingIndicator label="Fetching dreamers…" size="sm" />
+            </div>
           ) : connectionProfiles.length === 0 ? (
             <p className="connection-panel-placeholder">
               {connectionListType === 'followers'
@@ -834,7 +868,9 @@ export default function Profile({ user }) {
         </div>
 
         {activeDreamsLoading ? (
-          <div className="profile-dreams-loading">Loading dreams…</div>
+          <div className="profile-dreams-loading loading-slot">
+            <LoadingIndicator label="Loading dreams…" />
+          </div>
         ) : activeDreams.length === 0 ? (
           <div className="profile-dreams-empty">
             <p>{emptyPrimary}</p>

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, deleteDoc, serverTimestamp, collection, query, where, limit, getDocs, getDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { db } from '../firebase';
+import LoadingIndicator from '../components/LoadingIndicator';
 import './DreamDetail.css';
 
 const VISIBILITY_OPTIONS = [
@@ -468,7 +469,9 @@ export default function DreamDetail({ user }) {
   if (loading) {
     return (
       <div className={containerClass}>
-        <div className="detail-placeholder">Loading dream…</div>
+        <div className="detail-placeholder loading-slot">
+          <LoadingIndicator label="Loading dream…" size="lg" />
+        </div>
       </div>
     );
   }

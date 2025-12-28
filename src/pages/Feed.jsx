@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import './Feed.css';
+import LoadingIndicator from '../components/LoadingIndicator';
 
 export default function Feed({ user }) {
   const [rawDreams, setRawDreams] = useState([]);
@@ -165,9 +166,9 @@ export default function Feed({ user }) {
       {error && <div className="alert-banner">{error}</div>}
 
       {!followingIdsLoaded ? (
-        <div className="feed-empty-card">
-          <p>Loading your following feed…</p>
-        </div>
+          <div className="feed-empty-card loading-slot">
+            <LoadingIndicator label="Loading your following feed…" size="md" />
+          </div>
       ) : followingIds.length === 0 ? (
         <div className="feed-empty-card">
           <p>You are not following anyone yet.</p>
@@ -177,8 +178,8 @@ export default function Feed({ user }) {
           </button>
         </div>
       ) : loading ? (
-        <div className="feed-empty-card">
-          <p>Loading your following feed…</p>
+          <div className="feed-empty-card loading-slot">
+            <LoadingIndicator label="Loading your following feed…" size="md" />
         </div>
       ) : visibleDreams.length === 0 ? (
         <div className="feed-empty-card">

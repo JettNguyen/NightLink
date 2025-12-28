@@ -9,6 +9,7 @@ import Feed from './pages/Feed';
 import Navigation from './components/Navigation';
 import Profile from './pages/Profile';
 import Search from './pages/Search';
+import LoadingIndicator from './components/LoadingIndicator';
 
 function ProtectedRoute({ user, children }) {
   if (!user) {
@@ -25,13 +26,8 @@ function AppContent({ user, loading, authReady }) {
 
   if (loading) {
     return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh'
-      }}>
-        <div style={{ color: '#e2e8f0', letterSpacing: '0.02em' }}>Loading your space…</div>
+      <div className="app-loading-shell">
+        <LoadingIndicator label="Loading your space…" size="lg" />
       </div>
     );
   }

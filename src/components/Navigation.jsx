@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { faRightFromBracket, faBook, faCompass, faSearch, faUser } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { signOut } from 'firebase/auth';
@@ -6,9 +6,13 @@ import { Link, useLocation } from 'react-router-dom';
 import { auth } from '../firebase';
 import './Navigation.css';
 
+const COMPACT_ENTER_OFFSET = 110;
+const COMPACT_EXIT_OFFSET = 40;
+
 export default function Navigation() {
   const location = useLocation();
   const [isCompact, setIsCompact] = useState(false);
+  const compactRef = useRef(isCompact);
 
   const handleSignOut = async () => {
     try {
@@ -29,8 +33,29 @@ export default function Navigation() {
   const linkClass = (path) => (normalizedPath === path ? 'active' : '');
 
   useEffect(() => {
+    compactRef.current = isCompact;
+  }, [isCompact]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    let ticking = false;
+
     const handleScroll = () => {
-      setIsCompact(window.scrollY > 40);
+      if (ticking) return;
+      ticking = true;
+
+      window.requestAnimationFrame(() => {
+        const currentY = window.scrollY || 0;
+
+        if (!compactRef.current && currentY > COMPACT_ENTER_OFFSET) {
+          setIsCompact(true);
+        } else if (compactRef.current && currentY < COMPACT_EXIT_OFFSET) {
+          setIsCompact(false);
+        }
+
+        ticking = false;
+      });
     };
 
     handleScroll();

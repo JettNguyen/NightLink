@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
+import LoadingIndicator from '../components/LoadingIndicator';
 import './Search.css';
 
 const MIN_CHARS = 2;
@@ -253,7 +254,9 @@ export default function Search({ user }) {
                 <span className="pill">{userResults.length}</span>
               </div>
               {loading ? (
-                <div className="placeholder">Pulling profiles…</div>
+                <div className="placeholder loading-slot">
+                  <LoadingIndicator label="Pulling profiles…" size="md" />
+                </div>
               ) : userResults.length === 0 ? (
                 <div className="placeholder">No matching people.</div>
               ) : (
@@ -299,7 +302,9 @@ export default function Search({ user }) {
                 <span className="pill">{dreamResults.length}</span>
               </div>
               {loading ? (
-                <div className="placeholder">Collecting dreams…</div>
+                <div className="placeholder loading-slot">
+                  <LoadingIndicator label="Collecting dreams…" size="md" />
+                </div>
               ) : dreamResults.length === 0 ? (
                 <div className="placeholder">No dreams matched "{lastTerm}".</div>
               ) : (
