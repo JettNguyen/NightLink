@@ -22,13 +22,18 @@ export default function Navigation() {
     }
   };
 
+  const dreamOrigin = location.state?.fromNav;
+
   const normalizedPath = useMemo(() => {
+    if (location.pathname.startsWith('/dream')) {
+      return dreamOrigin || '/journal';
+    }
     if (location.pathname.startsWith('/journal')) return '/journal';
     if (location.pathname.startsWith('/feed')) return '/feed';
     if (location.pathname.startsWith('/search')) return '/search';
     if (location.pathname.startsWith('/profile')) return '/profile';
     return location.pathname;
-  }, [location.pathname]);
+  }, [location.pathname, dreamOrigin]);
 
   const linkClass = (path) => (normalizedPath === path ? 'active' : '');
 

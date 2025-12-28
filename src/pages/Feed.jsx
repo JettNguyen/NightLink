@@ -3,6 +3,9 @@ import { collection, doc, query, where, orderBy, limit, onSnapshot, documentId }
 import { db } from '../firebase';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
+import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Feed.css';
 import LoadingIndicator from '../components/LoadingIndicator';
 
@@ -124,20 +127,36 @@ export default function Feed({ user }) {
 
     const filtered = rawDreams.filter((dream) => {
       if (!dream) return false;
+      const visibility = dream.visibility || 'private';
       if (viewerId && Array.isArray(dream.excludedViewerIds) && dream.excludedViewerIds.includes(viewerId)) {
         return false;
       }
       if (viewerId && Array.isArray(dream.taggedUserIds) && dream.taggedUserIds.includes(viewerId)) {
         return true;
       }
-      if (dream.visibility === 'public' || dream.visibility === 'anonymous') {
+      if (visibility === 'public' || visibility === 'anonymous') {
         return true;
       }
-      if ((dream.visibility === 'following' || dream.visibility === 'followers') && viewerId) {
-        const authorProfile = followingProfiles[dream.userId];
-        const authorFollowingIds = authorProfile?.followingIds || [];
+      if (!viewerId) {
+        return false;
+      }
+
+      const authorProfile = dream.userId ? followingProfiles[dream.userId] : null;
+      const authorFollowingIds = Array.isArray(authorProfile?.followingIds) ? authorProfile.followingIds : [];
+      const authorFollowerIds = Array.isArray(authorProfile?.followerIds) ? authorProfile.followerIds : [];
+
+      if (visibility === 'following') {
         return authorFollowingIds.includes(viewerId);
       }
+
+      if (visibility === 'followers') {
+        return authorFollowerIds.includes(viewerId);
+      }
+
+      if (visibility === 'private') {
+        return dream.userId === viewerId;
+      }
+
       return false;
     });
 
@@ -189,9 +208,40 @@ export default function Feed({ user }) {
       ) : (
         <div className="feed-list">
           {visibleDreams.map((dream) => {
-            const authorLabel = dream.authorDisplayName || dream.userDisplayName || dream.ownerDisplayName || 'Dreamer';
+            const profile = dream.userId ? followingProfiles[dream.userId] : null;
+            const isAnonymous = dream.visibility === 'anonymous';
+            const authorLabel = isAnonymous
+              ? 'Anonymous dreamer'
+              : profile?.displayName || dream.authorDisplayName || dream.userDisplayName || dream.ownerDisplayName || 'Dreamer';
+            const authorUsername = !isAnonymous ? (profile?.username || dream.authorUsername || '') : '';
+            const authorHandle = authorUsername ? `@${authorUsername}` : null;
+            const avatarIconId = isAnonymous ? 'ghost' : profile?.avatarIcon;
+            const avatarIcon = getAvatarIconById(avatarIconId);
+            const avatarBackground = profile?.avatarBackground || DEFAULT_AVATAR_BACKGROUND;
+            const avatarColor = profile?.avatarColor || DEFAULT_AVATAR_COLOR;
             const dateLabel = dream.createdAt ? format(dream.createdAt, 'MMM d, yyyy') : 'Just now';
             const snippet = dream.content ? (dream.content.length > 240 ? `${dream.content.slice(0, 240)}…` : dream.content) : 'No entry text yet.';
+            const visibilityLabel = dream.visibility === 'anonymous'
+              ? 'Anonymous dream'
+              : dream.visibility === 'following' || dream.visibility === 'followers'
+                ? 'Shared with people they follow'
+                : 'Public dream';
+            const showProfileLink = !isAnonymous && Boolean(dream.userId);
+            const profilePath = showProfileLink ? buildProfilePath(authorUsername, dream.userId) : null;
+            const handleAuthorNavigation = (event) => {
+              if (!showProfileLink) return;
+              event.stopPropagation();
+              event.preventDefault();
+              if (profilePath) {
+                navigate(profilePath);
+              }
+            };
+            const openDreamDetail = () => {
+              const detailPath = isAnonymous
+                ? `/dream/${dream.id}`
+                : buildDreamPath(authorUsername, dream.userId, dream.id);
+              navigate(detailPath, { state: { fromNav: '/feed' } });
+            };
 
             return (
               <div
@@ -199,23 +249,40 @@ export default function Feed({ user }) {
                 className="feed-card"
                 role="button"
                 tabIndex={0}
-                onClick={() => navigate(`/journal/${dream.id}`)}
+                onClick={openDreamDetail}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    navigate(`/journal/${dream.id}`);
+                    openDreamDetail();
                   }
                 }}
               >
                 <div className="feed-card-head">
-                  <div>
-                    <div className="feed-author">{authorLabel}</div>
-                    <div className="feed-visibility">
-                      {dream.visibility === 'anonymous'
-                        ? 'Anonymous dream'
-                        : dream.visibility === 'following' || dream.visibility === 'followers'
-                          ? 'Shared with people they follow'
-                          : 'Public dream'}
+                  <div className="feed-author-block">
+                    <div
+                      className="feed-avatar"
+                      style={{ background: avatarBackground, color: avatarColor }}
+                    >
+                      <FontAwesomeIcon icon={avatarIcon} />
+                    </div>
+                    <div className="feed-author-meta">
+                      {showProfileLink ? (
+                        <button type="button" className="feed-author feed-author-link" onClick={handleAuthorNavigation}>
+                          {authorLabel}
+                        </button>
+                      ) : (
+                        <div className="feed-author">{authorLabel}</div>
+                      )}
+                      {authorHandle && (
+                        showProfileLink ? (
+                          <button type="button" className="feed-author-handle feed-author-link" onClick={handleAuthorNavigation}>
+                            {authorHandle}
+                          </button>
+                        ) : (
+                          <div className="feed-author-handle">{authorHandle}</div>
+                        )
+                      )}
+                      <div className="feed-visibility">{visibilityLabel}</div>
                     </div>
                   </div>
                   <span className="feed-date">{dateLabel}</span>
@@ -224,11 +291,12 @@ export default function Feed({ user }) {
                 {(dream.title || (dream.aiGenerated && dream.aiTitle)) ? (
                   <h3 className="feed-title">{dream.title || dream.aiTitle}</h3>
                 ) : null}
+
+                <p className="feed-content">{snippet}</p>
+
                 {dream.aiGenerated && dream.aiInsights && (
                   <p className="feed-summary">{dream.aiInsights}</p>
                 )}
-
-                <p className="feed-content">{snippet}</p>
 
                 {dream.tags && dream.tags.length > 0 && (
                   <div className="feed-tags">

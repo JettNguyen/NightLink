@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import LoadingIndicator from '../components/LoadingIndicator';
+import { buildDreamPath } from '../utils/urlHelpers';
 import './DreamJournal.css';
 
 const VISIBILITY_LABELS = {
@@ -78,6 +79,7 @@ export default function DreamJournal({ user }) {
   const [tagHandle, setTagHandle] = useState('');
   const [taggingStatus, setTaggingStatus] = useState('');
   const [taggingBusy, setTaggingBusy] = useState(false);
+  const [viewerProfile, setViewerProfile] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -127,6 +129,13 @@ export default function DreamJournal({ user }) {
       try {
         const userSnap = await getDoc(doc(db, 'users', user.uid));
         const data = userSnap.data() || {};
+        if (!cancelled) {
+          setViewerProfile({
+            id: user.uid,
+            username: data.username || '',
+            displayName: data.displayName || ''
+          });
+        }
         const followingIds = Array.isArray(data.followingIds) ? data.followingIds : [];
         const followerIds = Array.isArray(data.followerIds) ? data.followerIds : [];
         const connectionIds = Array.from(new Set([...followingIds, ...followerIds])).filter((id) => id && id !== user.uid);
@@ -336,6 +345,7 @@ export default function DreamJournal({ user }) {
       username: entry.username || '',
       displayName: entry.displayName || ''
     }));
+    const authorUsername = viewerProfile?.username || null;
 
     const optimistic = {
       id: `local-${Date.now()}`,
@@ -345,6 +355,7 @@ export default function DreamJournal({ user }) {
       aiGenerated,
       aiTitle,
       aiInsights: aiThemes,
+      authorUsername,
       createdAt: new Date(dreamDate),
       excludedViewerIds,
       taggedUsers: taggedMeta,
@@ -362,6 +373,7 @@ export default function DreamJournal({ user }) {
         aiGenerated,
         aiTitle,
         aiInsights: aiThemes,
+        authorUsername,
         excludedViewerIds,
         taggedUsers: taggedMeta,
         taggedUserIds: taggedMeta.map((entry) => entry.userId),
@@ -382,7 +394,8 @@ export default function DreamJournal({ user }) {
 
   const handleCardNavigate = (dreamId) => {
     if (!dreamId || dreamId.startsWith('local-')) return;
-    navigate(`/journal/${dreamId}`);
+    const viewerUsername = viewerProfile?.username || null;
+    navigate(buildDreamPath(viewerUsername, user?.uid, dreamId), { state: { fromNav: '/journal' } });
   };
 
   const renderDreamCard = (dream) => {
@@ -417,6 +430,12 @@ export default function DreamJournal({ user }) {
 
         <p className="dream-content">{truncate(dream.content, CONTENT_PREVIEW_LIMIT)}</p>
 
+        {dream.aiGenerated && dream.aiInsights ? (
+          <div className="dream-footer">
+            <p className="dream-summary">{truncate(dream.aiInsights, INSIGHT_PREVIEW_LIMIT)}</p>
+          </div>
+        ) : null}
+
         {dream.tags?.length ? (
           <div className="dream-tags">
             {dream.tags.slice(0, 3).map((tag, index) => (
@@ -424,12 +443,6 @@ export default function DreamJournal({ user }) {
                 {tag.value}
               </span>
             ))}
-          </div>
-        ) : null}
-
-        {dream.aiGenerated && dream.aiInsights ? (
-          <div className="dream-footer">
-            <p className="dream-summary">{truncate(dream.aiInsights, INSIGHT_PREVIEW_LIMIT)}</p>
           </div>
         ) : null}
       </div>
@@ -461,7 +474,7 @@ export default function DreamJournal({ user }) {
           {dreams.map((dream) => renderDreamCard(dream))}
         </div>
       ) : (
-        <p className="empty-state">No dreams yet. Record the first whisper.</p>
+        <p className="empty-state">No dreams yet. Log your dreams here!</p>
       )}
 
       {showNewDream && (

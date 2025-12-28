@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { auth } from './firebase';
@@ -17,6 +17,11 @@ function ProtectedRoute({ user, children }) {
   }
 
   return children;
+}
+
+function LegacyDreamRedirect() {
+  const { dreamId } = useParams();
+  return <Navigate to={`/dream/${dreamId}`} replace />;
 }
 
 function AppContent({ user, loading, authReady }) {
@@ -53,10 +58,26 @@ function AppContent({ user, loading, authReady }) {
             )}
           />
           <Route
-            path="/journal/:dreamId"
+            path="/profile/:handle/dream/:dreamId"
             element={(
               <ProtectedRoute user={user}>
                 <DreamDetail user={user} />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/dream/:dreamId"
+            element={(
+              <ProtectedRoute user={user}>
+                <DreamDetail user={user} />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/journal/:dreamId"
+            element={(
+              <ProtectedRoute user={user}>
+                <LegacyDreamRedirect />
               </ProtectedRoute>
             )}
           />
@@ -77,7 +98,7 @@ function AppContent({ user, loading, authReady }) {
             )}
           />
           <Route
-            path="/profile/:userId"
+            path="/profile/:handle"
             element={(
               <ProtectedRoute user={user}>
                 <Profile user={user} />

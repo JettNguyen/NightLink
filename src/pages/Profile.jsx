@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { arrayRemove, arrayUnion, collection, doc, getDoc, limit, onSnapshot, orderBy, query, runTransaction, updateDoc, where } from 'firebase/firestore';
+import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, runTransaction, updateDoc, where } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -8,17 +8,16 @@ import { format } from 'date-fns';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
 import LoadingIndicator from '../components/LoadingIndicator';
+import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Profile.css';
 
 export default function Profile({ user }) {
-  const { userId: routeUserId } = useParams();
-  const targetUserId = routeUserId || user?.uid || null;
-  const viewingOwnProfile = !routeUserId || routeUserId === user?.uid;
-
+  const { handle: routeHandle } = useParams();
+  const [targetUserId, setTargetUserId] = useState(() => (routeHandle ? null : (user?.uid || null)));
+  const viewingOwnProfile = Boolean(user?.uid && targetUserId && targetUserId === user.uid);
   const [userData, setUserData] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileNotFound, setProfileNotFound] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
@@ -28,6 +27,7 @@ export default function Profile({ user }) {
   const [taggedDreams, setTaggedDreams] = useState([]);
   const [taggedDreamsLoading, setTaggedDreamsLoading] = useState(true);
   const [dreamTab, setDreamTab] = useState('authored');
+  const [isEditing, setIsEditing] = useState(false);
   const [avatarIcon, setAvatarIcon] = useState(AVATAR_ICONS[0].id);
   const [avatarBackground, setAvatarBackground] = useState(AVATAR_BACKGROUNDS[0]);
   const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0]);
@@ -43,6 +43,61 @@ export default function Profile({ user }) {
   useEffect(() => {
     editingRef.current = isEditing;
   }, [isEditing]);
+
+  useEffect(() => {
+    if (!routeHandle) {
+      setTargetUserId(user?.uid || null);
+      setProfileNotFound(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const resolveHandle = async () => {
+      setProfileLoading(true);
+      setProfileNotFound(false);
+      setUserData(null);
+
+      try {
+        const directSnap = await getDoc(doc(db, 'users', routeHandle));
+        if (!cancelled && directSnap.exists()) {
+          setTargetUserId(directSnap.id);
+          return;
+        }
+
+        const normalizedHandle = routeHandle.toLowerCase();
+        const userQuery = query(
+          collection(db, 'users'),
+          where('normalizedUsername', '==', normalizedHandle),
+          limit(1)
+        );
+        const matches = await getDocs(userQuery);
+
+        if (!cancelled && !matches.empty) {
+          setTargetUserId(matches.docs[0].id);
+          return;
+        }
+
+        if (!cancelled) {
+          setTargetUserId(null);
+          setProfileNotFound(true);
+          setProfileLoading(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setTargetUserId(null);
+          setProfileNotFound(true);
+          setProfileLoading(false);
+        }
+      }
+    };
+
+    resolveHandle();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [routeHandle, user?.uid]);
 
   const fetchUsersByIds = useCallback(async (ids = []) => {
     const seen = new Set();
@@ -298,6 +353,9 @@ export default function Profile({ user }) {
   const targetFollowerIds = userData?.followerIds || [];
   const targetFollowingIds = userData?.followingIds || [];
   const connectionHeadingName = userData?.displayName || 'this dreamer';
+  const targetProfileUsername = userData?.username || '';
+  const viewerUsername = viewerData?.username || '';
+  const activeProfileUsername = viewingOwnProfile ? (targetProfileUsername || viewerUsername) : targetProfileUsername;
 
   const displayAvatarIconId = viewingOwnProfile
     ? (avatarIcon || AVATAR_ICONS[0].id)
@@ -426,14 +484,22 @@ export default function Profile({ user }) {
     }, 'Unable to unfollow right now.');
   };
 
-  const handleDreamNavigation = useCallback((dreamId) => {
+  const handleDreamNavigation = useCallback((dreamId, ownerUsername, ownerId) => {
     if (!dreamId) return;
-    navigate(`/journal/${dreamId}`);
-  }, [navigate]);
+    const slug = ownerUsername || activeProfileUsername;
+    const owner = ownerId || targetUserId;
+    navigate(buildDreamPath(slug, owner, dreamId), { state: { fromNav: '/profile' } });
+  }, [activeProfileUsername, navigate, targetUserId]);
 
-  const handleProfileNavigation = useCallback((profileId) => {
-    if (!profileId) return;
-    navigate(`/profile/${profileId}`);
+  const handleProfileNavigation = useCallback((profile) => {
+    if (!profile) return;
+    if (typeof profile === 'string') {
+      navigate(buildProfilePath(null, profile));
+      setConnectionListType(null);
+      return;
+    }
+    const profileId = profile.id;
+    navigate(buildProfilePath(profile.username, profileId));
     setConnectionListType(null);
   }, [navigate]);
 
@@ -490,10 +556,10 @@ export default function Profile({ user }) {
         ) : (
           <p className="pending-title">Title pending</p>
         )}
+        <p className="profile-dream-snippet">{snippet}</p>
         {dream.aiGenerated && dream.aiInsights && (
           <p className="profile-dream-summary">{dream.aiInsights}</p>
         )}
-        <p className="profile-dream-snippet">{snippet}</p>
         {taggedList.length ? (
           <div className="profile-tagged-peek">
             <span className="tagged-label">Tagged</span>
@@ -540,11 +606,11 @@ export default function Profile({ user }) {
         className="tagged-dream-card"
         role="button"
         tabIndex={0}
-        onClick={() => handleDreamNavigation(dream.id)}
+        onClick={() => handleDreamNavigation(dream.id, authorHandle, dream.userId)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            handleDreamNavigation(dream.id);
+            handleDreamNavigation(dream.id, authorHandle, dream.userId);
           }
         }}
       >
@@ -562,15 +628,15 @@ export default function Profile({ user }) {
               className="tagged-view-profile"
               onClick={(event) => {
                 event.stopPropagation();
-                handleProfileNavigation(dream.userId);
+                handleProfileNavigation({ id: dream.userId, username: authorHandle });
               }}
             >
               View profile
             </button>
           )}
         </div>
-        {summary ? <p className="tagged-summary">{summary}</p> : null}
         <p className="tagged-snippet">{snippet}</p>
+        {summary ? <p className="tagged-summary">{summary}</p> : null}
         <div className="tagged-pill-row">
           <span className="tagged-pill shared-pill">Shared with you</span>
           {isAnonymous && <span className="tagged-pill muted-pill">Anonymous</span>}
@@ -819,7 +885,7 @@ export default function Profile({ user }) {
                   type="button"
                   key={connection.id}
                   className="connection-card"
-                  onClick={() => handleProfileNavigation(connection.id)}
+                  onClick={() => handleProfileNavigation(connection)}
                 >
                   <div
                     className="connection-avatar"

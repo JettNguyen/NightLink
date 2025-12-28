@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
 import LoadingIndicator from '../components/LoadingIndicator';
+import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Search.css';
 
 const MIN_CHARS = 2;
@@ -69,9 +70,9 @@ export default function Search({ user }) {
     return Array.from(uniqueMap.values());
   };
 
-  const handleProfileNavigation = (userId) => {
-    if (!userId) return;
-    navigate(`/profile/${userId}`);
+  const handleProfileNavigation = (profile) => {
+    if (!profile?.id) return;
+    navigate(buildProfilePath(profile.username, profile.id));
   };
 
   useEffect(() => {
@@ -160,9 +161,9 @@ export default function Search({ user }) {
     }
   };
 
-  const handleDreamNavigation = (dreamId) => {
-    if (!dreamId) return;
-    navigate(`/journal/${dreamId}`);
+  const handleDreamNavigation = (dream) => {
+    if (!dream?.id) return;
+    navigate(buildDreamPath(dream.authorUsername, dream.userId, dream.id), { state: { fromNav: '/search' } });
   };
 
   const renderDream = (dream) => {
@@ -176,11 +177,11 @@ export default function Search({ user }) {
         key={dream.id}
         role="button"
         tabIndex={0}
-        onClick={() => handleDreamNavigation(dream.id)}
+        onClick={() => handleDreamNavigation(dream)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            handleDreamNavigation(dream.id);
+            handleDreamNavigation(dream);
           }
         }}
       >
@@ -267,11 +268,11 @@ export default function Search({ user }) {
                       key={u.id}
                       role="button"
                       tabIndex={0}
-                      onClick={() => handleProfileNavigation(u.id)}
+                      onClick={() => handleProfileNavigation(u)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();
-                          handleProfileNavigation(u.id);
+                          handleProfileNavigation(u);
                         }
                       }}
                     >

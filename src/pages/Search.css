@@ -70,6 +70,14 @@
   color: var(--text);
 }
 
+.filter-toggle .chip {
+  color: var(--text-secondary);
+}
+
+.filter-toggle .chip.chip-active {
+  color: var(--text);
+}
+
 .chip-active::before {
   opacity: 1;
   transform: scale(1);

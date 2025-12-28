@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, deleteDoc, serverTimestamp, collection, query, where, limit, getDocs, getDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { db } from '../firebase';
@@ -14,6 +14,49 @@ const VISIBILITY_OPTIONS = [
 ];
 
 const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT || '/api/ai';
+
+const describeVisibility = (value = 'private') => {
+  switch (value) {
+    case 'public':
+      return 'Public dream';
+    case 'anonymous':
+      return 'Anonymous dream';
+    case 'following':
+      return 'Shared with close connections';
+    case 'followers':
+      return 'Shared with followers';
+    default:
+      return 'Private dream';
+  }
+};
+
+const canViewerAccessDream = (dreamData, viewerId, authorProfile) => {
+  if (!dreamData) return false;
+  if (dreamData.userId && dreamData.userId === viewerId) return true;
+  if (!viewerId) return false;
+
+  const excluded = Array.isArray(dreamData.excludedViewerIds) ? dreamData.excludedViewerIds : [];
+  if (excluded.includes(viewerId)) return false;
+
+  const tagged = Array.isArray(dreamData.taggedUserIds) ? dreamData.taggedUserIds : [];
+  if (tagged.includes(viewerId)) return true;
+
+  const visibility = dreamData.visibility || 'private';
+  if (visibility === 'public' || visibility === 'anonymous') return true;
+
+  const authorFollowingIds = Array.isArray(authorProfile?.followingIds) ? authorProfile.followingIds : [];
+  const authorFollowerIds = Array.isArray(authorProfile?.followerIds) ? authorProfile.followerIds : [];
+
+  if (visibility === 'following') {
+    return authorFollowingIds.includes(viewerId);
+  }
+
+  if (visibility === 'followers') {
+    return authorFollowerIds.includes(viewerId);
+  }
+
+  return false;
+};
 
 export default function DreamDetail({ user }) {
   const { dreamId } = useParams();
@@ -41,8 +84,32 @@ export default function DreamDetail({ user }) {
   const [tagHandle, setTagHandle] = useState('');
   const [taggingBusy, setTaggingBusy] = useState(false);
   const [taggingStatus, setTaggingStatus] = useState('');
+  const viewerId = user?.uid || null;
+  const [authorProfile, setAuthorProfile] = useState(null);
+  const [isOwner, setIsOwner] = useState(false);
+  const location = useLocation();
+  const fromNav = location.state?.fromNav || null;
 
   const containerClass = 'page-container dream-detail-page';
+  const goBack = () => {
+    if (window.history.length > 2) {
+      navigate(-1);
+      return;
+    }
+    if (fromNav) {
+      navigate(fromNav);
+      return;
+    }
+    navigate(isOwner ? '/journal' : '/feed');
+  };
+
+  useEffect(() => {
+    if (!isOwner) {
+      setEditingTitle(false);
+      setEditingDate(false);
+      setEditingContent(false);
+    }
+  }, [isOwner]);
 
   useEffect(() => {
     if (!dreamId) {
@@ -51,61 +118,97 @@ export default function DreamDetail({ user }) {
       return;
     }
 
+    setLoading(true);
+    setError('');
+    let cancelled = false;
+
     const ref = doc(db, 'dreams', dreamId);
     const unsubscribe = onSnapshot(ref, (snapshot) => {
-      if (!snapshot.exists()) {
-        setError('Dream not found.');
-        setDream(null);
+      (async () => {
+        if (!snapshot.exists()) {
+          if (!cancelled) {
+            setError('Dream not found.');
+            setDream(null);
+            setLoading(false);
+          }
+          return;
+        }
+
+        const data = snapshot.data();
+        const ownerId = data.userId || null;
+        let resolvedAuthorProfile = null;
+
+        if (ownerId) {
+          try {
+            const authorSnap = await getDoc(doc(db, 'users', ownerId));
+            if (authorSnap.exists()) {
+              resolvedAuthorProfile = { id: authorSnap.id, ...authorSnap.data() };
+            }
+          } catch {
+            resolvedAuthorProfile = null;
+          }
+        }
+
+        const hasAccess = canViewerAccessDream(data, viewerId, resolvedAuthorProfile);
+        if (!hasAccess) {
+          if (!cancelled) {
+            setError('You do not have permission to view this dream.');
+            setDream(null);
+            setAuthorProfile(resolvedAuthorProfile);
+            setIsOwner(false);
+            setLoading(false);
+          }
+          return;
+        }
+
+        if (cancelled) return;
+
+        const createdAtDate = data.createdAt?.toDate?.() ?? data.createdAt ?? null;
+
+        setDream({
+          id: snapshot.id,
+          ...data,
+          visibility: data.visibility || 'private',
+          createdAt: createdAtDate
+        });
+        setAuthorProfile(resolvedAuthorProfile);
+        setIsOwner(Boolean(ownerId && viewerId && ownerId === viewerId));
+        setTitleInput(data.title || '');
+        setDateInput(createdAtDate ? format(createdAtDate, 'yyyy-MM-dd') : '');
+        setContentInput(data.content || '');
+        setEditableTags(Array.isArray(data.tags) ? data.tags : []);
+        setExcludedViewerIds(Array.isArray(data.excludedViewerIds) ? data.excludedViewerIds : []);
+        setTaggedPeople(Array.isArray(data.taggedUsers) ? data.taggedUsers : []);
+        setTaggingStatus('');
+        setTagHandle('');
+        setStatusMessage('');
         setLoading(false);
-        return;
-      }
-
-      const data = snapshot.data();
-      if (data.userId && data.userId !== user?.uid) {
-        setError('You do not have permission to view this dream.');
-        setDream(null);
-        setLoading(false);
-        return;
-      }
-
-      const createdAtDate = data.createdAt?.toDate?.() ?? data.createdAt ?? null;
-
-      setDream({
-        id: snapshot.id,
-        ...data,
-        visibility: data.visibility || 'private',
-        createdAt: createdAtDate
-      });
-      setTitleInput(data.title || '');
-      if (createdAtDate) {
-        setDateInput(format(createdAtDate, 'yyyy-MM-dd'));
-      }
-      setContentInput(data.content || '');
-      setEditableTags(Array.isArray(data.tags) ? data.tags : []);
-      setExcludedViewerIds(Array.isArray(data.excludedViewerIds) ? data.excludedViewerIds : []);
-      setTaggedPeople(Array.isArray(data.taggedUsers) ? data.taggedUsers : []);
-      setTaggingStatus('');
-      setTagHandle('');
-      setLoading(false);
+      })();
     }, () => {
-      setError('Failed to load this dream.');
-      setLoading(false);
+      if (!cancelled) {
+        setError('Failed to load this dream.');
+        setDream(null);
+        setLoading(false);
+      }
     });
 
-    return unsubscribe;
-  }, [dreamId, user?.uid]);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [dreamId, viewerId]);
 
   const formattedDate = useMemo(() => {
     if (!dream?.createdAt) return '';
     try {
-      return format(dream.createdAt, 'MMMM d, yyyy • h:mm a');
+      return format(dream.createdAt, 'MMMM d, yyyy');
     } catch {
       return '';
     }
   }, [dream?.createdAt]);
 
   useEffect(() => {
-    if (!user?.uid) {
+    if (!user?.uid || !dream || dream.userId !== user.uid) {
       setAudienceOptions([]);
       return undefined;
     }
@@ -152,10 +255,10 @@ export default function DreamDetail({ user }) {
     return () => {
       cancelled = true;
     };
-  }, [user?.uid]);
+  }, [user?.uid, dream?.userId]);
 
   const handleVisibilityChange = async (value) => {
-    if (!dream || dream.visibility === value) return;
+    if (!dream || !isOwner || dream.visibility === value) return;
     setUpdatingVisibility(true);
     try {
       await updateDoc(doc(db, 'dreams', dream.id), {
@@ -170,7 +273,7 @@ export default function DreamDetail({ user }) {
   };
 
   const handleSaveTitle = async () => {
-    if (!dream) return;
+    if (!dream || !isOwner) return;
     try {
       await updateDoc(doc(db, 'dreams', dream.id), {
         title: titleInput.trim(),
@@ -183,7 +286,7 @@ export default function DreamDetail({ user }) {
   };
 
   const handleSaveDate = async () => {
-    if (!dream || !dateInput) return;
+    if (!dream || !isOwner || !dateInput) return;
     try {
       await updateDoc(doc(db, 'dreams', dream.id), {
         createdAt: new Date(dateInput),
@@ -203,7 +306,7 @@ export default function DreamDetail({ user }) {
   };
 
   const handleSaveContent = async () => {
-    if (!dream || !contentInput.trim()) return;
+    if (!dream || !isOwner || !contentInput.trim()) return;
     try {
       await updateDoc(doc(db, 'dreams', dream.id), {
         content: contentInput.trim(),
@@ -229,7 +332,7 @@ export default function DreamDetail({ user }) {
   };
 
   const persistAudience = async (nextIds) => {
-    if (!dream) return;
+    if (!dream || !isOwner) return;
     setAudienceBusy(true);
     try {
       await updateDoc(doc(db, 'dreams', dream.id), {
@@ -245,7 +348,7 @@ export default function DreamDetail({ user }) {
   };
 
   const handleToggleAudience = (viewerId) => {
-    if (!viewerId || !dream) return;
+    if (!viewerId || !dream || !isOwner) return;
     const next = excludedViewerIds.includes(viewerId)
       ? excludedViewerIds.filter((id) => id !== viewerId)
       : [...excludedViewerIds, viewerId];
@@ -272,7 +375,7 @@ export default function DreamDetail({ user }) {
   }, [audienceOptions, tagHandle, taggedPeople, user?.uid]);
 
   const persistTaggedPeople = async (nextList, successMessage) => {
-    if (!dream) return;
+    if (!dream || !isOwner) return;
     setTaggingBusy(true);
     setTaggingStatus('');
     try {
@@ -294,12 +397,13 @@ export default function DreamDetail({ user }) {
   };
 
   const handleRemoveTaggedPerson = (personId) => {
+    if (!isOwner) return;
     const next = taggedPeople.filter((entry) => entry.userId !== personId);
     persistTaggedPeople(next, 'Removed.');
   };
 
   const handleSelectTagSuggestion = (profile) => {
-    if (!profile?.id || taggingBusy) return;
+    if (!profile?.id || taggingBusy || !isOwner) return;
     if (taggedPeople.some((entry) => entry.userId === profile.id)) {
       setTaggingStatus('Already tagged.');
       return;
@@ -317,7 +421,7 @@ export default function DreamDetail({ user }) {
   };
 
   const handleAddTaggedPerson = async () => {
-    if (taggingBusy) return;
+    if (taggingBusy || !isOwner) return;
     const raw = tagHandle.trim();
     if (!raw || !user?.uid) return;
     const normalizedHandle = normalizeHandle(raw);
@@ -363,7 +467,7 @@ export default function DreamDetail({ user }) {
   };
 
   const handleAnalyzeDream = async () => {
-    if (!dream || dream.id.startsWith('local-')) return;
+    if (!dream || !isOwner || dream.id.startsWith('local-')) return;
 
     const trimmedContent = (dream.content || '').trim();
     if (!trimmedContent) {
@@ -436,7 +540,7 @@ export default function DreamDetail({ user }) {
   };
 
   const handleApplyAiTitle = async () => {
-    if (!dream?.aiTitle) return;
+    if (!dream?.aiTitle || !isOwner) return;
     setApplyingAiTitle(true);
     setStatusMessage('');
 
@@ -454,7 +558,7 @@ export default function DreamDetail({ user }) {
   };
 
   const handleDelete = async () => {
-    if (!dream || dream.id.startsWith('local-')) return;
+    if (!dream || !isOwner || dream.id.startsWith('local-')) return;
     if (!window.confirm('Delete this dream? This cannot be undone.')) return;
     setDeleting(true);
     try {
@@ -479,9 +583,9 @@ export default function DreamDetail({ user }) {
   if (error) {
     return (
       <div className={containerClass}>
-        <button className="detail-back-btn" type="button" onClick={() => navigate('/journal')}>
+        <button className="detail-back-btn" type="button" onClick={goBack}>
           <span className="detail-back-icon" aria-hidden="true">&larr;</span>
-          <span>Back to journal</span>
+          <span>Go back</span>
         </button>
         <div className="detail-error">{error}</div>
       </div>
@@ -491,14 +595,16 @@ export default function DreamDetail({ user }) {
   if (!dream) {
     return (
       <div className={containerClass}>
-        <button className="detail-back-btn" type="button" onClick={() => navigate('/journal')}>
+        <button className="detail-back-btn" type="button" onClick={goBack}>
           <span className="detail-back-icon" aria-hidden="true">&larr;</span>
-          <span>Back to journal</span>
+          <span>Go back</span>
         </button>
         <div className="detail-error">Dream not available.</div>
       </div>
     );
   }
+
+  const titleText = dream.title?.trim() || (dream.aiGenerated && dream.aiTitle) || 'Untitled dream';
 
   return (
     <div className={containerClass}>
@@ -507,16 +613,56 @@ export default function DreamDetail({ user }) {
           <button
             type="button"
             className="detail-back-btn"
-            onClick={() => navigate('/journal')}
+            onClick={goBack}
           >
             <span className="detail-back-icon" aria-hidden="true">&larr;</span>
-            <span>Back to journal</span>
+            <span>Go back</span>
           </button>
         </div>
         <div className="detail-head">
-          <div>
-            {editingDate ? (
-              <div className="detail-date-edit">
+          <div className="detail-title-block">
+            {isOwner ? (
+              editingTitle ? (
+                <div className="detail-title-edit">
+                  <input
+                    type="text"
+                    className="detail-title-input"
+                    placeholder="Enter a title"
+                    value={titleInput}
+                    onChange={(e) => setTitleInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSaveTitle();
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <button type="button" className="ghost-btn" onClick={handleSaveTitle}>Save</button>
+                  <button type="button" className="ghost-btn" onClick={() => setEditingTitle(false)}>Cancel</button>
+                </div>
+              ) : (
+                <h1
+                  className="detail-title detail-title-editable"
+                  onClick={() => setEditingTitle(true)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  {titleText} <span className="edit-hint">✎</span>
+                </h1>
+              )
+            ) : (
+              <h1 className="detail-title">{titleText}</h1>
+            )}
+            {isOwner && !editingTitle && dream.aiTitle && dream.aiTitle !== (dream.title || '').trim() ? (
+              <button type="button" className="ghost-btn" onClick={handleApplyAiTitle} disabled={applyingAiTitle}>
+                {applyingAiTitle ? 'Applying…' : 'Use AI title'}
+              </button>
+            ) : null}
+          </div>
+          <div className="detail-date-block">
+            {isOwner && editingDate ? (
+              <div className="detail-date-edit detail-date-edit--standalone">
                 <input
                   type="date"
                   className="detail-date-input"
@@ -526,41 +672,24 @@ export default function DreamDetail({ user }) {
                 <button type="button" className="ghost-btn" onClick={handleSaveDate}>Save</button>
                 <button type="button" className="ghost-btn" onClick={() => setEditingDate(false)}>Cancel</button>
               </div>
-            ) : (
-              <p className="detail-date" onClick={() => setEditingDate(true)} role="button" tabIndex={0}>
-                {formattedDate} <span className="edit-hint">✎</span>
-              </p>
-            )}
-            {editingTitle ? (
-              <div className="detail-title-edit">
-                <input
-                  type="text"
-                  className="detail-title-input"
-                  placeholder="Enter a title"
-                  value={titleInput}
-                  onChange={(e) => setTitleInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleSaveTitle();
-                    }
-                  }}
-                  autoFocus
-                />
-                <button type="button" className="ghost-btn" onClick={handleSaveTitle}>Save</button>
-                <button type="button" className="ghost-btn" onClick={() => setEditingTitle(false)}>Cancel</button>
-              </div>
-            ) : (
-              <h1 onClick={() => setEditingTitle(true)} role="button" tabIndex={0}>
-                {dream.title || (dream.aiGenerated && dream.aiTitle) || 'Untitled dream'} <span className="edit-hint">✎</span>
-              </h1>
-            )}
-            {!editingTitle && dream.aiTitle && dream.aiTitle !== (dream.title || '').trim() ? (
-              <button type="button" className="ghost-btn" onClick={handleApplyAiTitle} disabled={applyingAiTitle}>
-                {applyingAiTitle ? 'Applying…' : 'Use AI title'}
-              </button>
+            ) : formattedDate ? (
+              isOwner ? (
+                <button
+                  type="button"
+                  className="detail-date-pill detail-date-pill--interactive"
+                  onClick={() => setEditingDate(true)}
+                >
+                  {formattedDate}
+                  <span className="edit-hint">✎</span>
+                </button>
+              ) : (
+                <div className="detail-date-pill">{formattedDate}</div>
+              )
             ) : null}
           </div>
+        </div>
+
+        {isOwner && (
           <div className="detail-visibility">
             <p className="detail-label">Visibility</p>
             <div className="detail-visibility-options">
@@ -577,9 +706,9 @@ export default function DreamDetail({ user }) {
               ))}
             </div>
           </div>
-        </div>
+        )}
 
-        {dream.visibility !== 'private' && (
+        {isOwner && dream.visibility !== 'private' && (
           <div className="detail-audience">
             <p className="detail-label">Hide from specific people</p>
             {audienceOptions.length === 0 ? (
@@ -604,62 +733,64 @@ export default function DreamDetail({ user }) {
           </div>
         )}
 
-        <div className="detail-tagged">
-          <p className="detail-label">Tag people</p>
-          <div className="tag-people-input">
-            <input
-              type="text"
-              placeholder="@username"
-              value={tagHandle}
-              onChange={(e) => {
-                setTagHandle(e.target.value);
-                setTaggingStatus('');
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddTaggedPerson();
-                }
-              }}
-            />
-            <button type="button" className="add-tag-btn" onClick={handleAddTaggedPerson} disabled={taggingBusy || !tagHandle.trim()}>
-              {taggingBusy ? 'Tagging…' : 'Tag'}
-            </button>
-          </div>
-          {tagSuggestions.length > 0 && (
-            <div className="tag-suggestion-list">
-              {tagSuggestions.map((profile) => (
-                <button
-                  type="button"
-                  key={profile.id}
-                  className="tag-suggestion-item"
-                  onClick={() => handleSelectTagSuggestion(profile)}
-                  disabled={taggingBusy}
-                >
-                  <span className="suggestion-name">{profile.displayName}</span>
-                  {profile.username && <span className="suggestion-username">@{profile.username}</span>}
-                </button>
-              ))}
+        {isOwner && (
+          <div className="detail-tagged">
+            <p className="detail-label">Tag people</p>
+            <div className="tag-people-input">
+              <input
+                type="text"
+                placeholder="@username"
+                value={tagHandle}
+                onChange={(e) => {
+                  setTagHandle(e.target.value);
+                  setTaggingStatus('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddTaggedPerson();
+                  }
+                }}
+              />
+              <button type="button" className="add-tag-btn" onClick={handleAddTaggedPerson} disabled={taggingBusy || !tagHandle.trim()}>
+                {taggingBusy ? 'Tagging…' : 'Tag'}
+              </button>
             </div>
-          )}
-          {taggingStatus && <p className="detail-hint">{taggingStatus}</p>}
-          {taggedPeople.length ? (
-            <div className="tagged-pill-row">
-              {taggedPeople.map((entry) => (
-                <span key={entry.userId} className="tagged-pill">
-                  @{entry.username || entry.displayName}
-                  <button type="button" aria-label={`Remove ${entry.username || entry.displayName}`} onClick={() => handleRemoveTaggedPerson(entry.userId)} disabled={taggingBusy}>
-                    ×
+            {tagSuggestions.length > 0 && (
+              <div className="tag-suggestion-list">
+                {tagSuggestions.map((profile) => (
+                  <button
+                    type="button"
+                    key={profile.id}
+                    className="tag-suggestion-item"
+                    onClick={() => handleSelectTagSuggestion(profile)}
+                    disabled={taggingBusy}
+                  >
+                    <span className="suggestion-name">{profile.displayName}</span>
+                    {profile.username && <span className="suggestion-username">@{profile.username}</span>}
                   </button>
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="detail-hint">Tagged dreamers will see this on their profile.</p>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+            {taggingStatus && <p className="detail-hint">{taggingStatus}</p>}
+            {taggedPeople.length ? (
+              <div className="tagged-pill-row">
+                {taggedPeople.map((entry) => (
+                  <span key={entry.userId} className="tagged-pill">
+                    @{entry.username || entry.displayName}
+                    <button type="button" aria-label={`Remove ${entry.username || entry.displayName}`} onClick={() => handleRemoveTaggedPerson(entry.userId)} disabled={taggingBusy}>
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="detail-hint">Tagged dreamers will see this on their profile.</p>
+            )}
+          </div>
+        )}
 
-        {!editingContent && dream.tags?.length ? (
+        {isOwner && !editingContent && dream.tags?.length ? (
           <div className="detail-tags">
             {dream.tags.map((tag, index) => (
               <span className="tag" key={`${dream.id}-tag-${index}`}>{tag.value}</span>
@@ -668,7 +799,7 @@ export default function DreamDetail({ user }) {
         ) : null}
 
         <div className="detail-body">
-          {editingContent ? (
+          {isOwner && editingContent ? (
             <>
               <textarea
                 className="detail-textarea"
@@ -721,13 +852,15 @@ export default function DreamDetail({ user }) {
           ) : (
             <>
               <p>{dream.content}</p>
-              <button type="button" className="ghost-btn" onClick={() => {
-                setEditingContent(true);
-                setContentInput(dream.content || '');
-                setEditableTags(Array.isArray(dream.tags) ? dream.tags : []);
-              }}>
-                Edit content
-              </button>
+              {isOwner && (
+                <button type="button" className="ghost-btn" onClick={() => {
+                  setEditingContent(true);
+                  setContentInput(dream.content || '');
+                  setEditableTags(Array.isArray(dream.tags) ? dream.tags : []);
+                }}>
+                  Edit content
+                </button>
+              )}
             </>
           )}
         </div>
@@ -741,7 +874,7 @@ export default function DreamDetail({ user }) {
               <p className="detail-insight muted">No summary yet.</p>
             )}
           </div>
-          {!dream.aiGenerated ? (
+          {isOwner && !dream.aiGenerated ? (
             <button
               type="button"
               className="primary-btn"
@@ -753,7 +886,7 @@ export default function DreamDetail({ user }) {
           ) : null}
         </div>
 
-        {dream.aiGenerated && dream.aiTitle && dream.aiTitle !== (dream.title || '').trim() ? (
+        {isOwner && dream.aiGenerated && dream.aiTitle && dream.aiTitle !== (dream.title || '').trim() ? (
           <div className="ai-title-hint">
             <p className="ai-title-label">AI suggestion: <span>{dream.aiTitle}</span></p>
             <button
@@ -767,20 +900,22 @@ export default function DreamDetail({ user }) {
           </div>
         ) : null}
 
-        {statusMessage && <p className="detail-status-message">{statusMessage}</p>}
+        {isOwner && statusMessage && <p className="detail-status-message">{statusMessage}</p>}
 
         <div className="detail-actions">
-          <button type="button" className="secondary-btn" onClick={() => navigate('/journal')}>
+          <button type="button" className="secondary-btn" onClick={goBack}>
             Close
           </button>
-          <button
-            type="button"
-            className="danger-btn"
-            onClick={handleDelete}
-            disabled={deleting}
-          >
-            {deleting ? 'Deleting…' : 'Delete dream'}
-          </button>
+          {isOwner && (
+            <button
+              type="button"
+              className="danger-btn"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting…' : 'Delete dream'}
+            </button>
+          )}
         </div>
       </div>
     </div>
