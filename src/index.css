@@ -289,6 +289,110 @@ a {
   gap: 1rem;
 }
 
+/* Audience search controls */
+.audience-search-input {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.audience-search-input input {
+  width: 100%;
+  padding: 0.75rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.audience-search-input input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(90, 200, 250, 0.12);
+}
+
+.audience-result-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.audience-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  color: var(--text);
+  transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+  text-align: left;
+}
+
+.audience-result.active {
+  border-color: var(--primary);
+  background: rgba(90, 200, 250, 0.1);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+}
+
+.audience-result-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.result-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.result-handle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.result-status {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.audience-result.active .result-status {
+  color: var(--primary);
+}
+
+.selected-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.selected-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.selected-pill button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.selected-pill button:hover {
+  color: var(--primary);
+}
+
 @media (max-width: 768px) {
   .page-container {
     padding: 10px 1.25rem 50px;

@@ -63,9 +63,8 @@
 
 .detail-head {
   display: flex;
-  flex-wrap: wrap;
-  gap: 1.25rem;
-  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 1rem;
   align-items: flex-start;
 }
 
@@ -75,6 +74,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  padding: 0px;
 }
 
 .detail-title {
@@ -89,10 +89,12 @@
 }
 
 .detail-date-block {
-  min-width: 200px;
+  padding: 0;
+  min-width: 160px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: flex-start;
+  align-self: flex-start;
 }
 
 .detail-date-pill {
@@ -107,6 +109,7 @@
   align-items: center;
   gap: 0.35rem;
   font-size: 0.95rem;
+  margin-bottom: 5px;
 }
 
 .detail-date-pill--interactive {
@@ -192,37 +195,10 @@
   gap: 0.75rem;
 }
 
-.audience-chip-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0.6rem;
-}
-
-.audience-chip {
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 0.7rem;
-  text-align: left;
-  background: var(--surface);
-  color: var(--text);
+.detail-section-head {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
-  transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.audience-chip.active {
-  border-color: var(--primary);
-  background: rgba(90, 200, 250, 0.12);
-}
-
-.chip-title {
-  font-weight: 600;
-}
-
-.chip-subtext {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+  gap: 0.2rem;
 }
 
 .tag-people-input {
@@ -327,6 +303,22 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+}
+
+.detail-tags-inline {
+  margin: 1rem 0 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .detail-head {
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .detail-title-block,
+  .detail-date-block {
+    width: 100%;
+  }
 }
 
 .detail-body {

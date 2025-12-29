@@ -74,6 +74,7 @@ export default function DreamJournal({ user }) {
   const [listenError, setListenError] = useState('');
   const [connectionOptions, setConnectionOptions] = useState([]);
   const [audienceLoading, setAudienceLoading] = useState(false);
+  const [audienceQuery, setAudienceQuery] = useState('');
   const [excludedViewerIds, setExcludedViewerIds] = useState([]);
   const [taggedUsers, setTaggedUsers] = useState([]);
   const [tagHandle, setTagHandle] = useState('');
@@ -81,6 +82,7 @@ export default function DreamJournal({ user }) {
   const [taggingBusy, setTaggingBusy] = useState(false);
   const [viewerProfile, setViewerProfile] = useState(null);
   const navigate = useNavigate();
+  const hasAudienceQuery = audienceQuery.trim().length > 0;
 
   useEffect(() => {
     if (!user?.uid) {
@@ -120,6 +122,7 @@ export default function DreamJournal({ user }) {
     if (!user?.uid) {
       setConnectionOptions([]);
       setAudienceLoading(false);
+      setAudienceQuery('');
       return undefined;
     }
 
@@ -142,6 +145,7 @@ export default function DreamJournal({ user }) {
         if (!connectionIds.length) {
           if (!cancelled) {
             setConnectionOptions([]);
+            setAudienceQuery('');
           }
           return;
         }
@@ -165,10 +169,12 @@ export default function DreamJournal({ user }) {
 
         if (!cancelled) {
           setConnectionOptions(profiles.filter(Boolean));
+          setAudienceQuery('');
         }
       } catch {
         if (!cancelled) {
           setConnectionOptions([]);
+          setAudienceQuery('');
         }
       } finally {
         if (!cancelled) {
@@ -207,6 +213,22 @@ export default function DreamJournal({ user }) {
       })
       .slice(0, 5);
   }, [connectionOptions, tagHandle, taggedUsers, user?.uid]);
+
+  const connectionLookup = useMemo(() => (
+    connectionOptions.reduce((acc, profile) => {
+      acc[profile.id] = profile;
+      return acc;
+    }, {})
+  ), [connectionOptions]);
+
+  const filteredConnections = useMemo(() => {
+    const normalized = audienceQuery.trim().toLowerCase();
+    if (!normalized) return [];
+    return connectionOptions.filter((profile) => {
+      const label = `${profile.displayName || ''} ${profile.username || ''}`.toLowerCase();
+      return label.includes(normalized);
+    });
+  }, [audienceQuery, connectionOptions]);
 
   const toggleExcludedViewer = (viewerId) => {
     if (!viewerId) return;
@@ -550,20 +572,66 @@ export default function DreamJournal({ user }) {
                 ) : connectionOptions.length === 0 ? (
                   <p className="hint">Connect with people to curate who sees limited posts.</p>
                 ) : (
-                  <div className="audience-chip-grid">
-                    {connectionOptions.map((profile) => (
-                      <button
-                        key={profile.id}
-                        type="button"
-                        className={excludedViewerIds.includes(profile.id) ? 'audience-chip active' : 'audience-chip'}
-                        onClick={() => toggleExcludedViewer(profile.id)}
+                  <>
+                    <div className="audience-search-input">
+                      <input
+                        type="text"
+                        placeholder="Search your following"
+                        value={audienceQuery}
+                        onChange={(event) => setAudienceQuery(event.target.value)}
                         disabled={loading}
-                      >
-                        <span className="chip-title">{profile.displayName}</span>
-                        {profile.username && <span className="chip-subtext">@{profile.username}</span>}
-                      </button>
-                    ))}
-                  </div>
+                      />
+                    </div>
+                    {hasAudienceQuery && (
+                      <div className="audience-result-list">
+                        {filteredConnections.length ? (
+                          filteredConnections.map((profile) => {
+                            const isHidden = excludedViewerIds.includes(profile.id);
+                            return (
+                              <button
+                                key={profile.id}
+                                type="button"
+                                className={`audience-result${isHidden ? ' active' : ''}`}
+                                onClick={() => toggleExcludedViewer(profile.id)}
+                                disabled={loading}
+                              >
+                                <div className="audience-result-meta">
+                                  <span className="result-name">{profile.displayName}</span>
+                                  {profile.username && <span className="result-handle">@{profile.username}</span>}
+                                </div>
+                                <span className="result-status">{isHidden ? 'Hidden' : 'Visible'}</span>
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <p className="hint">No matches for "{audienceQuery}".</p>
+                        )}
+                      </div>
+                    )}
+                    {excludedViewerIds.length ? (
+                      <div className="selected-pill-row">
+                        {excludedViewerIds.map((id) => {
+                          const profile = connectionLookup[id];
+                          const label = profile?.username ? `@${profile.username}` : profile?.displayName || 'Dreamer';
+                          return (
+                            <span key={id} className="selected-pill">
+                              {label}
+                              <button
+                                type="button"
+                                onClick={() => toggleExcludedViewer(id)}
+                                aria-label={`Remove ${label}`}
+                                disabled={loading}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="hint">No one is hidden right now.</p>
+                    )}
+                  </>
                 )}
               </div>
 

@@ -79,6 +79,8 @@ export default function DreamDetail({ user }) {
   const [applyingAiTitle, setApplyingAiTitle] = useState(false);
   const [audienceOptions, setAudienceOptions] = useState([]);
   const [audienceBusy, setAudienceBusy] = useState(false);
+  const [audienceLoading, setAudienceLoading] = useState(false);
+  const [audienceQuery, setAudienceQuery] = useState('');
   const [excludedViewerIds, setExcludedViewerIds] = useState([]);
   const [taggedPeople, setTaggedPeople] = useState([]);
   const [tagHandle, setTagHandle] = useState('');
@@ -210,17 +212,21 @@ export default function DreamDetail({ user }) {
   useEffect(() => {
     if (!user?.uid || !dream || dream.userId !== user.uid) {
       setAudienceOptions([]);
+      setAudienceLoading(false);
+      setAudienceQuery('');
       return undefined;
     }
 
     let cancelled = false;
+    setAudienceLoading(true);
+    setAudienceQuery('');
+
     const loadFollowing = async () => {
       try {
         const viewerSnap = await getDoc(doc(db, 'users', user.uid));
         const viewerData = viewerSnap.data() || {};
         const followingIds = Array.isArray(viewerData.followingIds) ? viewerData.followingIds : [];
-        const followerIds = Array.isArray(viewerData.followerIds) ? viewerData.followerIds : [];
-        const connectionIds = Array.from(new Set([...followingIds, ...followerIds])).filter((id) => id && id !== user.uid);
+        const connectionIds = followingIds.filter((id) => id && id !== user.uid);
         if (!connectionIds.length) {
           if (!cancelled) setAudienceOptions([]);
           return;
@@ -248,6 +254,8 @@ export default function DreamDetail({ user }) {
         }
       } catch {
         if (!cancelled) setAudienceOptions([]);
+      } finally {
+        if (!cancelled) setAudienceLoading(false);
       }
     };
 
@@ -373,6 +381,22 @@ export default function DreamDetail({ user }) {
       })
       .slice(0, 5);
   }, [audienceOptions, tagHandle, taggedPeople, user?.uid]);
+
+  const audienceLookup = useMemo(() => (
+    audienceOptions.reduce((acc, profile) => {
+      acc[profile.id] = profile;
+      return acc;
+    }, {})
+  ), [audienceOptions]);
+
+  const filteredAudience = useMemo(() => {
+    const normalized = audienceQuery.trim().toLowerCase();
+    if (!normalized) return [];
+    return audienceOptions.filter((profile) => {
+      const label = `${profile.displayName || ''} ${profile.username || ''}`.toLowerCase();
+      return label.includes(normalized);
+    });
+  }, [audienceOptions, audienceQuery]);
 
   const persistTaggedPeople = async (nextList, successMessage) => {
     if (!dream || !isOwner) return;
@@ -605,6 +629,7 @@ export default function DreamDetail({ user }) {
   }
 
   const titleText = dream.title?.trim() || (dream.aiGenerated && dream.aiTitle) || 'Untitled dream';
+  const hasAudienceQuery = audienceQuery.trim().length > 0;
 
   return (
     <div className={containerClass}>
@@ -689,6 +714,117 @@ export default function DreamDetail({ user }) {
           </div>
         </div>
 
+        <div className="detail-body">
+            {isOwner && editingContent ? (
+              <>
+                <textarea
+                  className="detail-textarea"
+                  value={contentInput}
+                  onChange={(e) => setContentInput(e.target.value)}
+                />
+                <div className="detail-tags-editor">
+                  <label htmlFor="detail-tag-input">Tags</label>
+                  <div className="detail-tag-input-row">
+                    <input
+                      id="detail-tag-input"
+                      type="text"
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddTag();
+                        }
+                      }}
+                      placeholder="Add a tag"
+                    />
+                    <button type="button" className="add-tag-btn" onClick={handleAddTag}>+ Tag</button>
+                  </div>
+                  {editableTags.length ? (
+                    <div className="detail-tag-list">
+                      {editableTags.map((tag) => (
+                        <span className="detail-tag-chip" key={`edit-tag-${tag.value}`}>
+                          {tag.value}
+                          <button type="button" className="detail-tag-remove" onClick={() => handleRemoveTag(tag.value)} aria-label={`Remove tag ${tag.value}`}>
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="detail-edit-actions">
+                  <button type="button" className="ghost-btn" onClick={handleCancelContentEdit}>Cancel</button>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={handleSaveContent}
+                    disabled={!contentInput.trim()}
+                  >
+                    Save changes
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p>{dream.content}</p>
+                {dream.tags?.length ? (
+                  <div className="detail-tags detail-tags-inline">
+                    {dream.tags.map((tag, index) => (
+                      <span className="tag" key={`${dream.id}-tag-${index}`}>{tag.value}</span>
+                    ))}
+                  </div>
+                ) : null}
+                {isOwner && (
+                  <button type="button" className="ghost-btn" onClick={() => {
+                    setEditingContent(true);
+                    setContentInput(dream.content || '');
+                    setEditableTags(Array.isArray(dream.tags) ? dream.tags : []);
+                  }}>
+                    Edit content
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+
+        <div className="detail-summary">
+            <div>
+              <h3>Summary</h3>
+              {dream.aiGenerated && dream.aiInsights ? (
+                <p className="detail-insight">{dream.aiInsights}</p>
+              ) : (
+                <p className="detail-insight muted">No summary yet.</p>
+              )}
+            </div>
+            {isOwner && !dream.aiGenerated ? (
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={handleAnalyzeDream}
+                disabled={analyzing}
+              >
+                {analyzing ? 'Generating title & summary…' : 'Generate title & summary'}
+              </button>
+            ) : null}
+          </div>
+
+        {isOwner && dream.aiGenerated && dream.aiTitle && dream.aiTitle !== (dream.title || '').trim() ? (
+          <div className="ai-title-hint">
+            <p className="ai-title-label">AI suggestion: <span>{dream.aiTitle}</span></p>
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={handleApplyAiTitle}
+              disabled={applyingAiTitle}
+            >
+              {applyingAiTitle ? 'Applying…' : 'Use AI title'}
+            </button>
+          </div>
+        ) : null}
+
+        {isOwner && statusMessage && <p className="detail-status-message">{statusMessage}</p>}
+
         {isOwner && (
           <div className="detail-visibility">
             <p className="detail-label">Visibility</p>
@@ -710,24 +846,76 @@ export default function DreamDetail({ user }) {
 
         {isOwner && dream.visibility !== 'private' && (
           <div className="detail-audience">
-            <p className="detail-label">Hide from specific people</p>
-            {audienceOptions.length === 0 ? (
-              <p className="detail-hint">No connections available.</p>
-            ) : (
-              <div className="audience-chip-grid">
-                {audienceOptions.map((profile) => (
-                  <button
-                    key={profile.id}
-                    type="button"
-                    className={excludedViewerIds.includes(profile.id) ? 'audience-chip active' : 'audience-chip'}
-                    onClick={() => handleToggleAudience(profile.id)}
-                    disabled={audienceBusy}
-                  >
-                    <span className="chip-title">{profile.displayName}</span>
-                    {profile.username && <span className="chip-subtext">@{profile.username}</span>}
-                  </button>
-                ))}
+            <div className="detail-section-head">
+              <p className="detail-label">Hide from specific people</p>
+              <p className="detail-hint">Search your following to keep certain dreamers from seeing this entry.</p>
+            </div>
+            {audienceLoading ? (
+              <div className="loading-inline">
+                <LoadingIndicator label="Loading your following…" size="sm" align="start" />
               </div>
+            ) : audienceOptions.length === 0 ? (
+              <p className="detail-hint">Follow people to curate this list.</p>
+            ) : (
+              <>
+                <div className="audience-search-input">
+                  <input
+                    type="text"
+                    placeholder="Search your following"
+                    value={audienceQuery}
+                    onChange={(e) => setAudienceQuery(e.target.value)}
+                  />
+                </div>
+                {!hasAudienceQuery ? (
+                  <p className="detail-hint">Start typing to search your following.</p>
+                ) : (
+                  <div className="audience-result-list">
+                    {filteredAudience.length ? (
+                      filteredAudience.map((profile) => {
+                        const isHidden = excludedViewerIds.includes(profile.id);
+                        return (
+                          <button
+                            key={profile.id}
+                            type="button"
+                            className={`audience-result${isHidden ? ' active' : ''}`}
+                            onClick={() => handleToggleAudience(profile.id)}
+                            disabled={audienceBusy}
+                          >
+                            <div className="audience-result-meta">
+                              <span className="result-name">{profile.displayName}</span>
+                              {profile.username && <span className="result-handle">@{profile.username}</span>}
+                            </div>
+                            <span className="result-status">{isHidden ? 'Hidden' : 'Visible'}</span>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <p className="detail-hint">No matches for "{audienceQuery}".</p>
+                    )}
+                  </div>
+                )}
+                {excludedViewerIds.length > 0 && (
+                  <div className="selected-pill-row">
+                    {excludedViewerIds.map((id) => {
+                      const profile = audienceLookup[id];
+                      const label = profile?.username ? `@${profile.username}` : profile?.displayName || 'Dreamer';
+                      return (
+                        <span key={id} className="selected-pill">
+                          {label}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleAudience(id)}
+                            aria-label={`Remove ${label}`}
+                            disabled={audienceBusy}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
             {audienceBusy && <p className="detail-hint">Updating…</p>}
           </div>
@@ -789,118 +977,6 @@ export default function DreamDetail({ user }) {
             )}
           </div>
         )}
-
-        {isOwner && !editingContent && dream.tags?.length ? (
-          <div className="detail-tags">
-            {dream.tags.map((tag, index) => (
-              <span className="tag" key={`${dream.id}-tag-${index}`}>{tag.value}</span>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="detail-body">
-          {isOwner && editingContent ? (
-            <>
-              <textarea
-                className="detail-textarea"
-                value={contentInput}
-                onChange={(e) => setContentInput(e.target.value)}
-              />
-              <div className="detail-tags-editor">
-                <label htmlFor="detail-tag-input">Tags</label>
-                <div className="detail-tag-input-row">
-                  <input
-                    id="detail-tag-input"
-                    type="text"
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddTag();
-                      }
-                    }}
-                    placeholder="Add a tag"
-                  />
-                  <button type="button" className="add-tag-btn" onClick={handleAddTag}>+ Tag</button>
-                </div>
-                {editableTags.length ? (
-                  <div className="detail-tag-list">
-                    {editableTags.map((tag) => (
-                      <span className="detail-tag-chip" key={`edit-tag-${tag.value}`}>
-                        {tag.value}
-                        <button type="button" className="detail-tag-remove" onClick={() => handleRemoveTag(tag.value)} aria-label={`Remove tag ${tag.value}`}>
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-              <div className="detail-edit-actions">
-                <button type="button" className="ghost-btn" onClick={handleCancelContentEdit}>Cancel</button>
-                <button
-                  type="button"
-                  className="primary-btn"
-                  onClick={handleSaveContent}
-                  disabled={!contentInput.trim()}
-                >
-                  Save changes
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <p>{dream.content}</p>
-              {isOwner && (
-                <button type="button" className="ghost-btn" onClick={() => {
-                  setEditingContent(true);
-                  setContentInput(dream.content || '');
-                  setEditableTags(Array.isArray(dream.tags) ? dream.tags : []);
-                }}>
-                  Edit content
-                </button>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="detail-summary">
-          <div>
-            <h3>Summary</h3>
-            {dream.aiGenerated && dream.aiInsights ? (
-              <p className="detail-insight">{dream.aiInsights}</p>
-            ) : (
-              <p className="detail-insight muted">No summary yet.</p>
-            )}
-          </div>
-          {isOwner && !dream.aiGenerated ? (
-            <button
-              type="button"
-              className="primary-btn"
-              onClick={handleAnalyzeDream}
-              disabled={analyzing}
-            >
-              {analyzing ? 'Generating title & summary…' : 'Generate title & summary'}
-            </button>
-          ) : null}
-        </div>
-
-        {isOwner && dream.aiGenerated && dream.aiTitle && dream.aiTitle !== (dream.title || '').trim() ? (
-          <div className="ai-title-hint">
-            <p className="ai-title-label">AI suggestion: <span>{dream.aiTitle}</span></p>
-            <button
-              type="button"
-              className="ghost-btn"
-              onClick={handleApplyAiTitle}
-              disabled={applyingAiTitle}
-            >
-              {applyingAiTitle ? 'Applying…' : 'Use AI title'}
-            </button>
-          </div>
-        ) : null}
-
-        {isOwner && statusMessage && <p className="detail-status-message">{statusMessage}</p>}
 
         <div className="detail-actions">
           <button type="button" className="secondary-btn" onClick={goBack}>
