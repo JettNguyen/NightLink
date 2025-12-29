@@ -1,7 +1,7 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { doc, onSnapshot, updateDoc, deleteDoc, serverTimestamp, collection, query, where, limit, getDocs, getDoc } from 'firebase/firestore';
-import { format } from 'date-fns';
+import { doc, onSnapshot, updateDoc, deleteDoc, serverTimestamp, collection, query, where, limit, getDocs, getDoc, addDoc, orderBy } from 'firebase/firestore';
+import { format, formatDistanceToNow } from 'date-fns';
 import { db } from '../firebase';
 import LoadingIndicator from '../components/LoadingIndicator';
 import './DreamDetail.css';
@@ -86,11 +86,96 @@ export default function DreamDetail({ user }) {
   const [tagHandle, setTagHandle] = useState('');
   const [taggingBusy, setTaggingBusy] = useState(false);
   const [taggingStatus, setTaggingStatus] = useState('');
+  const [viewerProfile, setViewerProfile] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(true);
+  const [commentInput, setCommentInput] = useState('');
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [commentStatus, setCommentStatus] = useState('');
+  const [commentError, setCommentError] = useState('');
+  const [removingCommentId, setRemovingCommentId] = useState(null);
+  const [sharingControlsOpen, setSharingControlsOpen] = useState(false);
+  const [replyTarget, setReplyTarget] = useState(null);
+  const [expandedThreads, setExpandedThreads] = useState({});
   const viewerId = user?.uid || null;
   const [authorProfile, setAuthorProfile] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
   const location = useLocation();
   const fromNav = location.state?.fromNav || null;
+  const commentInputRef = useRef(null);
+  const commentLookup = useMemo(() => (
+    comments.reduce((acc, entry) => {
+      if (entry?.id) {
+        acc[entry.id] = entry;
+      }
+      return acc;
+    }, {})
+  ), [comments]);
+  const parentLookup = useMemo(() => (
+    comments.reduce((acc, entry) => {
+      if (entry?.id) {
+        acc[entry.id] = entry.parentCommentId || null;
+      }
+      return acc;
+    }, {})
+  ), [comments]);
+  const commentThreads = useMemo(() => {
+    if (!comments.length) return [];
+    const clones = comments.map((entry) => ({ ...entry, replies: [] }));
+    const cloneMap = clones.reduce((acc, entry) => {
+      if (entry?.id) {
+        acc[entry.id] = entry;
+      }
+      return acc;
+    }, {});
+
+    const roots = [];
+    clones.forEach((entry) => {
+      const parentId = entry.parentCommentId;
+      if (parentId && cloneMap[parentId]) {
+        cloneMap[parentId].replies.push(entry);
+      } else {
+        roots.push(entry);
+      }
+    });
+
+    const sortBranch = (node) => {
+      if (!node?.replies?.length) return;
+      node.replies.sort((a, b) => {
+        const aTime = a.createdAt?.getTime?.() || 0;
+        const bTime = b.createdAt?.getTime?.() || 0;
+        return aTime - bTime;
+      });
+      node.replies.forEach(sortBranch);
+    };
+
+    roots.forEach(sortBranch);
+    return roots;
+  }, [comments]);
+
+  const getRootCommentId = (commentId) => {
+    if (!commentId) return null;
+    let currentId = commentId;
+    const visited = new Set();
+    while (parentLookup[currentId]) {
+      if (visited.has(currentId)) break;
+      visited.add(currentId);
+      currentId = parentLookup[currentId];
+    }
+    return currentId || commentId;
+  };
+
+  const toggleThreadVisibility = (threadId) => {
+    if (!threadId) return;
+    setExpandedThreads((prev) => ({
+      ...prev,
+      [threadId]: !prev[threadId]
+    }));
+  };
+
+  const clearReplyTarget = () => {
+    setReplyTarget(null);
+  };
 
   const containerClass = 'page-container dream-detail-page';
   const goBack = () => {
@@ -112,6 +197,31 @@ export default function DreamDetail({ user }) {
       setEditingContent(false);
     }
   }, [isOwner]);
+
+  useEffect(() => {
+    if (!viewerId) {
+      setViewerProfile(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const loadViewerProfile = async () => {
+      try {
+        const viewerSnap = await getDoc(doc(db, 'users', viewerId));
+        if (cancelled) return;
+        setViewerProfile(viewerSnap.exists() ? { id: viewerSnap.id, ...viewerSnap.data() } : null);
+      } catch {
+        if (!cancelled) {
+          setViewerProfile(null);
+        }
+      }
+    };
+
+    loadViewerProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewerId]);
 
   useEffect(() => {
     if (!dreamId) {
@@ -199,6 +309,45 @@ export default function DreamDetail({ user }) {
       unsubscribe();
     };
   }, [dreamId, viewerId]);
+
+  useEffect(() => {
+    if (!dreamId) {
+      setComments([]);
+      setCommentsLoading(false);
+      return undefined;
+    }
+
+    setCommentsLoading(true);
+    setCommentError('');
+    const commentsRef = collection(db, 'dreams', dreamId, 'comments');
+    const commentsQuery = query(commentsRef, orderBy('createdAt', 'asc'));
+    const unsubscribe = onSnapshot(commentsQuery, (snapshot) => {
+      const nextComments = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data() || {};
+        const createdAt = data.createdAt?.toDate?.() ?? null;
+        return {
+          id: docSnap.id,
+          ...data,
+          createdAt
+        };
+      });
+      setComments(nextComments);
+      setCommentsLoading(false);
+    }, () => {
+      setCommentError('Could not load comments.');
+      setComments([]);
+      setCommentsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [dreamId]);
+
+  useEffect(() => {
+    if (!replyTarget) return;
+    if (!comments.some((comment) => comment.id === replyTarget.id)) {
+      setReplyTarget(null);
+    }
+  }, [comments, replyTarget]);
 
   const formattedDate = useMemo(() => {
     if (!dream?.createdAt) return '';
@@ -365,6 +514,52 @@ export default function DreamDetail({ user }) {
 
   const normalizeHandle = (value = '') => value.replace(/^@/, '').trim().toLowerCase();
 
+  const extractMentionHandles = (value = '') => {
+    const matches = new Set();
+    const mentionPattern = /@([a-zA-Z0-9_]+)/g;
+    let match = mentionPattern.exec(value);
+    while (match) {
+      const normalized = normalizeHandle(match[1]);
+      if (normalized) {
+        matches.add(normalized);
+      }
+      match = mentionPattern.exec(value);
+    }
+    return Array.from(matches);
+  };
+
+  const resolveMentionTargets = async (text = '') => {
+    const handles = extractMentionHandles(text);
+    if (!handles.length) {
+      return { ids: [], handles: [] };
+    }
+
+    const idSet = new Set();
+    const usersRef = collection(db, 'users');
+    const chunkSize = 10;
+    const queries = [];
+    for (let i = 0; i < handles.length; i += chunkSize) {
+      const slice = handles.slice(i, i + chunkSize);
+      queries.push(getDocs(query(usersRef, where('normalizedUsername', 'in', slice))));
+    }
+
+    try {
+      const snapshots = await Promise.all(queries);
+      snapshots.forEach((snapshot) => {
+        snapshot.forEach((docSnap) => {
+          idSet.add(docSnap.id);
+        });
+      });
+    } catch {
+      return { ids: [], handles };
+    }
+
+    return {
+      ids: Array.from(idSet),
+      handles
+    };
+  };
+
   const tagSuggestions = useMemo(() => {
     const normalized = normalizeHandle(tagHandle);
     if (!normalized) return [];
@@ -490,6 +685,109 @@ export default function DreamDetail({ user }) {
     }
   };
 
+  const handleSubmitComment = async () => {
+    if (!viewerId || commentBusy) return;
+    const trimmed = commentInput.trim();
+    const activeDreamId = dream?.id || dreamId;
+    if (!trimmed || !activeDreamId) return;
+
+    setCommentBusy(true);
+    setCommentStatus('');
+    try {
+      const currentReplyTarget = replyTarget;
+      const mentionTargets = await resolveMentionTargets(trimmed);
+      const activityTargets = new Set(mentionTargets.ids);
+      if (dream?.userId && dream.userId !== viewerId) {
+        activityTargets.add(dream.userId);
+      }
+      if (currentReplyTarget?.userId && currentReplyTarget.userId !== viewerId) {
+        activityTargets.add(currentReplyTarget.userId);
+      }
+      const activityTargetIds = Array.from(activityTargets);
+      const snapshotTitle = dream?.title?.trim()
+        || (dream?.aiGenerated ? dream?.aiTitle : '')
+        || 'Untitled dream';
+      const commentsRef = collection(db, 'dreams', activeDreamId, 'comments');
+      await addDoc(commentsRef, {
+        content: trimmed,
+        userId: viewerId,
+        authorDisplayName: viewerProfile?.displayName || user?.displayName || 'Dreamer',
+        authorUsername: viewerProfile?.username || user?.username || '',
+        dreamId: activeDreamId,
+        dreamOwnerId: dream?.userId || null,
+        dreamOwnerUsername: authorProfile?.username || '',
+        dreamTitleSnapshot: snapshotTitle,
+        mentions: mentionTargets.ids,
+        mentionHandles: mentionTargets.handles,
+        parentCommentId: currentReplyTarget?.id || null,
+        parentCommentUserId: currentReplyTarget?.userId || null,
+        activityTargetIds,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      setCommentInput('');
+      setCommentStatus('Posted.');
+      if (currentReplyTarget?.rootId) {
+        setExpandedThreads((prev) => ({
+          ...prev,
+          [currentReplyTarget.rootId]: true
+        }));
+      }
+      setReplyTarget(null);
+    } catch {
+      setCommentStatus('Could not post your comment.');
+    } finally {
+      setCommentBusy(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId, authorId) => {
+    if (!commentId || !dream?.id || !viewerId) return;
+    if (!isOwner && authorId !== viewerId) return;
+    if (!window.confirm('Remove this comment?')) return;
+
+    setRemovingCommentId(commentId);
+    setCommentStatus('');
+    try {
+      await deleteDoc(doc(db, 'dreams', dream.id, 'comments', commentId));
+    } catch {
+      setCommentStatus('Could not remove that comment.');
+    } finally {
+      setRemovingCommentId(null);
+    }
+  };
+
+  const handleReplyToComment = (entry) => {
+    if (!viewerId || !entry?.id) return;
+    if (entry.authorUsername) {
+      const mention = `@${entry.authorUsername}`;
+      setCommentInput((prev) => {
+        const existing = prev || '';
+        if (existing.toLowerCase().includes(mention.toLowerCase())) {
+          return existing;
+        }
+        const spacer = existing.trim().length ? ' ' : '';
+        return `${existing}${spacer}${mention} `;
+      });
+    }
+    const rootId = getRootCommentId(entry.id) || entry.id;
+    setReplyTarget({
+      id: entry.id,
+      userId: entry.userId || null,
+      authorDisplayName: entry.authorDisplayName || 'Dreamer',
+      authorUsername: entry.authorUsername || '',
+      rootId
+    });
+    setExpandedThreads((prev) => ({
+      ...prev,
+      [rootId]: true
+    }));
+    setCommentStatus('');
+    requestAnimationFrame(() => {
+      commentInputRef.current?.focus();
+    });
+  };
+
   const handleAnalyzeDream = async () => {
     if (!dream || !isOwner || dream.id.startsWith('local-')) return;
 
@@ -594,6 +892,91 @@ export default function DreamDetail({ user }) {
     }
   };
 
+  const renderCommentCard = (entry, depth = 0) => {
+    const canRemove = isOwner || entry.userId === viewerId;
+    const relativeTime = entry.createdAt ? formatDistanceToNow(entry.createdAt, { addSuffix: true }) : 'Just now';
+    const replyingTo = entry.parentCommentId ? commentLookup[entry.parentCommentId] : null;
+    return (
+      <div className={`comment-card${depth ? ' comment-card-reply' : ''}`}>
+        <div className="comment-meta">
+          <div className="comment-meta-names">
+            <span className="comment-author">{entry.authorDisplayName || 'Dreamer'}</span>
+            {entry.authorUsername && <span className="comment-handle">@{entry.authorUsername}</span>}
+          </div>
+          <span className="comment-time">{relativeTime}</span>
+        </div>
+        {replyingTo && (
+          <p className="comment-reply-context">
+            Replying to {replyingTo.authorUsername ? `@${replyingTo.authorUsername}` : replyingTo.authorDisplayName || 'this comment'}
+          </p>
+        )}
+        <p className="comment-body">{entry.content || ''}</p>
+        {(viewerId || canRemove) ? (
+          <div className="comment-actions">
+            {viewerId ? (
+              <button
+                type="button"
+                className="comment-reply-btn"
+                onClick={() => handleReplyToComment(entry)}
+              >
+                Reply
+              </button>
+            ) : null}
+            {canRemove && (
+              <button
+                type="button"
+                className="comment-delete-btn"
+                onClick={() => handleDeleteComment(entry.id, entry.userId)}
+                disabled={removingCommentId === entry.id}
+              >
+                {removingCommentId === entry.id ? 'Removing…' : 'Remove'}
+              </button>
+            )}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderCommentThread = (entry, depth = 0) => {
+    const hasReplies = Array.isArray(entry.replies) && entry.replies.length > 0;
+    if (depth === 0) {
+      const isExpanded = expandedThreads[entry.id];
+      return (
+        <div key={entry.id} className="comment-thread">
+          {renderCommentCard(entry, depth)}
+          {hasReplies && (
+            <>
+              <button
+                type="button"
+                className="comment-replies-toggle"
+                onClick={() => toggleThreadVisibility(entry.id)}
+              >
+                {isExpanded ? 'Hide replies' : `View replies (${entry.replies.length})`}
+              </button>
+              {isExpanded && (
+                <div className="comment-thread-children">
+                  {entry.replies.map((child) => renderCommentThread(child, depth + 1))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div key={entry.id} className="comment-thread nested">
+        {renderCommentCard(entry, depth)}
+        {hasReplies && (
+          <div className="comment-thread-children">
+            {entry.replies.map((child) => renderCommentThread(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className={containerClass}>
@@ -630,6 +1013,8 @@ export default function DreamDetail({ user }) {
 
   const titleText = dream.title?.trim() || (dream.aiGenerated && dream.aiTitle) || 'Untitled dream';
   const hasAudienceQuery = audienceQuery.trim().length > 0;
+  const commentCountLabel = comments.length ? ` (${comments.length})` : '';
+  const visibilitySummary = describeVisibility(dream.visibility);
 
   return (
     <div className={containerClass}>
@@ -825,155 +1210,234 @@ export default function DreamDetail({ user }) {
 
         {isOwner && statusMessage && <p className="detail-status-message">{statusMessage}</p>}
 
-        {isOwner && (
-          <div className="detail-visibility">
-            <p className="detail-label">Visibility</p>
-            <div className="detail-visibility-options">
-              {VISIBILITY_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={(dream.visibility === option.value || (option.value === 'following' && dream.visibility === 'followers')) ? 'pill pill-active' : 'pill'}
-                  onClick={() => handleVisibilityChange(option.value)}
-                  disabled={updatingVisibility}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
+        <div className="detail-comments">
+          <div className="detail-section-head">
+            <p className="detail-label">Comments{commentCountLabel}</p>
           </div>
-        )}
-
-        {isOwner && dream.visibility !== 'private' && (
-          <div className="detail-audience">
-            <div className="detail-section-head">
-              <p className="detail-label">Hide from specific people</p>
-              <p className="detail-hint">Search your following to keep certain dreamers from seeing this entry.</p>
+          {commentsLoading ? (
+            <div className="loading-inline">
+              <LoadingIndicator label="Loading comments…" size="sm" align="start" />
             </div>
-            {audienceLoading ? (
-              <div className="loading-inline">
-                <LoadingIndicator label="Loading your following…" size="sm" align="start" />
-              </div>
-            ) : audienceOptions.length === 0 ? (
-              <p className="detail-hint">Follow people to curate this list.</p>
-            ) : (
-              <>
-                <div className="audience-search-input">
-                  <input
-                    type="text"
-                    placeholder="Search your following"
-                    value={audienceQuery}
-                    onChange={(e) => setAudienceQuery(e.target.value)}
-                  />
+          ) : commentError ? (
+            <p className="detail-hint">{commentError}</p>
+          ) : commentThreads.length ? (
+            <div className="comments-list">
+              {commentThreads.map((entry) => renderCommentThread(entry))}
+            </div>
+          ) : (
+            <p className="detail-hint">No comments yet. Be the first to add one.</p>
+          )}
+          {viewerId ? (
+            <div className="comment-composer">
+              {replyTarget && (
+                <div className="reply-context">
+                  <span>
+                    Replying to {replyTarget.authorUsername ? `@${replyTarget.authorUsername}` : replyTarget.authorDisplayName}
+                  </span>
+                  <button type="button" onClick={clearReplyTarget}>
+                    Cancel
+                  </button>
                 </div>
-                {!hasAudienceQuery ? (
-                  <p className="detail-hint">Start typing to search your following.</p>
-                ) : (
-                  <div className="audience-result-list">
-                    {filteredAudience.length ? (
-                      filteredAudience.map((profile) => {
-                        const isHidden = excludedViewerIds.includes(profile.id);
-                        return (
-                          <button
-                            key={profile.id}
-                            type="button"
-                            className={`audience-result${isHidden ? ' active' : ''}`}
-                            onClick={() => handleToggleAudience(profile.id)}
-                            disabled={audienceBusy}
-                          >
-                            <div className="audience-result-meta">
-                              <span className="result-name">{profile.displayName}</span>
-                              {profile.username && <span className="result-handle">@{profile.username}</span>}
-                            </div>
-                            <span className="result-status">{isHidden ? 'Hidden' : 'Visible'}</span>
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <p className="detail-hint">No matches for "{audienceQuery}".</p>
-                    )}
-                  </div>
-                )}
-                {excludedViewerIds.length > 0 && (
-                  <div className="selected-pill-row">
-                    {excludedViewerIds.map((id) => {
-                      const profile = audienceLookup[id];
-                      const label = profile?.username ? `@${profile.username}` : profile?.displayName || 'Dreamer';
-                      return (
-                        <span key={id} className="selected-pill">
-                          {label}
-                          <button
-                            type="button"
-                            onClick={() => handleToggleAudience(id)}
-                            aria-label={`Remove ${label}`}
-                            disabled={audienceBusy}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            )}
-            {audienceBusy && <p className="detail-hint">Updating…</p>}
-          </div>
-        )}
-
-        {isOwner && (
-          <div className="detail-tagged">
-            <p className="detail-label">Tag people</p>
-            <div className="tag-people-input">
-              <input
-                type="text"
-                placeholder="@username"
-                value={tagHandle}
+              )}
+              <textarea
+                ref={commentInputRef}
+                placeholder="Add a thoughtful note"
+                value={commentInput}
                 onChange={(e) => {
-                  setTagHandle(e.target.value);
-                  setTaggingStatus('');
+                  setCommentInput(e.target.value);
+                  if (commentStatus) {
+                    setCommentStatus('');
+                  }
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                     e.preventDefault();
-                    handleAddTaggedPerson();
+                    handleSubmitComment();
                   }
                 }}
               />
-              <button type="button" className="add-tag-btn" onClick={handleAddTaggedPerson} disabled={taggingBusy || !tagHandle.trim()}>
-                {taggingBusy ? 'Tagging…' : 'Tag'}
-              </button>
+              <div className="comment-composer-actions">
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={handleSubmitComment}
+                  disabled={commentBusy || !commentInput.trim()}
+                >
+                  {commentBusy ? 'Posting…' : 'Post comment'}
+                </button>
+              </div>
+              {commentStatus && <p className="detail-hint composer-status">{commentStatus}</p>}
             </div>
-            {tagSuggestions.length > 0 && (
-              <div className="tag-suggestion-list">
-                {tagSuggestions.map((profile) => (
-                  <button
-                    type="button"
-                    key={profile.id}
-                    className="tag-suggestion-item"
-                    onClick={() => handleSelectTagSuggestion(profile)}
-                    disabled={taggingBusy}
-                  >
-                    <span className="suggestion-name">{profile.displayName}</span>
-                    {profile.username && <span className="suggestion-username">@{profile.username}</span>}
-                  </button>
-                ))}
+          ) : (
+            <p className="detail-hint">Sign in to add your take.</p>
+          )}
+        </div>
+
+        {isOwner && (
+          <div className="detail-share-accordion">
+            <button
+              type="button"
+              className="detail-share-toggle"
+              onClick={() => setSharingControlsOpen((prev) => !prev)}
+              aria-expanded={sharingControlsOpen}
+            >
+              <div>
+                <p className="detail-label">Sharing options</p>
+                <p className="detail-hint">{visibilitySummary}</p>
               </div>
-            )}
-            {taggingStatus && <p className="detail-hint">{taggingStatus}</p>}
-            {taggedPeople.length ? (
-              <div className="tagged-pill-row">
-                {taggedPeople.map((entry) => (
-                  <span key={entry.userId} className="tagged-pill">
-                    @{entry.username || entry.displayName}
-                    <button type="button" aria-label={`Remove ${entry.username || entry.displayName}`} onClick={() => handleRemoveTaggedPerson(entry.userId)} disabled={taggingBusy}>
-                      ×
+              <span className={`share-toggle-icon${sharingControlsOpen ? ' open' : ''}`} aria-hidden="true">›</span>
+            </button>
+            {sharingControlsOpen && (
+              <div className="detail-share-panel">
+                <div className="detail-visibility">
+                  <p className="detail-label">Visibility</p>
+                  <div className="detail-visibility-options">
+                    {VISIBILITY_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={(dream.visibility === option.value || (option.value === 'following' && dream.visibility === 'followers')) ? 'pill pill-active' : 'pill'}
+                        onClick={() => handleVisibilityChange(option.value)}
+                        disabled={updatingVisibility}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {dream.visibility !== 'private' && (
+                  <div className="detail-audience">
+                    <div className="detail-section-head">
+                      <p className="detail-label">Hide from specific people</p>
+                      <p className="detail-hint">Search your following to keep certain dreamers from seeing this entry.</p>
+                    </div>
+                    {audienceLoading ? (
+                      <div className="loading-inline">
+                        <LoadingIndicator label="Loading your following…" size="sm" align="start" />
+                      </div>
+                    ) : audienceOptions.length === 0 ? (
+                      <p className="detail-hint">Follow people to curate this list.</p>
+                    ) : (
+                      <>
+                        <div className="audience-search-input">
+                          <input
+                            type="text"
+                            placeholder="Search your following"
+                            value={audienceQuery}
+                            onChange={(e) => setAudienceQuery(e.target.value)}
+                          />
+                        </div>
+                        {!hasAudienceQuery ? (
+                          <p className="detail-hint">Start typing to search your following.</p>
+                        ) : (
+                          <div className="audience-result-list">
+                            {filteredAudience.length ? (
+                              filteredAudience.map((profile) => {
+                                const isHidden = excludedViewerIds.includes(profile.id);
+                                return (
+                                  <button
+                                    key={profile.id}
+                                    type="button"
+                                    className={`audience-result${isHidden ? ' active' : ''}`}
+                                    onClick={() => handleToggleAudience(profile.id)}
+                                    disabled={audienceBusy}
+                                  >
+                                    <div className="audience-result-meta">
+                                      <span className="result-name">{profile.displayName}</span>
+                                      {profile.username && <span className="result-handle">@{profile.username}</span>}
+                                    </div>
+                                    <span className="result-status">{isHidden ? 'Hidden' : 'Visible'}</span>
+                                  </button>
+                                );
+                              })
+                            ) : (
+                              <p className="detail-hint">No matches for "{audienceQuery}".</p>
+                            )}
+                          </div>
+                        )}
+                        {excludedViewerIds.length > 0 && (
+                          <div className="selected-pill-row">
+                            {excludedViewerIds.map((id) => {
+                              const profile = audienceLookup[id];
+                              const label = profile?.username ? `@${profile.username}` : profile?.displayName || 'Dreamer';
+                              return (
+                                <span key={id} className="selected-pill">
+                                  {label}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleAudience(id)}
+                                    aria-label={`Remove ${label}`}
+                                    disabled={audienceBusy}
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {audienceBusy && <p className="detail-hint">Updating…</p>}
+                  </div>
+                )}
+
+                <div className="detail-tagged">
+                  <p className="detail-label">Tag people</p>
+                  <div className="tag-people-input">
+                    <input
+                      type="text"
+                      placeholder="@username"
+                      value={tagHandle}
+                      onChange={(e) => {
+                        setTagHandle(e.target.value);
+                        setTaggingStatus('');
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddTaggedPerson();
+                        }
+                      }}
+                    />
+                    <button type="button" className="add-tag-btn" onClick={handleAddTaggedPerson} disabled={taggingBusy || !tagHandle.trim()}>
+                      {taggingBusy ? 'Tagging…' : 'Tag'}
                     </button>
-                  </span>
-                ))}
+                  </div>
+                  {tagSuggestions.length > 0 && (
+                    <div className="tag-suggestion-list">
+                      {tagSuggestions.map((profile) => (
+                        <button
+                          type="button"
+                          key={profile.id}
+                          className="tag-suggestion-item"
+                          onClick={() => handleSelectTagSuggestion(profile)}
+                          disabled={taggingBusy}
+                        >
+                          <span className="suggestion-name">{profile.displayName}</span>
+                          {profile.username && <span className="suggestion-username">@{profile.username}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {taggingStatus && <p className="detail-hint">{taggingStatus}</p>}
+                  {taggedPeople.length ? (
+                    <div className="tagged-pill-row">
+                      {taggedPeople.map((entry) => (
+                        <span key={entry.userId} className="tagged-pill">
+                          @{entry.username || entry.displayName}
+                          <button type="button" aria-label={`Remove ${entry.username || entry.displayName}`} onClick={() => handleRemoveTaggedPerson(entry.userId)} disabled={taggingBusy}>
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="detail-hint">Tagged dreamers will see this on their profile.</p>
+                  )}
+                </div>
               </div>
-            ) : (
-              <p className="detail-hint">Tagged dreamers will see this on their profile.</p>
             )}
           </div>
         )}

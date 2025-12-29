@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { faRightFromBracket, faBook, faCompass, faSearch, faUser } from '@fortawesome/free-solid-svg-icons';
+import { faRightFromBracket, faBook, faCompass, faSearch, faUser, faBell } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { signOut } from 'firebase/auth';
 import { Link, useLocation } from 'react-router-dom';
@@ -9,10 +9,14 @@ import './Navigation.css';
 const COMPACT_ENTER_OFFSET = 110;
 const COMPACT_EXIT_OFFSET = 40;
 
-export default function Navigation() {
+export default function Navigation({ activityPreview }) {
   const location = useLocation();
   const [isCompact, setIsCompact] = useState(false);
   const compactRef = useRef(isCompact);
+  const inboxCount = activityPreview?.inboxEntries?.length || 0;
+  const feedCount = activityPreview?.followingUpdates?.length || 0;
+  const activityCount = inboxCount + feedCount;
+  const hasActivity = activityPreview?.hasActivity ?? Boolean(activityCount);
 
   const handleSignOut = async () => {
     try {
@@ -31,6 +35,7 @@ export default function Navigation() {
     if (location.pathname.startsWith('/journal')) return '/journal';
     if (location.pathname.startsWith('/feed')) return '/feed';
     if (location.pathname.startsWith('/search')) return '/search';
+    if (location.pathname.startsWith('/activity')) return '/activity';
     if (location.pathname.startsWith('/profile')) return '/profile';
     return location.pathname;
   }, [location.pathname, dreamOrigin]);
@@ -100,6 +105,19 @@ export default function Navigation() {
           >
             <FontAwesomeIcon icon={faSearch} className="nav-icon" />
             <span className="nav-tab-label">Search</span>
+          </Link>
+          <Link
+            to="/activity"
+            aria-label="Activity"
+            className={linkClass('/activity')}
+          >
+            <FontAwesomeIcon icon={faBell} className="nav-icon" />
+            <span className="nav-tab-label">Activity</span>
+            {hasActivity && (
+              <span className="nav-activity-indicator" aria-label={`${activityCount} new updates`}>
+                {activityCount > 9 ? '9+' : activityCount}
+              </span>
+            )}
           </Link>
           <Link
             to="/profile"

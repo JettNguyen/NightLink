@@ -9,7 +9,9 @@ import Feed from './pages/Feed';
 import Navigation from './components/Navigation';
 import Profile from './pages/Profile';
 import Search from './pages/Search';
+import Activity from './pages/Activity';
 import LoadingIndicator from './components/LoadingIndicator';
+import useActivityPreview from './hooks/useActivityPreview';
 
 function ProtectedRoute({ user, children }) {
   if (!user) {
@@ -28,6 +30,7 @@ function AppContent({ user, loading, authReady }) {
   const location = useLocation();
   const showNavigation = user && location.pathname !== '/login';
   const redirectPath = useMemo(() => (user ? '/journal' : '/login'), [user]);
+  const activityPreview = useActivityPreview(user?.uid);
 
   if (loading) {
     return (
@@ -44,7 +47,9 @@ function AppContent({ user, loading, authReady }) {
 
   return (
     <div className="app">
-      {showNavigation && <Navigation />}
+      {showNavigation && (
+        <Navigation user={user} activityPreview={activityPreview} />
+      )}
       <main style={{ paddingTop: showNavigation ? '0px' : 0, minHeight: '100vh' }}>
         <Routes>
           <Route path="/" element={<Navigate to={redirectPath} replace />} />
@@ -113,6 +118,15 @@ function AppContent({ user, loading, authReady }) {
               </ProtectedRoute>
             )}
           />
+          <Route
+            path="/activity"
+            element={(
+              <ProtectedRoute user={user}>
+                <Activity user={user} activityPreview={activityPreview} />
+              </ProtectedRoute>
+            )}
+          />
+          <Route path="/notifications" element={<Navigate to="/activity" replace />} />
           <Route path="*" element={<Navigate to={redirectPath} replace />} />
         </Routes>
       </main>

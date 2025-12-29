@@ -88,6 +88,22 @@
   transition: opacity 0.2s ease;
 }
 
+.nav-activity-indicator {
+  position: absolute;
+  top: -0.25rem;
+  right: -0.4rem;
+  padding: 0.2rem 0.4rem;
+  min-width: 1.25rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--primary), #ff7a18);
+  color: #05070b;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
 .nav-actions {
   display: flex;
   align-items: center;
@@ -243,6 +259,14 @@
     display: none;
     font-size: 0.7rem;
     line-height: 1;
+  }
+
+  .nav-activity-indicator {
+    top: -0.35rem;
+    right: -0.25rem;
+    padding: 0.1rem 0.3rem;
+    min-width: 1.05rem;
+    font-size: 0.55rem;
   }
 
   .navigation:not(.navigation-compact) .nav-tab-label {

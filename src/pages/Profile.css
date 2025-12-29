@@ -121,6 +121,22 @@
   flex-wrap: wrap;
 }
 
+.activity-btn {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.65rem 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  font-weight: 600;
+  transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.activity-btn:hover {
+  border-color: rgba(90, 200, 250, 0.4);
+  color: var(--text);
+  box-shadow: var(--shadow-light);
+}
+
 .profile-edit-form {
   max-width: 420px;
   margin: 0 auto;

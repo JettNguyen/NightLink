@@ -800,6 +800,13 @@ export default function Profile({ user }) {
                 </button>
                 <button
                   type="button"
+                  className="activity-btn"
+                  onClick={() => navigate('/activity')}
+                >
+                  Activity
+                </button>
+                <button
+                  type="button"
                   className="sign-out-profile-btn"
                   onClick={async () => {
                     try {
