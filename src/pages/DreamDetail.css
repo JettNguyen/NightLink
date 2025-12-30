@@ -565,6 +565,47 @@
   white-space: pre-wrap;
 }
 
+.detail-reactions {
+  margin: 1.25rem 0;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.detail-reactions .reaction-buttons {
+  flex-wrap: wrap;
+}
+
+.detail-reactions .reaction-icon {
+  font-size: 0.95rem;
+}
+
+.detail-reactions .reaction-total {
+  color: var(--text-secondary);
+}
+
+.detail-reactions .custom-emoji-popover {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.detail-reactions .custom-emoji-popover input {
+  min-width: 140px;
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.detail-reactions .custom-emoji-popover input:focus {
+  border-color: rgba(90, 200, 250, 0.6);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(90, 200, 250, 0.2);
+}
+
 .detail-textarea {
   width: 100%;
   min-height: 180px;

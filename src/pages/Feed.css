@@ -157,6 +157,14 @@
   gap: 0.5rem;
 }
 
+.feed-reactions {
+  margin-top: 1rem;
+}
+
+.feed-reactions .reaction-icon {
+  font-size: 0.95rem;
+}
+
 .feed-empty-card {
   border: 1px dashed var(--border);
   border-radius: 16px;

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   collection,
-  collectionGroup,
   doc,
   getDoc,
   getDocs,
@@ -58,84 +57,31 @@ export default function useActivityPreview(viewerId, options = {}) {
     setInboxLoading(true);
     setInboxError('');
 
-    const commentsGroup = collectionGroup(db, 'comments');
-    const buildEntry = (docSnap) => {
-      const data = docSnap.data() || {};
-      const createdAt = data.createdAt?.toDate?.() ?? null;
-      return {
-        id: docSnap.id,
-        ...data,
-        createdAt
-      };
-    };
+    const eventsRef = collection(db, 'users', viewerId, 'activity');
+    const eventsQuery = query(eventsRef, orderBy('createdAt', 'desc'), limit(inboxLimit));
 
-    let activityDocs = [];
-    let legacyMentionDocs = [];
-    let activityReady = false;
-    let legacyReady = false;
-
-    const updateEntries = () => {
-      const merged = new Map();
-      [...activityDocs, ...legacyMentionDocs].forEach((entry) => {
-        if (entry?.id) {
-          merged.set(entry.id, entry);
-        }
+    const unsubscribe = onSnapshot(eventsQuery, (snapshot) => {
+      const next = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data() || {};
+        const createdAt = data.createdAt?.toDate?.() ?? null;
+        return {
+          id: docSnap.id,
+          ...data,
+          createdAt
+        };
       });
-      const ordered = Array.from(merged.values())
-        .sort((a, b) => {
-          const aTime = a.createdAt?.getTime?.() || 0;
-          const bTime = b.createdAt?.getTime?.() || 0;
-          return bTime - aTime;
-        })
-        .slice(0, inboxLimit);
-      setInboxEntries(ordered);
-    };
-
-    const handleError = () => {
+      setInboxEntries(next);
+      setInboxLoading(false);
+      setInboxError('');
+    }, () => {
       setInboxEntries([]);
       setInboxLoading(false);
       setInboxError('Could not load activity right now.');
+    });
+
+    return () => {
+      unsubscribe();
     };
-
-    const watchers = [];
-
-    watchers.push(onSnapshot(
-      query(
-        commentsGroup,
-        where('activityTargetIds', 'array-contains', viewerId),
-        orderBy('createdAt', 'desc'),
-        limit(inboxLimit)
-      ),
-      (snapshot) => {
-        activityDocs = snapshot.docs.map(buildEntry);
-        activityReady = true;
-        updateEntries();
-        if (legacyReady) {
-          setInboxLoading(false);
-        }
-      },
-      handleError
-    ));
-
-    watchers.push(onSnapshot(
-      query(
-        commentsGroup,
-        where('mentions', 'array-contains', viewerId),
-        orderBy('createdAt', 'desc'),
-        limit(inboxLimit)
-      ),
-      (snapshot) => {
-        legacyMentionDocs = snapshot.docs.map(buildEntry);
-        legacyReady = true;
-        updateEntries();
-        if (activityReady) {
-          setInboxLoading(false);
-        }
-      },
-      handleError
-    ));
-
-    return () => watchers.forEach((unsubscribe) => unsubscribe());
   }, [viewerId, inboxLimit]);
 
   const fetchProfilesByIds = async (ids = []) => {
@@ -218,7 +164,9 @@ export default function useActivityPreview(viewerId, options = {}) {
         const ownerProfiles = await fetchProfilesByIds(ownerIds);
         const enriched = sliced.map((entry) => ({
           ...entry,
-          ownerProfile: ownerProfiles[entry.userId] || null
+          ownerProfile: ownerProfiles[entry.userId] || null,
+          reactionCounts: entry.reactionCounts || {},
+          viewerReaction: entry.viewerReactions?.[viewerId] || entry.viewerReaction || null
         }));
 
         if (!cancelled) {
@@ -242,7 +190,8 @@ export default function useActivityPreview(viewerId, options = {}) {
   }, [viewerId, viewerProfile?.followingIds]);
 
   const hasActivity = useMemo(() => (
-    inboxEntries.length > 0 || followingUpdates.length > 0
+    inboxEntries.length > 0
+    || followingUpdates.length > 0
   ), [inboxEntries.length, followingUpdates.length]);
 
   return {

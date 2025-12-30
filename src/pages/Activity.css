@@ -2,14 +2,12 @@
   padding-top: 12px;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
 }
 
 .activity-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 1rem;
   flex-wrap: wrap;
 }
 
@@ -18,25 +16,26 @@
 }
 
 .activity-subtitle {
-  margin: 0.2rem 0 0;
+  margin:5px 0 0;
   color: var(--text-secondary);
 }
 
 .activity-section {
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 1.25rem;
-  background: rgba(255, 255, 255, 0.03);
+  font-size: 1rem;
+  border-radius: 15px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.05);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 15px;
 }
+  color: var(--primary);
 
 .activity-section-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
+  gap: 15px;
 }
 
 .activity-section-head h2 {
@@ -46,26 +45,54 @@
 .activity-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1rem;
+  gap: 15px;
 }
 
 .activity-card {
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 1rem;
+  border-radius: 15px;
+  padding: 20px;
   background: var(--surface);
-  text-align: left;
-  cursor: pointer;
-  display: flex;
+  .reaction-icon {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    transition: color 0.2s ease;
+  }
   flex-direction: column;
   gap: 0.5rem;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  position: relative;
+}
+
+.activity-card-clickable {
+  position: relative;
+    color: var(--primary);
+  }
+}
+
+    color: var(--primary);
+.activity-card-disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.activity-card-unread {
+  border-color: rgba(90, 200, 250, 0.45);
+  box-shadow: 0 8px 22px rgba(4, 12, 20, 0.25);
 }
 
 .activity-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-soft);
-  border-color: rgba(90, 200, 250, 0.4);
+  border-color: rgba(90, 200, 250, 0.5);
+}
+
+.activity-card:disabled,
+.activity-card[disabled] {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+  box-shadow: none;
 }
 
 .activity-card-head {
@@ -75,12 +102,25 @@
   gap: 0.75rem;
 }
 
+.activity-pill-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .activity-pill {
-  border-radius: 999px;
+  border-radius: 100px;
   padding: 0.2rem 0.8rem;
   font-size: 0.8rem;
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: var(--text-secondary);
+  translate: -4px 0;
+}
+
+.activity-pill.mention,
+.activity-pill.tag {
+  border-color: rgba(90, 200, 250, 0.45);
+  color: var(--primary);
 }
 
 .activity-pill.teal {
@@ -98,9 +138,27 @@
   color: #bfa0ff;
 }
 
+.activity-pill.follow {
+  border-color: rgba(255, 138, 171, 0.65);
+  color: #ff8ab4;
+}
+
+.activity-pill.reaction {
+  border-color: rgba(255, 255, 255, 0.35);
+  color: var(--text);
+}
+
 .activity-time {
   color: var(--text-secondary);
   font-size: 0.85rem;
+}
+
+.activity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 0 4px rgba(90, 200, 250, 0.15);
 }
 
 .activity-title {
@@ -120,8 +178,131 @@
   line-height: 1.4;
 }
 
+.activity-card-actions {
+  margin-top: auto;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.activity-clear-btn {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.activity-clear-btn:hover:not(:disabled) {
+  color: var(--primary);
+  border-color: rgba(90, 200, 250, 0.45);
+}
+
+.activity-clear-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .muted {
   color: var(--text-secondary);
+}
+
+.activity-reactions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.reaction-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.reaction-button.custom-emoji-trigger {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+.reaction-button {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  padding: 0.25rem 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.reaction-icon {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  transition: color 0.2s ease;
+}
+
+.reaction-emoji {
+  font-size: 1rem;
+}
+
+.reaction-count {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.reaction-button.active {
+  border-color: rgba(90, 200, 250, 0.65);
+  background: rgba(90, 200, 250, 0.12);
+  color: var(--primary);
+}
+
+.reaction-button.active .reaction-icon {
+  color: var(--primary);
+}
+
+.reaction-total {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.custom-emoji-popover {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.custom-emoji-popover input {
+  min-width: 120px;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.custom-emoji-popover input:focus {
+  border-color: rgba(90, 200, 250, 0.6);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(90, 200, 250, 0.2);
+}
+
+.clear-reaction {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+}
+
+.reaction-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 @media (max-width: 600px) {

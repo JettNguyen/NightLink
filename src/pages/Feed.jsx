@@ -1,13 +1,15 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, doc, query, where, orderBy, limit, onSnapshot, documentId } from 'firebase/firestore';
 import { db } from '../firebase';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faHeart, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Feed.css';
 import LoadingIndicator from '../components/LoadingIndicator';
+import updateDreamReaction from '../services/ReactionService';
 
 export default function Feed({ user }) {
   const [rawDreams, setRawDreams] = useState([]);
@@ -16,7 +18,11 @@ export default function Feed({ user }) {
   const [followingProfiles, setFollowingProfiles] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reactionState, setReactionState] = useState({});
+  const [customReactionTarget, setCustomReactionTarget] = useState(null);
+  const [customReactionValue, setCustomReactionValue] = useState('');
   const navigate = useNavigate();
+  const defaultReaction = '❤️';
 
   const chunkArray = (list, chunkSize = 10) => {
     const chunks = [];
@@ -167,6 +173,115 @@ export default function Feed({ user }) {
     });
   }, [rawDreams, followingProfiles, viewerId]);
 
+  useEffect(() => {
+    setReactionState((prev) => {
+      const next = {};
+      visibleDreams.forEach((dream) => {
+        if (!dream?.id) return;
+        const counts = dream.reactionCounts || prev[dream.id]?.counts || {};
+        const viewerReaction = dream.viewerReactions?.[viewerId] || prev[dream.id]?.viewerReaction || null;
+        next[dream.id] = {
+          counts,
+          viewerReaction
+        };
+      });
+      return next;
+    });
+  }, [visibleDreams, viewerId]);
+
+  useEffect(() => {
+    if (!customReactionTarget) return;
+    if (!visibleDreams.some((dream) => dream.id === customReactionTarget)) {
+      setCustomReactionTarget(null);
+      setCustomReactionValue('');
+    }
+  }, [customReactionTarget, visibleDreams]);
+
+  const handleReactionSelection = useCallback(async (dream, emoji) => {
+    if (!viewerId) {
+      alert('Sign in to react to dreams');
+      return;
+    }
+
+    const currentState = reactionState[dream.id];
+    const currentReaction = currentState?.viewerReaction || null;
+    const nextReaction = emoji === currentReaction ? null : emoji;
+
+    setReactionState((prev) => {
+      const counts = { ...(prev[dream.id]?.counts || dream.reactionCounts || {}) };
+
+      if (currentReaction) {
+        counts[currentReaction] = Math.max((counts[currentReaction] || 1) - 1, 0);
+      }
+
+      if (nextReaction) {
+        counts[nextReaction] = (counts[nextReaction] || 0) + 1;
+      }
+
+      return {
+        ...prev,
+        [dream.id]: {
+          counts,
+          viewerReaction: nextReaction
+        }
+      };
+    });
+
+    try {
+      await updateDreamReaction({
+        dreamId: dream.id,
+        dreamOwnerId: dream.userId,
+        dreamTitleSnapshot: dream.title || dream.aiTitle || 'Dream',
+        userId: viewerId,
+        emoji: nextReaction,
+        actorDisplayName: user?.displayName || user?.email || 'NightLink dreamer',
+        actorUsername: user?.username || user?.handle || null
+      });
+    } catch (err) {
+      console.error('Failed to update dream reaction', err);
+      setReactionState((prev) => ({
+        ...prev,
+        [dream.id]: {
+          counts: currentState?.counts || dream.reactionCounts || {},
+          viewerReaction: currentReaction
+        }
+      }));
+    }
+  }, [reactionState, user, viewerId]);
+
+  const closeCustomReactionPicker = () => {
+    setCustomReactionTarget(null);
+    setCustomReactionValue('');
+  };
+
+  const handleReactionClick = (event, dream, emoji) => {
+    event.stopPropagation();
+    event.preventDefault();
+    closeCustomReactionPicker();
+    handleReactionSelection(dream, emoji);
+  };
+
+  const openCustomReactionPicker = (event, dream) => {
+    event.stopPropagation();
+    event.preventDefault();
+    setCustomReactionTarget(dream.id);
+    setCustomReactionValue('');
+  };
+
+  const handleCustomEmojiChange = (value) => {
+    const normalized = Array.from(value || '').slice(-2).join('');
+    setCustomReactionValue(normalized);
+  };
+
+  const handleCustomReactionSubmit = (event, dream) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const emoji = customReactionValue.trim();
+    if (!emoji) return;
+    handleReactionSelection(dream, emoji);
+    closeCustomReactionPicker();
+  };
+
   return (
     <div className="page-container">
       <div className="page-header feed-header">
@@ -243,6 +358,9 @@ export default function Feed({ user }) {
               navigate(detailPath, { state: { fromNav: '/feed' } });
             };
 
+            const reactionSnapshot = reactionState[dream.id] || { counts: dream.reactionCounts || {}, viewerReaction: dream.viewerReactions?.[viewerId] || null };
+            const totalReactions = Object.values(reactionSnapshot.counts || {}).reduce((sum, value) => sum + (value || 0), 0);
+
             return (
               <div
                 key={dream.id}
@@ -305,6 +423,72 @@ export default function Feed({ user }) {
                     ))}
                   </div>
                 )}
+
+                <div className="activity-reactions feed-reactions" onClick={(event) => event.stopPropagation()}>
+                  <div className="reaction-buttons">
+                    <button
+                      type="button"
+                      className={`reaction-button${reactionSnapshot.viewerReaction === defaultReaction ? ' active' : ''}`}
+                      onClick={(event) => handleReactionClick(event, dream, defaultReaction)}
+                      aria-label="React with a heart"
+                    >
+                      <FontAwesomeIcon icon={faHeart} className="reaction-icon" />
+                      <span className="reaction-count">{reactionSnapshot.counts?.[defaultReaction] || 0}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="reaction-button custom-emoji-trigger"
+                      onClick={(event) => openCustomReactionPicker(event, dream)}
+                      aria-label="Add a custom emoji reaction"
+                    >
+                      <FontAwesomeIcon icon={faPlus} className="reaction-icon" />
+                      <span className="reaction-count">Emoji</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="reaction-button clear-reaction"
+                      disabled={!reactionSnapshot.viewerReaction}
+                      onClick={(event) => handleReactionClick(event, dream, null)}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  {customReactionTarget === dream.id && (
+                    <form
+                      className="custom-emoji-popover"
+                      onSubmit={(event) => handleCustomReactionSubmit(event, dream)}
+                    >
+                      <input
+                        id={`custom-emoji-${dream.id}`}
+                        type="text"
+                        inputMode="text"
+                        maxLength={4}
+                        value={customReactionValue}
+                        onChange={(event) => handleCustomEmojiChange(event.target.value)}
+                        aria-label="Choose an emoji reaction"
+                        placeholder="Type an emoji"
+                        autoFocus
+                      />
+                      <button type="submit" className="primary-btn" disabled={!customReactionValue.trim()}>
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-btn"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          closeCustomReactionPicker();
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </form>
+                  )}
+                  <span className="reaction-total">
+                    {totalReactions ? `${totalReactions} reaction${totalReactions === 1 ? '' : 's'}` : 'Be the first to react'}
+                  </span>
+                </div>
               </div>
             );
           })}

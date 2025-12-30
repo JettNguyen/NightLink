@@ -1,9 +1,13 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faHeart, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, deleteDoc, serverTimestamp, collection, query, where, limit, getDocs, getDoc, addDoc, orderBy } from 'firebase/firestore';
 import { format, formatDistanceToNow } from 'date-fns';
 import { db } from '../firebase';
 import LoadingIndicator from '../components/LoadingIndicator';
+import { logActivityEvents } from '../services/ActivityService';
+import updateDreamReaction from '../services/ReactionService';
 import './DreamDetail.css';
 
 const VISIBILITY_OPTIONS = [
@@ -14,6 +18,8 @@ const VISIBILITY_OPTIONS = [
 ];
 
 const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT || '/api/ai';
+const ACTIVITY_EVENT_PRIORITY = { mention: 1, comment: 2, reply: 3 };
+const DEFAULT_REACTION = '❤️';
 
 const describeVisibility = (value = 'private') => {
   switch (value) {
@@ -97,6 +103,9 @@ export default function DreamDetail({ user }) {
   const [sharingControlsOpen, setSharingControlsOpen] = useState(false);
   const [replyTarget, setReplyTarget] = useState(null);
   const [expandedThreads, setExpandedThreads] = useState({});
+  const [reactionSnapshot, setReactionSnapshot] = useState({ counts: {}, viewerReaction: null });
+  const [customEmojiValue, setCustomEmojiValue] = useState('');
+  const [customEmojiPickerOpen, setCustomEmojiPickerOpen] = useState(false);
   const viewerId = user?.uid || null;
   const [authorProfile, setAuthorProfile] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
@@ -153,6 +162,10 @@ export default function DreamDetail({ user }) {
     return roots;
   }, [comments]);
 
+  const totalDreamReactions = useMemo(() => (
+    Object.values(reactionSnapshot.counts || {}).reduce((sum, value) => sum + (value || 0), 0)
+  ), [reactionSnapshot]);
+
   const getRootCommentId = (commentId) => {
     if (!commentId) return null;
     let currentId = commentId;
@@ -176,6 +189,79 @@ export default function DreamDetail({ user }) {
   const clearReplyTarget = () => {
     setReplyTarget(null);
   };
+
+  const closeCustomEmojiPicker = () => {
+    setCustomEmojiPickerOpen(false);
+    setCustomEmojiValue('');
+  };
+
+  const openCustomEmojiPicker = () => {
+    setCustomEmojiPickerOpen(true);
+    setCustomEmojiValue('');
+  };
+
+  const handleCustomEmojiChange = (value) => {
+    const normalized = Array.from(value || '').slice(-2).join('');
+    setCustomEmojiValue(normalized);
+  };
+
+  const handleCustomEmojiSubmit = (event) => {
+    event.preventDefault();
+    const emoji = customEmojiValue.trim();
+    if (!emoji) return;
+    handleDreamReactionSelection(emoji);
+    closeCustomEmojiPicker();
+  };
+
+  const handleDreamReactionSelection = useCallback(async (emoji) => {
+    if (!viewerId) {
+      alert('Sign in to react to dreams');
+      return;
+    }
+
+    if (!dream?.id) {
+      return;
+    }
+
+    const previousSnapshot = {
+      counts: reactionSnapshot.counts || {},
+      viewerReaction: reactionSnapshot.viewerReaction || null
+    };
+
+    const currentReaction = previousSnapshot.viewerReaction;
+    const nextReaction = emoji === currentReaction ? null : emoji;
+    const optimisticCounts = { ...previousSnapshot.counts };
+
+    if (currentReaction) {
+      optimisticCounts[currentReaction] = Math.max((optimisticCounts[currentReaction] || 1) - 1, 0);
+    }
+
+    if (nextReaction) {
+      optimisticCounts[nextReaction] = (optimisticCounts[nextReaction] || 0) + 1;
+    }
+
+    setReactionSnapshot({
+      counts: optimisticCounts,
+      viewerReaction: nextReaction
+    });
+    setCustomEmojiPickerOpen(false);
+    setCustomEmojiValue('');
+
+    try {
+      await updateDreamReaction({
+        dreamId: dream.id,
+        dreamOwnerId: dream.userId,
+        dreamTitleSnapshot: dream.title || dream.aiTitle || 'Dream entry',
+        userId: viewerId,
+        emoji: nextReaction,
+        actorDisplayName: user?.displayName || user?.email || 'NightLink dreamer',
+        actorUsername: user?.username || user?.handle || null
+      });
+    } catch (error) {
+      console.error('Failed to update reaction', error);
+      setReactionSnapshot(previousSnapshot);
+    }
+  }, [dream, reactionSnapshot, user, viewerId]);
 
   const containerClass = 'page-container dream-detail-page';
   const goBack = () => {
@@ -341,6 +427,22 @@ export default function DreamDetail({ user }) {
 
     return () => unsubscribe();
   }, [dreamId]);
+
+  useEffect(() => {
+    if (!dream) {
+      setReactionSnapshot({ counts: {}, viewerReaction: null });
+      setCustomEmojiPickerOpen(false);
+      setCustomEmojiValue('');
+      return;
+    }
+
+    setReactionSnapshot({
+      counts: dream.reactionCounts || {},
+      viewerReaction: dream.viewerReactions?.[viewerId] || null
+    });
+    setCustomEmojiPickerOpen(false);
+    setCustomEmojiValue('');
+  }, [dream, viewerId]);
 
   useEffect(() => {
     if (!replyTarget) return;
@@ -696,6 +798,7 @@ export default function DreamDetail({ user }) {
     try {
       const currentReplyTarget = replyTarget;
       const mentionTargets = await resolveMentionTargets(trimmed);
+      const mentionHandles = Array.isArray(mentionTargets?.handles) ? mentionTargets.handles : [];
       const activityTargets = new Set(mentionTargets.ids);
       if (dream?.userId && dream.userId !== viewerId) {
         activityTargets.add(dream.userId);
@@ -708,7 +811,7 @@ export default function DreamDetail({ user }) {
         || (dream?.aiGenerated ? dream?.aiTitle : '')
         || 'Untitled dream';
       const commentsRef = collection(db, 'dreams', activeDreamId, 'comments');
-      await addDoc(commentsRef, {
+      const commentDocRef = await addDoc(commentsRef, {
         content: trimmed,
         userId: viewerId,
         authorDisplayName: viewerProfile?.displayName || user?.displayName || 'Dreamer',
@@ -725,6 +828,56 @@ export default function DreamDetail({ user }) {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+      const actorDisplayName = viewerProfile?.displayName || user?.displayName || 'Dreamer';
+      const actorUsername = viewerProfile?.username || user?.username || '';
+      const targetEventMap = new Map();
+      const registerActivity = (targetId, type) => {
+        if (!targetId || targetId === viewerId) return;
+        const priority = ACTIVITY_EVENT_PRIORITY[type] || 0;
+        const existing = targetEventMap.get(targetId);
+        if (!existing || priority > existing.priority) {
+          targetEventMap.set(targetId, { type, priority });
+        }
+      };
+
+      (mentionTargets.ids || []).forEach((targetId) => registerActivity(targetId, 'mention'));
+      if (dream?.userId) {
+        registerActivity(dream.userId, 'comment');
+      }
+      if (currentReplyTarget?.userId) {
+        registerActivity(currentReplyTarget.userId, 'reply');
+      }
+
+      const basePayload = {
+        actorId: viewerId,
+        actorDisplayName,
+        actorUsername,
+        dreamId: activeDreamId,
+        dreamOwnerId: dream?.userId || null,
+        dreamOwnerUsername: authorProfile?.username || '',
+        dreamTitleSnapshot: snapshotTitle,
+        commentId: commentDocRef.id,
+        parentCommentId: currentReplyTarget?.id || null,
+        parentCommentUserId: currentReplyTarget?.userId || null,
+        content: trimmed,
+        mentionHandles
+      };
+
+      const events = Array.from(targetEventMap.entries()).map(([targetUserId, meta]) => ({
+        targetUserId,
+        payload: {
+          ...basePayload,
+          type: meta.type
+        }
+      }));
+
+      if (events.length) {
+        try {
+          await logActivityEvents(events);
+        } catch (activityError) {
+          console.error('logActivityEvents failed', activityError);
+        }
+      }
       setCommentInput('');
       setCommentStatus('Posted.');
       if (currentReplyTarget?.rootId) {
@@ -1172,6 +1325,60 @@ export default function DreamDetail({ user }) {
               </>
             )}
           </div>
+
+        <div className="activity-reactions detail-reactions" aria-label="Dream reactions">
+          <div className="reaction-buttons">
+            <button
+              type="button"
+              className={`reaction-button${reactionSnapshot.viewerReaction === DEFAULT_REACTION ? ' active' : ''}`}
+              onClick={() => handleDreamReactionSelection(DEFAULT_REACTION)}
+              aria-label="React with a heart"
+            >
+              <FontAwesomeIcon icon={faHeart} className="reaction-icon" />
+              <span className="reaction-count">{reactionSnapshot.counts?.[DEFAULT_REACTION] || 0}</span>
+            </button>
+            <button
+              type="button"
+              className="reaction-button custom-emoji-trigger"
+              onClick={openCustomEmojiPicker}
+              aria-label="Add a custom emoji reaction"
+            >
+              <FontAwesomeIcon icon={faPlus} className="reaction-icon" />
+              <span className="reaction-count">Emoji</span>
+            </button>
+            <button
+              type="button"
+              className="reaction-button clear-reaction"
+              disabled={!reactionSnapshot.viewerReaction}
+              onClick={() => handleDreamReactionSelection(null)}
+            >
+              Clear
+            </button>
+          </div>
+          {customEmojiPickerOpen && (
+            <form className="custom-emoji-popover" onSubmit={handleCustomEmojiSubmit}>
+              <input
+                type="text"
+                inputMode="text"
+                maxLength={4}
+                value={customEmojiValue}
+                onChange={(event) => handleCustomEmojiChange(event.target.value)}
+                aria-label="Choose an emoji reaction"
+                placeholder="Type an emoji"
+                autoFocus
+              />
+              <button type="submit" className="primary-btn" disabled={!customEmojiValue.trim()}>
+                Add
+              </button>
+              <button type="button" className="ghost-btn" onClick={closeCustomEmojiPicker}>
+                Cancel
+              </button>
+            </form>
+          )}
+          <span className="reaction-total">
+            {totalDreamReactions ? `${totalDreamReactions} reaction${totalDreamReactions === 1 ? '' : 's'}` : 'Be the first to react'}
+          </span>
+        </div>
 
         <div className="detail-summary">
             <div>

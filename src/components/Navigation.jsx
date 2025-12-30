@@ -9,7 +9,7 @@ import './Navigation.css';
 const COMPACT_ENTER_OFFSET = 110;
 const COMPACT_EXIT_OFFSET = 40;
 
-export default function Navigation({ activityPreview }) {
+function Navigation({ activityPreview }) {
   const location = useLocation();
   const [isCompact, setIsCompact] = useState(false);
   const compactRef = useRef(isCompact);
@@ -111,13 +111,15 @@ export default function Navigation({ activityPreview }) {
             aria-label="Activity"
             className={linkClass('/activity')}
           >
-            <FontAwesomeIcon icon={faBell} className="nav-icon" />
+            <span className="nav-icon-wrapper">
+              <FontAwesomeIcon icon={faBell} className="nav-icon" />
+              {hasActivity && (
+                <span className="nav-activity-indicator" aria-label={`${activityCount} new updates`}>
+                  {activityCount > 9 ? '9+' : activityCount}
+                </span>
+              )}
+            </span>
             <span className="nav-tab-label">Activity</span>
-            {hasActivity && (
-              <span className="nav-activity-indicator" aria-label={`${activityCount} new updates`}>
-                {activityCount > 9 ? '9+' : activityCount}
-              </span>
-            )}
           </Link>
           <Link
             to="/profile"
@@ -139,3 +141,5 @@ export default function Navigation({ activityPreview }) {
     </nav>
   );
 }
+
+export default Navigation;
