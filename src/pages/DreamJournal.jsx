@@ -25,41 +25,6 @@ const VISIBILITY_OPTIONS = [
 const CONTENT_PREVIEW_LIMIT = 240;
 const INSIGHT_PREVIEW_LIMIT = 180;
 
-// AI endpoint (defaults to the Vercel function path)
-const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT || '/api/ai';
-
-// Call AI endpoint with timeout and Firebase ID token
-const fetchAIAnalysis = async (dreamText, user, timeoutMs = 15000) => {
-  if (!user) throw new Error('User not authenticated');
-  const idToken = await user.getIdToken();
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const res = await fetch(AI_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dreamText, idToken }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || `HTTP ${res.status}`);
-    }
-
-    return await res.json();
-  } catch (err) {
-    clearTimeout(timeoutId);
-    if (err.name === 'AbortError') {
-      throw new Error('AI request timed out');
-    }
-    throw err;
-  }
-};
-
 export default function DreamJournal({ user }) {
   const [dreams, setDreams] = useState([]);
   const [showNewDream, setShowNewDream] = useState(false);
@@ -69,7 +34,6 @@ export default function DreamJournal({ user }) {
   const [visibility, setVisibility] = useState('private');
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [aiLoading, setAiLoading] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [listenError, setListenError] = useState('');
   const [connectionOptions, setConnectionOptions] = useState([]);
@@ -332,36 +296,12 @@ export default function DreamJournal({ user }) {
     if (!content.trim() || !user?.uid) return;
 
     setLoading(true);
-    setAiLoading(true);
     setSaveError('');
 
     const trimmedContent = content.trim();
     const userTitle = title.trim();
-
-    let aiTitle = '';
-    let aiThemes = '';
-
-    try {
-      const aiResult = await fetchAIAnalysis(trimmedContent, user);
-      aiTitle = aiResult?.title?.trim() || '';
-      aiThemes = (aiResult?.themes || aiResult?.summary || '').trim();
-    } catch (err) {
-      setAiLoading(false);
-      setLoading(false);
-      setSaveError(err.message || 'AI analysis failed. Please try again.');
-      return;
-    }
-
-    setAiLoading(false);
-
-    if (!aiTitle || !aiThemes) {
-      setLoading(false);
-      setSaveError('AI response was incomplete. Please try again.');
-      return;
-    }
-
-    const resolvedTitle = userTitle || aiTitle;
-    const aiGenerated = true;
+    const resolvedTitle = userTitle || 'Untitled dream';
+    const aiGenerated = false;
     const taggedMeta = taggedUsers.map((entry) => ({
       userId: entry.userId,
       username: entry.username || '',
@@ -375,8 +315,6 @@ export default function DreamJournal({ user }) {
       content: trimmedContent,
       visibility,
       aiGenerated,
-      aiTitle,
-      aiInsights: aiThemes,
       authorUsername,
       createdAt: new Date(dreamDate),
       excludedViewerIds,
@@ -393,8 +331,6 @@ export default function DreamJournal({ user }) {
         content: trimmedContent,
         visibility,
         aiGenerated,
-        aiTitle,
-        aiInsights: aiThemes,
         authorUsername,
         excludedViewerIds,
         taggedUsers: taggedMeta,
@@ -704,9 +640,10 @@ export default function DreamJournal({ user }) {
                   Cancel
                 </button>
                 <button type="submit" className="primary-btn" disabled={loading || !content.trim()}>
-                  {aiLoading ? 'Analyzing…' : loading ? 'Saving…' : 'Save dream'}
+                  {loading ? 'Saving…' : 'Save dream'}
                 </button>
               </div>
+              <p className="hint">Want an AI title or summary? Save first, then open the dream to generate it.</p>
             </form>
           </div>
         </div>

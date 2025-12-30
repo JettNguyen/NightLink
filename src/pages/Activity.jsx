@@ -1,30 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHeart, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { buildDreamPath, buildProfilePath } from '../utils/urlHelpers';
-import updateDreamReaction from '../services/ReactionService';
 import { markActivityEntryRead, removeActivityEntry } from '../services/ActivityService';
 import './Activity.css';
 
 export default function Activity({ user, activityPreview }) {
   const viewerId = user?.uid || null;
   const navigate = useNavigate();
-  const [reactionState, setReactionState] = useState({});
   const [clearingEntries, setClearingEntries] = useState(() => new Set());
-  const [customReactionTarget, setCustomReactionTarget] = useState(null);
-  const [customReactionValue, setCustomReactionValue] = useState('');
-  const defaultReaction = '❤️';
 
   const {
     inboxEntries = [],
     inboxLoading = Boolean(viewerId),
-    inboxError = '',
-    followingUpdates = [],
-    followingLoading = Boolean(viewerId),
-    profileLoading = Boolean(viewerId)
+    inboxError = ''
   } = activityPreview || {};
 
   const activityEntries = useMemo(() => (
@@ -40,29 +30,6 @@ export default function Activity({ user, activityPreview }) {
       ? `Latest ${Math.min(activityEntries.length, 20)} updates`
       : 'You’re all caught up'
   ), [activityEntries.length]);
-
-  useEffect(() => {
-    setReactionState((prev) => {
-      const nextState = {};
-      followingUpdates.forEach((entry) => {
-        const counts = entry.reactionCounts || prev[entry.id]?.counts || {};
-        const viewerReaction = entry.viewerReaction ?? prev[entry.id]?.viewerReaction ?? null;
-        nextState[entry.id] = {
-          counts,
-          viewerReaction
-        };
-      });
-      return nextState;
-    });
-  }, [followingUpdates]);
-
-  useEffect(() => {
-    if (!customReactionTarget) return;
-    if (!followingUpdates.some((entry) => entry.id === customReactionTarget)) {
-      setCustomReactionTarget(null);
-      setCustomReactionValue('');
-    }
-  }, [customReactionTarget, followingUpdates]);
 
   const handleCardKeyPress = (event, callback) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -192,187 +159,6 @@ export default function Activity({ user, activityPreview }) {
     );
   };
 
-  const closeCustomReactionPicker = () => {
-    setCustomReactionTarget(null);
-    setCustomReactionValue('');
-  };
-
-  const openCustomReactionPicker = (event, entry) => {
-    event.stopPropagation();
-    event.preventDefault();
-    setCustomReactionTarget(entry.id);
-    setCustomReactionValue('');
-  };
-
-  const handleCustomEmojiChange = (value) => {
-    const normalized = Array.from(value || '').slice(-2).join('');
-    setCustomReactionValue(normalized);
-  };
-
-  const handleCustomReactionSubmit = (event, entry) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const emoji = customReactionValue.trim();
-    if (!emoji) return;
-    handleReactionSelection(entry, emoji);
-    closeCustomReactionPicker();
-  };
-
-  const renderFollowingCard = (entry) => {
-    const relativeTime = (entry.updatedAt || entry.createdAt)
-      ? formatDistanceToNow(entry.updatedAt || entry.createdAt, { addSuffix: true })
-      : 'moments ago';
-    const ownerName = entry.ownerProfile?.displayName || 'Dreamer';
-    const ownerHandle = entry.ownerProfile?.username ? `@${entry.ownerProfile.username}` : '';
-    const title = entry.title?.trim() || (entry.aiGenerated ? entry.aiTitle : '') || 'Untitled dream';
-    const summary = entry.aiGenerated && entry.aiInsights ? entry.aiInsights : (entry.content || '').slice(0, 180);
-    const reactionSnapshot = reactionState[entry.id] || { counts: entry.reactionCounts || {}, viewerReaction: entry.viewerReaction || null };
-    const totalReactions = Object.values(reactionSnapshot.counts || {}).reduce((sum, value) => sum + (value || 0), 0);
-    const handleNavigate = () => handleDreamNavigation(entry.ownerProfile?.username || '', entry.userId, entry.id);
-
-    return (
-      <article
-        key={entry.id}
-        className="activity-card activity-card-clickable"
-        role="button"
-        tabIndex={0}
-        onClick={handleNavigate}
-        onKeyDown={(event) => handleCardKeyPress(event, handleNavigate)}
-      >
-        <div className="activity-card-head">
-          <span className="activity-pill teal">Following</span>
-          <span className="activity-time">{relativeTime}</span>
-        </div>
-        <p className="activity-title">{ownerName} {ownerHandle && <span className="muted">{ownerHandle}</span>}</p>
-        <p className="activity-body">
-          {title}
-          {summary ? ` • ${summary}` : ''}
-        </p>
-        <div className="activity-reactions" onClick={(event) => event.stopPropagation()}>
-          <div className="reaction-buttons">
-            <button
-              type="button"
-              className={`reaction-button${reactionSnapshot.viewerReaction === defaultReaction ? ' active' : ''}`}
-              onClick={(event) => handleReactionButtonClick(event, entry, defaultReaction)}
-              aria-label="React with a heart"
-            >
-              <FontAwesomeIcon icon={faHeart} className="reaction-icon" />
-              <span className="reaction-count">{reactionSnapshot.counts?.[defaultReaction] || 0}</span>
-            </button>
-            <button
-              type="button"
-              className="reaction-button custom-emoji-trigger"
-              onClick={(event) => openCustomReactionPicker(event, entry)}
-              aria-label="Add a custom emoji reaction"
-            >
-              <FontAwesomeIcon icon={faPlus} className="reaction-icon" />
-              <span className="reaction-count">Emoji</span>
-            </button>
-            <button
-              type="button"
-              className="reaction-button clear-reaction"
-              disabled={!reactionSnapshot.viewerReaction}
-              onClick={(event) => handleReactionButtonClick(event, entry, null)}
-            >
-              Clear
-            </button>
-          </div>
-          {customReactionTarget === entry.id && (
-            <form className="custom-emoji-popover" onSubmit={(event) => handleCustomReactionSubmit(event, entry)}>
-              <input
-                id={`activity-custom-emoji-${entry.id}`}
-                type="text"
-                inputMode="text"
-                maxLength={4}
-                value={customReactionValue}
-                onChange={(event) => handleCustomEmojiChange(event.target.value)}
-                aria-label="Choose an emoji reaction"
-                placeholder="Type an emoji"
-                autoFocus
-              />
-              <button type="submit" className="primary-btn" disabled={!customReactionValue.trim()}>
-                Add
-              </button>
-              <button
-                type="button"
-                className="ghost-btn"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  closeCustomReactionPicker();
-                }}
-              >
-                Cancel
-              </button>
-            </form>
-          )}
-          <span className="reaction-total">
-            {totalReactions ? `${totalReactions} reaction${totalReactions === 1 ? '' : 's'}` : 'Be the first to react'}
-          </span>
-        </div>
-      </article>
-    );
-  };
-
-  const handleReactionButtonClick = (event, entry, emoji) => {
-    event.stopPropagation();
-    event.preventDefault();
-    closeCustomReactionPicker();
-    handleReactionSelection(entry, emoji);
-  };
-
-  const handleReactionSelection = useCallback(async (entry, emoji) => {
-    if (!viewerId) {
-      alert('Sign in to react to dreams');
-      return;
-    }
-
-    const currentState = reactionState[entry.id];
-    const currentReaction = currentState?.viewerReaction || null;
-    const nextReaction = emoji === currentReaction ? null : emoji;
-
-    setReactionState((prev) => {
-      const counts = { ...(prev[entry.id]?.counts || entry.reactionCounts || {}) };
-
-      if (currentReaction) {
-        counts[currentReaction] = Math.max((counts[currentReaction] || 1) - 1, 0);
-      }
-
-      if (nextReaction) {
-        counts[nextReaction] = (counts[nextReaction] || 0) + 1;
-      }
-
-      return {
-        ...prev,
-        [entry.id]: {
-          counts,
-          viewerReaction: nextReaction
-        }
-      };
-    });
-
-    try {
-      await updateDreamReaction({
-        dreamId: entry.id,
-        dreamOwnerId: entry.userId,
-        dreamTitleSnapshot: entry.title,
-        userId: viewerId,
-        emoji: nextReaction,
-        actorDisplayName: user?.displayName || user?.email || 'NightLink dreamer',
-        actorUsername: user?.username || user?.handle || null
-      });
-    } catch (error) {
-      console.error('Failed to update reaction', error);
-      setReactionState((prev) => ({
-        ...prev,
-        [entry.id]: {
-          counts: currentState?.counts || entry.reactionCounts || {},
-          viewerReaction: currentReaction
-        }
-      }));
-    }
-  }, [reactionState, user, viewerId]);
-
   return (
     <div className="page-container activity-page">
       <div className="activity-head">
@@ -404,31 +190,6 @@ export default function Activity({ user, activityPreview }) {
         )}
       </section>
 
-      <section className="activity-section">
-        <div className="activity-section-head">
-          <div>
-            <h2>Following feed</h2>
-            <p className="activity-subtitle">
-              {profileLoading
-                ? 'Loading your circle…'
-                : followingUpdates.length
-                  ? `${followingUpdates.length} recent updates`
-                  : 'No new entries yet'}
-            </p>
-          </div>
-        </div>
-        {followingLoading ? (
-          <div className="loading-inline">
-            <LoadingIndicator label="Pulling new dreams…" size="sm" align="start" />
-          </div>
-        ) : followingUpdates.length ? (
-          <div className="activity-list">
-            {followingUpdates.map((entry) => renderFollowingCard(entry))}
-          </div>
-        ) : (
-          <p className="detail-hint">Your following list is quiet. Check back later.</p>
-        )}
-      </section>
     </div>
   );
 }

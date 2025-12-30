@@ -15,6 +15,20 @@
   margin: 0;
 }
 
+.activity-time {
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+}
+
+.activity-title {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.activity-body {
+  color: var(--text-secondary);
+}
+
 .activity-subtitle {
   margin:5px 0 0;
   color: var(--text-secondary);
@@ -50,22 +64,18 @@
 .activity-card {
   border: 1px solid var(--border);
   border-radius: 15px;
-  padding: 20px;
+  padding: 15px;
   background: var(--surface);
-  .reaction-icon {
-    font-size: 1rem;
-    color: var(--text-secondary);
-    transition: color 0.2s ease;
-  }
   flex-direction: column;
   gap: 0.5rem;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   position: relative;
 }
 
-.activity-card-clickable {
-  position: relative;
-    color: var(--primary);
+.activity-card-actions {
+  margin-top: auto;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .activity-card-disabled {
@@ -79,7 +89,6 @@
 }
 
 .activity-card:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow-soft);
   border-color: rgba(90, 200, 250, 0.5);
 }
@@ -107,103 +116,43 @@
 
 .activity-pill {
   border-radius: 100px;
-  padding: 0.2rem 0.8rem;
-  font-size: 0.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 3px 12px;
+  margin-bottom: 5px;
+  font-size: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
   color: var(--text-secondary);
-  translate: -4px 0;
+  translate: -3px 0;
+}
+
+.activity-pill.teal {
+  border-color: rgba(90, 200, 250, 0.75);
+  color: var(--primary);
 }
 
 .activity-pill.mention,
 .activity-pill.tag {
-  border-color: rgba(90, 200, 250, 0.45);
-  color: var(--primary);
-}
-
-.activity-pill.teal {
-  border-color: rgba(90, 200, 250, 0.7);
+  border-color: rgba(90, 200, 250, 0.5);
   color: var(--primary);
 }
 
 .activity-pill.reply {
-  border-color: rgba(255, 214, 102, 0.6);
+  border-color: rgba(255, 214, 102, 0.5);
   color: #ffd766;
 }
 
 .activity-pill.comment {
-  border-color: rgba(173, 129, 255, 0.6);
+  border-color: rgba(173, 129, 255, 0.5);
   color: #bfa0ff;
 }
 
 .activity-pill.follow {
-  border-color: rgba(255, 138, 171, 0.65);
+  border-color: rgba(255, 138, 171, 0.5);
   color: #ff8ab4;
 }
 
 .activity-pill.reaction {
-  border-color: rgba(255, 255, 255, 0.35);
+  border-color: rgba(255, 50, 50, 0.5);
   color: var(--text);
-}
-
-.activity-time {
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-}
-
-.activity-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--primary);
-  box-shadow: 0 0 0 4px rgba(90, 200, 250, 0.15);
-}
-
-.activity-title {
-  margin: 0;
-  font-weight: 600;
-}
-
-.activity-title .muted {
-  color: var(--text-secondary);
-  font-weight: 500;
-  margin-left: 0.4rem;
-}
-
-.activity-body {
-  margin: 0;
-  color: var(--text);
-  line-height: 1.4;
-}
-
-.activity-card-actions {
-  margin-top: auto;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.activity-clear-btn {
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: transparent;
-  color: var(--text-secondary);
-  border-radius: 999px;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease;
-}
-
-.activity-clear-btn:hover:not(:disabled) {
-  color: var(--primary);
-  border-color: rgba(90, 200, 250, 0.45);
-}
-
-.activity-clear-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.muted {
-  color: var(--text-secondary);
 }
 
 .activity-reactions {
@@ -211,18 +160,14 @@
   flex-direction: column;
   gap: 0.5rem;
   padding-top: 0.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .reaction-buttons {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.35rem;
-}
-
-.reaction-button.custom-emoji-trigger {
-  border-style: dashed;
-  opacity: 0.85;
 }
 
 .reaction-button {
@@ -230,23 +175,29 @@
   border-radius: 999px;
   background: transparent;
   color: var(--text);
-  padding: 0.25rem 0.65rem;
+  padding: 0.2rem 0.6rem;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.reaction-button.custom-emoji-trigger {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+.reaction-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .reaction-icon {
   font-size: 1rem;
   color: var(--text-secondary);
   transition: color 0.2s ease;
-}
-
-.reaction-emoji {
-  font-size: 1rem;
 }
 
 .reaction-count {
@@ -262,11 +213,6 @@
 
 .reaction-button.active .reaction-icon {
   color: var(--primary);
-}
-
-.reaction-total {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
 }
 
 .custom-emoji-popover {
@@ -291,24 +237,44 @@
   outline: none;
   box-shadow: 0 0 0 2px rgba(90, 200, 250, 0.2);
 }
+.activity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 0 4px rgba(90, 200, 250, 0.15);
+  margin-bottom: 5px;
+}
+
 
 .clear-reaction {
   font-size: 0.75rem;
   padding: 0.2rem 0.55rem;
 }
 
-.reaction-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.reaction-total {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
 }
 
-@media (max-width: 600px) {
-  .activity-list {
-    grid-template-columns: 1fr;
-  }
+.activity-clear-btn {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
 
-  .activity-head {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+.activity-clear-btn:hover:not(:disabled) {
+  color: var(--primary);
+  border-color: rgba(90, 200, 250, 0.45);
+  background: rgba(90, 200, 250, 0.08);
+}
+
+.activity-clear-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }

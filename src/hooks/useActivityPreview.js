@@ -3,7 +3,6 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
   limit,
   onSnapshot,
   orderBy,
@@ -106,6 +105,38 @@ export default function useActivityPreview(viewerId, options = {}) {
     }, {});
   };
 
+  const canViewerSeeDream = (entry, ownerProfile) => {
+    if (!entry) return false;
+    const ownerId = entry.userId;
+    const viewerIsOwner = viewerId && ownerId === viewerId;
+    const excluded = viewerId
+      && Array.isArray(entry.excludedViewerIds)
+      && entry.excludedViewerIds.includes(viewerId);
+    if (excluded) return false;
+    if (viewerIsOwner) return true;
+
+    const visibility = entry.visibility || 'private';
+    if (visibility === 'public' || visibility === 'anonymous') {
+      return true;
+    }
+
+    if (visibility === 'following') {
+      const authorFollowingIds = Array.isArray(ownerProfile?.followingIds)
+        ? ownerProfile.followingIds
+        : [];
+      return viewerId ? authorFollowingIds.includes(viewerId) : false;
+    }
+
+    if (visibility === 'followers') {
+      const authorFollowerIds = Array.isArray(ownerProfile?.followerIds)
+        ? ownerProfile.followerIds
+        : [];
+      return viewerId ? authorFollowerIds.includes(viewerId) : false;
+    }
+
+    return false;
+  };
+
   useEffect(() => {
     const followingIds = Array.isArray(viewerProfile?.followingIds)
       ? viewerProfile.followingIds.filter((id) => typeof id === 'string' && id.trim())
@@ -117,82 +148,130 @@ export default function useActivityPreview(viewerId, options = {}) {
       return undefined;
     }
 
-    let cancelled = false;
     setFollowingLoading(true);
+    let cancelled = false;
+    let refreshToken = 0;
+    const chunkSnapshots = new Map();
 
-    const fetchFollowingUpdates = async () => {
-      try {
-        const chunks = [];
-        for (let i = 0; i < followingIds.length; i += FOLLOWING_CHUNK_SIZE) {
-          chunks.push(followingIds.slice(i, i + FOLLOWING_CHUNK_SIZE));
-        }
+    const recomputeFollowing = async () => {
+      const requestId = ++refreshToken;
+      const combined = Array.from(chunkSnapshots.values()).flat();
 
-        const dreamsRef = collection(db, 'dreams');
-        const queries = chunks.map((chunk) => getDocs(
-          query(
-            dreamsRef,
-            where('userId', 'in', chunk),
-            orderBy('updatedAt', 'desc'),
-            limit(FOLLOWING_PER_CHUNK)
-          )
-        ));
-
-        const snapshots = await Promise.all(queries);
-        const merged = [];
-        snapshots.forEach((snapshot) => {
-          snapshot.forEach((docSnap) => {
-            const data = docSnap.data() || {};
-            const createdAt = data.createdAt?.toDate?.() ?? null;
-            const updatedAt = data.updatedAt?.toDate?.() ?? createdAt;
-            merged.push({
-              id: docSnap.id,
-              ...data,
-              createdAt,
-              updatedAt
-            });
-          });
-        });
-
-        merged.sort((a, b) => {
-          const aTime = (a.updatedAt || a.createdAt)?.getTime?.() || 0;
-          const bTime = (b.updatedAt || b.createdAt)?.getTime?.() || 0;
-          return bTime - aTime;
-        });
-
-        const sliced = merged.slice(0, MAX_FOLLOWING_RESULTS);
-        const ownerIds = Array.from(new Set(sliced.map((entry) => entry.userId).filter(Boolean)));
-        const ownerProfiles = await fetchProfilesByIds(ownerIds);
-        const enriched = sliced.map((entry) => ({
-          ...entry,
-          ownerProfile: ownerProfiles[entry.userId] || null,
-          reactionCounts: entry.reactionCounts || {},
-          viewerReaction: entry.viewerReactions?.[viewerId] || entry.viewerReaction || null
-        }));
-
-        if (!cancelled) {
-          setFollowingUpdates(enriched);
-        }
-      } catch {
-        if (!cancelled) {
+      if (!combined.length) {
+        if (!cancelled && requestId === refreshToken) {
           setFollowingUpdates([]);
+          setFollowingLoading(false);
         }
-      } finally {
-        if (!cancelled) {
+        return;
+      }
+
+      const deduped = combined.reduce((acc, entry) => {
+        if (!entry?.id) {
+          return acc;
+        }
+        acc.set(entry.id, entry);
+        return acc;
+      }, new Map());
+
+      const sorted = Array.from(deduped.values()).sort((a, b) => {
+        const aTime = (a.updatedAt || a.createdAt)?.getTime?.() || 0;
+        const bTime = (b.updatedAt || b.createdAt)?.getTime?.() || 0;
+        return bTime - aTime;
+      });
+
+      const sliced = sorted.slice(0, MAX_FOLLOWING_RESULTS);
+      const ownerIds = Array.from(new Set(sliced.map((entry) => entry.userId).filter(Boolean)));
+
+      try {
+        const ownerProfiles = await fetchProfilesByIds(ownerIds);
+        const filtered = sliced
+          .filter((entry) => {
+            const ownerProfile = ownerProfiles[entry.userId] || null;
+            return canViewerSeeDream(entry, ownerProfile);
+          })
+          .map((entry) => ({
+            ...entry,
+            ownerProfile: ownerProfiles[entry.userId] || null,
+            reactionCounts: entry.reactionCounts || {},
+            viewerReaction: entry.viewerReactions?.[viewerId] || entry.viewerReaction || null
+          }));
+
+        if (!cancelled && requestId === refreshToken) {
+          setFollowingUpdates(filtered);
+          setFollowingLoading(false);
+        }
+      } catch (error) {
+        console.error('Failed to prepare following updates', error);
+        if (!cancelled && requestId === refreshToken) {
+          setFollowingUpdates([]);
           setFollowingLoading(false);
         }
       }
     };
 
-    fetchFollowingUpdates();
+    const chunks = [];
+    for (let i = 0; i < followingIds.length; i += FOLLOWING_CHUNK_SIZE) {
+      const chunk = followingIds.slice(i, i + FOLLOWING_CHUNK_SIZE);
+      if (chunk.length) {
+        chunks.push(chunk);
+      }
+    }
+
+    const dreamsRef = collection(db, 'dreams');
+    const unsubscribes = chunks.map((chunk, index) => {
+      const chunkKey = `chunk-${index}`;
+      const chunkQuery = query(
+        dreamsRef,
+        where('userId', 'in', chunk),
+        orderBy('createdAt', 'desc'),
+        limit(FOLLOWING_PER_CHUNK)
+      );
+
+      return onSnapshot(chunkQuery, (snapshot) => {
+        if (cancelled) return;
+        const entries = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data() || {};
+          const createdAt = data.createdAt?.toDate?.() ?? null;
+          const updatedAt = data.updatedAt?.toDate?.() ?? createdAt;
+          return {
+            id: docSnap.id,
+            ...data,
+            createdAt,
+            updatedAt
+          };
+        });
+        chunkSnapshots.set(chunkKey, entries);
+        recomputeFollowing();
+      }, (error) => {
+        console.error('Following feed snapshot failed', error);
+        chunkSnapshots.delete(chunkKey);
+        recomputeFollowing();
+      });
+    });
+
     return () => {
       cancelled = true;
+      unsubscribes.forEach((unsubscribe) => unsubscribe?.());
     };
   }, [viewerId, viewerProfile?.followingIds]);
+
+  const unreadInboxCount = useMemo(() => (
+    inboxEntries.filter((entry) => entry?.read === false).length
+  ), [inboxEntries]);
 
   const hasActivity = useMemo(() => (
     inboxEntries.length > 0
     || followingUpdates.length > 0
   ), [inboxEntries.length, followingUpdates.length]);
+
+  const hasUnreadActivity = unreadInboxCount > 0;
+
+  const latestFollowingTimestamp = useMemo(() => (
+    followingUpdates.reduce((latest, entry) => {
+      const time = (entry.updatedAt || entry.createdAt)?.getTime?.() || 0;
+      return time > latest ? time : latest;
+    }, 0)
+  ), [followingUpdates]);
 
   return {
     viewerProfile,
@@ -202,6 +281,10 @@ export default function useActivityPreview(viewerId, options = {}) {
     inboxError,
     followingUpdates,
     followingLoading,
-    hasActivity
+    hasActivity,
+    unreadInboxCount,
+    unreadActivityCount: unreadInboxCount,
+    hasUnreadActivity,
+    latestFollowingTimestamp
   };
 }

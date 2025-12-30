@@ -180,7 +180,12 @@ export default function AuthPage() {
   return (
     <div className="auth-page">
       <div className="auth-container">
-        <h1 className="auth-title">NightLink</h1>
+        <h1 className="auth-title">
+          <span className="auth-title-icon" aria-hidden="true">
+            <img src="/favicon.svg" alt="" />
+          </span>
+          <span className="auth-title-text">NightLink</span>
+        </h1>
         <p className="auth-subtitle">Your dreams, your story</p>
 
         <div className="auth-tabs">

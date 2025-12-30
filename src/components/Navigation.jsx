@@ -1,30 +1,72 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { faRightFromBracket, faBook, faCompass, faSearch, faUser, faBell } from '@fortawesome/free-solid-svg-icons';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { faBook, faCompass, faSearch, faUser, faBell } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { signOut } from 'firebase/auth';
 import { Link, useLocation } from 'react-router-dom';
-import { auth } from '../firebase';
 import './Navigation.css';
 
 const COMPACT_ENTER_OFFSET = 110;
 const COMPACT_EXIT_OFFSET = 40;
 
-function Navigation({ activityPreview }) {
+function Navigation({ user, activityPreview }) {
   const location = useLocation();
   const [isCompact, setIsCompact] = useState(false);
   const compactRef = useRef(isCompact);
-  const inboxCount = activityPreview?.inboxEntries?.length || 0;
-  const feedCount = activityPreview?.followingUpdates?.length || 0;
-  const activityCount = inboxCount + feedCount;
-  const hasActivity = activityPreview?.hasActivity ?? Boolean(activityCount);
+  const viewerId = user?.uid || 'anon';
+  const inboxEntries = activityPreview?.inboxEntries ?? [];
+  const unreadActivityCount = activityPreview?.unreadActivityCount
+    ?? inboxEntries.filter((entry) => entry?.read === false).length;
+  const hasUnreadActivity = activityPreview?.hasUnreadActivity ?? unreadActivityCount > 0;
+  const followingUpdates = activityPreview?.followingUpdates ?? [];
+  const latestFollowingTimestamp = activityPreview?.latestFollowingTimestamp || 0;
+  const feedSeenStorageKey = `nightlink:feedLastSeenAt:${viewerId}`;
 
-  const handleSignOut = async () => {
+  const [feedLastSeenAt, setFeedLastSeenAt] = useState(() => {
+    if (typeof window === 'undefined') return 0;
     try {
-      await signOut(auth);
+      const storedValue = window.localStorage.getItem(feedSeenStorageKey);
+      const parsed = Number(storedValue);
+      return Number.isFinite(parsed) ? parsed : 0;
     } catch {
-      alert('Sign out failed. Please try again.');
+      return 0;
     }
-  };
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const storedValue = window.localStorage.getItem(feedSeenStorageKey);
+      const parsed = Number(storedValue);
+      setFeedLastSeenAt(Number.isFinite(parsed) ? parsed : 0);
+    } catch {
+      setFeedLastSeenAt(0);
+    }
+  }, [feedSeenStorageKey]);
+
+  const newFeedUpdatesCount = useMemo(() => {
+    const derivedCount = followingUpdates.reduce((count, entry) => {
+      const entryTime = (entry.updatedAt || entry.createdAt)?.getTime?.() || 0;
+      return entryTime > feedLastSeenAt ? count + 1 : count;
+    }, 0);
+
+    if (derivedCount > 0) {
+      return derivedCount;
+    }
+
+    return latestFollowingTimestamp > feedLastSeenAt ? 1 : 0;
+  }, [followingUpdates, feedLastSeenAt, latestFollowingTimestamp]);
+
+  const hasUnreadFeed = newFeedUpdatesCount > 0;
+
+  const markFeedAsSeen = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const reference = Math.max(latestFollowingTimestamp, Date.now());
+    setFeedLastSeenAt(reference);
+    try {
+      window.localStorage.setItem(feedSeenStorageKey, String(reference));
+    } catch {
+      // ignore storage errors
+    }
+  }, [feedSeenStorageKey, latestFollowingTimestamp]);
 
   const dreamOrigin = location.state?.fromNav;
 
@@ -41,6 +83,16 @@ function Navigation({ activityPreview }) {
   }, [location.pathname, dreamOrigin]);
 
   const linkClass = (path) => (normalizedPath === path ? 'active' : '');
+
+  useEffect(() => {
+    if (normalizedPath === '/feed') {
+      markFeedAsSeen();
+    }
+  }, [normalizedPath, markFeedAsSeen]);
+
+  const handleFeedLinkClick = () => {
+    markFeedAsSeen();
+  };
 
   useEffect(() => {
     compactRef.current = isCompact;
@@ -94,8 +146,16 @@ function Navigation({ activityPreview }) {
             to="/feed"
             aria-label="Feed"
             className={linkClass('/feed')}
+            onClick={handleFeedLinkClick}
           >
-            <FontAwesomeIcon icon={faCompass} className="nav-icon" />
+            <span className="nav-icon-wrapper">
+              <FontAwesomeIcon icon={faCompass} className="nav-icon" />
+              {hasUnreadFeed && (
+                <span className="nav-activity-indicator" aria-label={`${newFeedUpdatesCount} new feed updates`}>
+                  {newFeedUpdatesCount > 9 ? '9+' : newFeedUpdatesCount}
+                </span>
+              )}
+            </span>
             <span className="nav-tab-label">Feed</span>
           </Link>
           <Link
@@ -113,9 +173,9 @@ function Navigation({ activityPreview }) {
           >
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faBell} className="nav-icon" />
-              {hasActivity && (
-                <span className="nav-activity-indicator" aria-label={`${activityCount} new updates`}>
-                  {activityCount > 9 ? '9+' : activityCount}
+              {hasUnreadActivity && (
+                <span className="nav-activity-indicator" aria-label={`${unreadActivityCount} unread notifications`}>
+                  {unreadActivityCount > 9 ? '9+' : unreadActivityCount}
                 </span>
               )}
             </span>
@@ -131,12 +191,6 @@ function Navigation({ activityPreview }) {
           </Link>
         </div>
 
-        <div className="nav-actions">
-          <button onClick={handleSignOut} className="sign-out-btn">
-            <FontAwesomeIcon icon={faRightFromBracket} />
-            <span>Sign Out</span>
-          </button>
-        </div>
       </div>
     </nav>
   );
