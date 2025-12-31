@@ -33,13 +33,6 @@ export default function Activity({ user, activityPreview }) {
       : 'You’re all caught up'
   ), [activityEntries.length]);
 
-  const handleCardKeyPress = (event, callback) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      callback();
-    }
-  };
-
   const handleDreamNavigation = (ownerUsername, ownerId, dreamId) => {
     if (!dreamId) return;
     if (ownerUsername) {
@@ -132,21 +125,24 @@ export default function Activity({ user, activityPreview }) {
       <article
         key={entry.id}
         className={cardClassName}
-        role="button"
-        tabIndex={isDisabled ? -1 : 0}
-        onClick={() => !isDisabled && handleInteraction()}
-        onKeyDown={(event) => !isDisabled && handleCardKeyPress(event, handleInteraction)}
         aria-disabled={isDisabled}
       >
-        <div className="activity-card-head">
-          <div className="activity-pill-group">
-            <span className={`activity-pill ${entryType}`}>{pillLabel}</span>
-            {isUnread && <span className="activity-dot" aria-label="Unread notification" />}
-          </div>
-          <span className="activity-time">{relativeTime}</span>
-        </div>
-        <p className="activity-title">{headline}</p>
-        <p className="activity-body">{bodyText}</p>
+        <button
+          type="button"
+          className="activity-card-main"
+          onClick={handleInteraction}
+          disabled={isDisabled}
+        >
+          <span className="activity-card-head">
+            <span className="activity-pill-group">
+              <span className={`activity-pill ${entryType}`}>{pillLabel}</span>
+              {isUnread && <span className="activity-dot" aria-label="Unread notification" />}
+            </span>
+            <span className="activity-time">{relativeTime}</span>
+          </span>
+          <span className="activity-title" role="text">{headline}</span>
+          <span className="activity-body" role="text">{bodyText}</span>
+        </button>
         <div className="activity-card-actions">
           <button
             type="button"

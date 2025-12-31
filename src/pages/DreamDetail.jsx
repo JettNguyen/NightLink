@@ -1207,13 +1207,14 @@ export default function DreamDetail({ user }) {
                   <button type="button" className="ghost-btn" onClick={() => setEditingTitle(false)}>Cancel</button>
                 </div>
               ) : (
-                <h1
-                  className="detail-title detail-title-editable"
-                  onClick={() => setEditingTitle(true)}
-                  role="button"
-                  tabIndex={0}
-                >
-                  {titleText} <span className="edit-hint">✎</span>
+                <h1 className="detail-title">
+                  <button
+                    type="button"
+                    className="detail-title-editable"
+                    onClick={() => setEditingTitle(true)}
+                  >
+                    {titleText} <span className="edit-hint">✎</span>
+                  </button>
                 </h1>
               )
             ) : (

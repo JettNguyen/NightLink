@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 
 const resultCache = new Map();
 const userLimits = new Map();
@@ -8,7 +8,7 @@ const OPENAI_MODEL = 'gpt-4o-mini';
 const OPENAI_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 
 const applyCors = (req, res) => {
-  const origin = req.headers.origin || '*';
+  const origin = req.headers?.origin ?? '*';
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');

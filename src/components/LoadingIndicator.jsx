@@ -18,13 +18,13 @@ export default function LoadingIndicator({ label = 'Loading…', size = 'md', al
   const classes = ['loading-indicator', alignmentClass, className].filter(Boolean).join(' ');
 
   return (
-    <div className={classes} role="status" aria-live="polite">
+    <output className={classes} aria-live="polite">
       <div className={`loading-track ${trackSizeClass}`}>
         <span className="loading-orb" aria-hidden="true" />
         <span className="loading-orb loading-orb-delay" aria-hidden="true" />
       </div>
       {label ? <p className="loading-label">{label}</p> : null}
-    </div>
+    </output>
   );
 }
 

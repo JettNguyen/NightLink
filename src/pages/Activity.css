@@ -62,6 +62,7 @@
 }
 
 .activity-card {
+  display: flex;
   border: 1px solid var(--border);
   border-radius: 15px;
   padding: 15px;
@@ -70,6 +71,30 @@
   gap: 0.5rem;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   position: relative;
+}
+
+.activity-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.activity-card-main:focus-visible {
+  outline: 2px solid rgba(90, 200, 250, 0.6);
+  outline-offset: 4px;
+}
+
+.activity-card[aria-disabled="true"] .activity-card-main,
+.activity-card-main:disabled {
+  cursor: not-allowed;
 }
 
 .activity-card-actions {

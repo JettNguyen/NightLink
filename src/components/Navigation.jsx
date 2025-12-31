@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import PropTypes from 'prop-types';
 import { faBook, faCompass, faSearch, faUser, faBell } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Link, useLocation } from 'react-router-dom';
@@ -8,6 +7,7 @@ import { firebaseUserPropType, activityPreviewPropType } from '../propTypes';
 
 const COMPACT_ENTER_OFFSET = 110;
 const COMPACT_EXIT_OFFSET = 40;
+const getWindowRef = () => (typeof globalThis !== 'undefined' ? globalThis.window : undefined);
 
 function Navigation({ user, activityPreview }) {
   const location = useLocation();
@@ -23,9 +23,10 @@ function Navigation({ user, activityPreview }) {
   const feedSeenStorageKey = `nightlink:feedLastSeenAt:${viewerId}`;
 
   const [feedLastSeenAt, setFeedLastSeenAt] = useState(() => {
-    if (typeof window === 'undefined') return 0;
+    const win = getWindowRef();
+    if (!win) return 0;
     try {
-      const storedValue = window.localStorage.getItem(feedSeenStorageKey);
+      const storedValue = win.localStorage.getItem(feedSeenStorageKey);
       const parsed = Number(storedValue);
       return Number.isFinite(parsed) ? parsed : 0;
     } catch {
@@ -34,9 +35,10 @@ function Navigation({ user, activityPreview }) {
   });
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    const win = getWindowRef();
+    if (!win) return;
     try {
-      const storedValue = window.localStorage.getItem(feedSeenStorageKey);
+      const storedValue = win.localStorage.getItem(feedSeenStorageKey);
       const parsed = Number(storedValue);
       setFeedLastSeenAt(Number.isFinite(parsed) ? parsed : 0);
     } catch {
@@ -60,11 +62,12 @@ function Navigation({ user, activityPreview }) {
   const hasUnreadFeed = newFeedUpdatesCount > 0;
 
   const markFeedAsSeen = useCallback(() => {
-    if (typeof window === 'undefined') return;
+    const win = getWindowRef();
+    if (!win) return;
     const reference = Math.max(latestFollowingTimestamp, Date.now());
     setFeedLastSeenAt(reference);
     try {
-      window.localStorage.setItem(feedSeenStorageKey, String(reference));
+      win.localStorage.setItem(feedSeenStorageKey, String(reference));
     } catch {
       // ignore storage errors
     }
@@ -101,7 +104,8 @@ function Navigation({ user, activityPreview }) {
   }, [isCompact]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
+    const win = getWindowRef();
+    if (!win) return undefined;
 
     let ticking = false;
 
@@ -109,8 +113,8 @@ function Navigation({ user, activityPreview }) {
       if (ticking) return;
       ticking = true;
 
-      window.requestAnimationFrame(() => {
-        const currentY = window.scrollY || 0;
+      win.requestAnimationFrame(() => {
+        const currentY = win.scrollY || 0;
 
         if (!compactRef.current && currentY > COMPACT_ENTER_OFFSET) {
           setIsCompact(true);
@@ -123,8 +127,8 @@ function Navigation({ user, activityPreview }) {
     };
 
     handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    win.addEventListener('scroll', handleScroll, { passive: true });
+    return () => win.removeEventListener('scroll', handleScroll);
   }, []);
 
   return (
