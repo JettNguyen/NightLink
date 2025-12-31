@@ -125,7 +125,6 @@ export default function Activity({ user, activityPreview }) {
       <article
         key={entry.id}
         className={cardClassName}
-        aria-disabled={isDisabled}
       >
         <button
           type="button"

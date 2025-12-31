@@ -7,7 +7,12 @@ import { firebaseUserPropType, activityPreviewPropType } from '../propTypes';
 
 const COMPACT_ENTER_OFFSET = 110;
 const COMPACT_EXIT_OFFSET = 40;
-const getWindowRef = () => (typeof globalThis !== 'undefined' ? globalThis.window : undefined);
+const getWindowRef = () => {
+  if (typeof globalThis === 'undefined') {
+    return undefined;
+  }
+  return globalThis.window;
+};
 
 function Navigation({ user, activityPreview }) {
   const location = useLocation();

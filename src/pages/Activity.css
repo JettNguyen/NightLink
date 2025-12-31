@@ -92,7 +92,7 @@
   outline-offset: 4px;
 }
 
-.activity-card[aria-disabled="true"] .activity-card-main,
+.activity-card.activity-card-disabled .activity-card-main,
 .activity-card-main:disabled {
   cursor: not-allowed;
 }
