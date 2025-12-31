@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { collection, doc, query, where, orderBy, limit, onSnapshot, documentId } from 'firebase/firestore';
 import { db } from '../firebase';
 import { format } from 'date-fns';
@@ -10,6 +11,7 @@ import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Feed.css';
 import LoadingIndicator from '../components/LoadingIndicator';
 import updateDreamReaction from '../services/ReactionService';
+import { firebaseUserPropType } from '../propTypes';
 
 export default function Feed({ user }) {
   const [rawDreams, setRawDreams] = useState([]);
@@ -424,7 +426,7 @@ export default function Feed({ user }) {
                   </div>
                 )}
 
-                <div className="activity-reactions feed-reactions" onClick={(event) => event.stopPropagation()}>
+                <div className="activity-reactions feed-reactions">
                   <div className="reaction-buttons">
                     <button
                       type="button"
@@ -497,3 +499,7 @@ export default function Feed({ user }) {
     </div>
   );
 }
+
+Feed.propTypes = {
+  user: firebaseUserPropType
+};

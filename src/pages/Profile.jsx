@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, runTransaction, updateDoc, where } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
@@ -10,6 +11,7 @@ import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGRO
 import LoadingIndicator from '../components/LoadingIndicator';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Profile.css';
+import { firebaseUserPropType } from '../propTypes';
 
 export default function Profile({ user }) {
   const { handle: routeHandle } = useParams();
@@ -960,3 +962,7 @@ export default function Profile({ user }) {
     </div>
   );
 }
+
+Profile.propTypes = {
+  user: firebaseUserPropType
+};

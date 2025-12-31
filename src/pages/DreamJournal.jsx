@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import PropTypes from 'prop-types';
 import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, getDocs, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -6,6 +7,7 @@ import { db } from '../firebase';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { buildDreamPath } from '../utils/urlHelpers';
 import './DreamJournal.css';
+import { firebaseUserPropType } from '../propTypes';
 
 const VISIBILITY_LABELS = {
   private: 'Private',
@@ -291,6 +293,19 @@ export default function DreamJournal({ user }) {
     resetForm();
   };
 
+  const handleOverlayClick = (event) => {
+    if (event.target === event.currentTarget) {
+      closeModal();
+    }
+  };
+
+  const handleOverlayKeyDown = (event) => {
+    if (['Escape', 'Enter', ' '].includes(event.key)) {
+      event.preventDefault();
+      closeModal();
+    }
+  };
+
   const handleSaveDream = async (event) => {
     event.preventDefault();
     if (!content.trim() || !user?.uid) return;
@@ -436,10 +451,17 @@ export default function DreamJournal({ user }) {
       )}
 
       {showNewDream && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal-content" onClick={(event) => event.stopPropagation()}>
+        <div
+          className="modal-overlay"
+          role="button"
+          tabIndex={0}
+          aria-label="Close modal"
+          onClick={handleOverlayClick}
+          onKeyDown={handleOverlayKeyDown}
+        >
+          <div className="modal-content" role="dialog" aria-modal="true" aria-labelledby="new-dream-heading">
             <div className="modal-header">
-              <h2>New Dream</h2>
+              <h2 id="new-dream-heading">New Dream</h2>
               <button type="button" className="close-btn" onClick={closeModal} aria-label="Close modal">×</button>
             </div>
 
@@ -651,3 +673,7 @@ export default function DreamJournal({ user }) {
     </div>
   );
 }
+
+DreamJournal.propTypes = {
+  user: firebaseUserPropType
+};

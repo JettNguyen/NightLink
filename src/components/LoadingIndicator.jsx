@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import './LoadingIndicator.css';
 
 const TRACK_SIZES = {
@@ -26,3 +27,10 @@ export default function LoadingIndicator({ label = 'Loading…', size = 'md', al
     </div>
   );
 }
+
+LoadingIndicator.propTypes = {
+  label: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
+  size: PropTypes.oneOf(['sm', 'md', 'lg']),
+  align: PropTypes.oneOf(['center', 'start']),
+  className: PropTypes.string
+};

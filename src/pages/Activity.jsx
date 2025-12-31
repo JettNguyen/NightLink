@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { buildDreamPath, buildProfilePath } from '../utils/urlHelpers';
 import { markActivityEntryRead, removeActivityEntry } from '../services/ActivityService';
 import './Activity.css';
+import { firebaseUserPropType, activityPreviewPropType } from '../propTypes';
 
 export default function Activity({ user, activityPreview }) {
   const viewerId = user?.uid || null;
@@ -130,7 +132,7 @@ export default function Activity({ user, activityPreview }) {
       <article
         key={entry.id}
         className={cardClassName}
-        role={isDisabled ? 'group' : 'button'}
+        role="button"
         tabIndex={isDisabled ? -1 : 0}
         onClick={() => !isDisabled && handleInteraction()}
         onKeyDown={(event) => !isDisabled && handleCardKeyPress(event, handleInteraction)}
@@ -145,7 +147,7 @@ export default function Activity({ user, activityPreview }) {
         </div>
         <p className="activity-title">{headline}</p>
         <p className="activity-body">{bodyText}</p>
-        <div className="activity-card-actions" onClick={(event) => event.stopPropagation()}>
+        <div className="activity-card-actions">
           <button
             type="button"
             className="activity-clear-btn"
@@ -193,3 +195,8 @@ export default function Activity({ user, activityPreview }) {
     </div>
   );
 }
+
+Activity.propTypes = {
+  user: firebaseUserPropType,
+  activityPreview: activityPreviewPropType
+};

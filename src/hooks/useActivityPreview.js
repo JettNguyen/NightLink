@@ -16,6 +16,125 @@ const FOLLOWING_CHUNK_SIZE = 10;
 const FOLLOWING_PER_CHUNK = 8;
 const MAX_FOLLOWING_RESULTS = 20;
 
+const normalizeIdList = (ids) => (
+  Array.isArray(ids)
+    ? ids.filter((id) => typeof id === 'string' && id.trim())
+    : []
+);
+
+const chunkList = (list, chunkSize) => {
+  const chunks = [];
+  for (let i = 0; i < list.length; i += chunkSize) {
+    const chunk = list.slice(i, i + chunkSize);
+    if (chunk.length) {
+      chunks.push(chunk);
+    }
+  }
+  return chunks;
+};
+
+const parseDreamSnapshot = (docSnap) => {
+  const data = docSnap.data() || {};
+  const createdAt = data.createdAt?.toDate?.() ?? null;
+  const updatedAt = data.updatedAt?.toDate?.() ?? createdAt;
+  return {
+    id: docSnap.id,
+    ...data,
+    createdAt,
+    updatedAt
+  };
+};
+
+const combineChunkEntries = (chunkSnapshots) => (
+  Array.from(chunkSnapshots.values()).flat()
+);
+
+const dedupeEntries = (entries) => entries.reduce((acc, entry) => {
+  if (entry?.id) {
+    acc.set(entry.id, entry);
+  }
+  return acc;
+}, new Map());
+
+const sortEntriesDescending = (entries) => (
+  entries.sort((a, b) => {
+    const aTime = (a.updatedAt || a.createdAt)?.getTime?.() || 0;
+    const bTime = (b.updatedAt || b.createdAt)?.getTime?.() || 0;
+    return bTime - aTime;
+  })
+);
+
+const fetchProfilesByIds = async (ids = []) => {
+  const uniqueIds = Array.from(new Set(ids.filter((id) => typeof id === 'string' && id.trim())));
+  if (!uniqueIds.length) {
+    return {};
+  }
+
+  const lookups = await Promise.all(uniqueIds.map(async (id) => {
+    try {
+      const snapshot = await getDoc(doc(db, 'users', id));
+      if (!snapshot.exists()) return null;
+      return { id: snapshot.id, ...snapshot.data() };
+    } catch {
+      return null;
+    }
+  }));
+
+  return lookups.filter(Boolean).reduce((acc, profile) => {
+    acc[profile.id] = profile;
+    return acc;
+  }, {});
+};
+
+const canViewerSeeDream = (entry, ownerProfile, viewerId) => {
+  if (!entry) return false;
+  const ownerId = entry.userId;
+  const viewerIsOwner = viewerId && ownerId === viewerId;
+  const excluded = viewerId
+    && Array.isArray(entry.excludedViewerIds)
+    && entry.excludedViewerIds.includes(viewerId);
+  if (excluded) return false;
+  if (viewerIsOwner) return true;
+
+  const visibility = entry.visibility || 'private';
+  if (visibility === 'public' || visibility === 'anonymous') {
+    return true;
+  }
+
+  if (visibility === 'following') {
+    const authorFollowingIds = Array.isArray(ownerProfile?.followingIds)
+      ? ownerProfile.followingIds
+      : [];
+    return viewerId ? authorFollowingIds.includes(viewerId) : false;
+  }
+
+  if (visibility === 'followers') {
+    const authorFollowerIds = Array.isArray(ownerProfile?.followerIds)
+      ? ownerProfile.followerIds
+      : [];
+    return viewerId ? authorFollowerIds.includes(viewerId) : false;
+  }
+
+  return false;
+};
+
+const buildFollowingPayload = async (combinedEntries, viewerId) => {
+  const deduped = dedupeEntries(combinedEntries);
+  const sorted = sortEntriesDescending(Array.from(deduped.values()));
+  const limited = sorted.slice(0, MAX_FOLLOWING_RESULTS);
+  const ownerIds = Array.from(new Set(limited.map((entry) => entry.userId).filter(Boolean)));
+
+  const ownerProfiles = await fetchProfilesByIds(ownerIds);
+  return limited
+    .filter((entry) => canViewerSeeDream(entry, ownerProfiles[entry.userId] || null, viewerId))
+    .map((entry) => ({
+      ...entry,
+      ownerProfile: ownerProfiles[entry.userId] || null,
+      reactionCounts: entry.reactionCounts || {},
+      viewerReaction: entry.viewerReactions?.[viewerId] || entry.viewerReaction || null
+    }));
+};
+
 export default function useActivityPreview(viewerId, options = {}) {
   const inboxLimit = options.inboxLimit ?? DEFAULT_INBOX_LIMIT;
   const [viewerProfile, setViewerProfile] = useState(null);
@@ -83,64 +202,8 @@ export default function useActivityPreview(viewerId, options = {}) {
     };
   }, [viewerId, inboxLimit]);
 
-  const fetchProfilesByIds = async (ids = []) => {
-    const uniqueIds = Array.from(new Set(ids.filter((id) => typeof id === 'string' && id.trim())));
-    if (!uniqueIds.length) {
-      return {};
-    }
-
-    const lookups = await Promise.all(uniqueIds.map(async (id) => {
-      try {
-        const snapshot = await getDoc(doc(db, 'users', id));
-        if (!snapshot.exists()) return null;
-        return { id: snapshot.id, ...snapshot.data() };
-      } catch {
-        return null;
-      }
-    }));
-
-    return lookups.filter(Boolean).reduce((acc, profile) => {
-      acc[profile.id] = profile;
-      return acc;
-    }, {});
-  };
-
-  const canViewerSeeDream = (entry, ownerProfile) => {
-    if (!entry) return false;
-    const ownerId = entry.userId;
-    const viewerIsOwner = viewerId && ownerId === viewerId;
-    const excluded = viewerId
-      && Array.isArray(entry.excludedViewerIds)
-      && entry.excludedViewerIds.includes(viewerId);
-    if (excluded) return false;
-    if (viewerIsOwner) return true;
-
-    const visibility = entry.visibility || 'private';
-    if (visibility === 'public' || visibility === 'anonymous') {
-      return true;
-    }
-
-    if (visibility === 'following') {
-      const authorFollowingIds = Array.isArray(ownerProfile?.followingIds)
-        ? ownerProfile.followingIds
-        : [];
-      return viewerId ? authorFollowingIds.includes(viewerId) : false;
-    }
-
-    if (visibility === 'followers') {
-      const authorFollowerIds = Array.isArray(ownerProfile?.followerIds)
-        ? ownerProfile.followerIds
-        : [];
-      return viewerId ? authorFollowerIds.includes(viewerId) : false;
-    }
-
-    return false;
-  };
-
   useEffect(() => {
-    const followingIds = Array.isArray(viewerProfile?.followingIds)
-      ? viewerProfile.followingIds.filter((id) => typeof id === 'string' && id.trim())
-      : [];
+    const followingIds = normalizeIdList(viewerProfile?.followingIds);
 
     if (!viewerId || followingIds.length === 0) {
       setFollowingUpdates([]);
@@ -155,7 +218,7 @@ export default function useActivityPreview(viewerId, options = {}) {
 
     const recomputeFollowing = async () => {
       const requestId = ++refreshToken;
-      const combined = Array.from(chunkSnapshots.values()).flat();
+      const combined = combineChunkEntries(chunkSnapshots);
 
       if (!combined.length) {
         if (!cancelled && requestId === refreshToken) {
@@ -165,39 +228,10 @@ export default function useActivityPreview(viewerId, options = {}) {
         return;
       }
 
-      const deduped = combined.reduce((acc, entry) => {
-        if (!entry?.id) {
-          return acc;
-        }
-        acc.set(entry.id, entry);
-        return acc;
-      }, new Map());
-
-      const sorted = Array.from(deduped.values()).sort((a, b) => {
-        const aTime = (a.updatedAt || a.createdAt)?.getTime?.() || 0;
-        const bTime = (b.updatedAt || b.createdAt)?.getTime?.() || 0;
-        return bTime - aTime;
-      });
-
-      const sliced = sorted.slice(0, MAX_FOLLOWING_RESULTS);
-      const ownerIds = Array.from(new Set(sliced.map((entry) => entry.userId).filter(Boolean)));
-
       try {
-        const ownerProfiles = await fetchProfilesByIds(ownerIds);
-        const filtered = sliced
-          .filter((entry) => {
-            const ownerProfile = ownerProfiles[entry.userId] || null;
-            return canViewerSeeDream(entry, ownerProfile);
-          })
-          .map((entry) => ({
-            ...entry,
-            ownerProfile: ownerProfiles[entry.userId] || null,
-            reactionCounts: entry.reactionCounts || {},
-            viewerReaction: entry.viewerReactions?.[viewerId] || entry.viewerReaction || null
-          }));
-
+        const payload = await buildFollowingPayload(combined, viewerId);
         if (!cancelled && requestId === refreshToken) {
-          setFollowingUpdates(filtered);
+          setFollowingUpdates(payload);
           setFollowingLoading(false);
         }
       } catch (error) {
@@ -209,13 +243,7 @@ export default function useActivityPreview(viewerId, options = {}) {
       }
     };
 
-    const chunks = [];
-    for (let i = 0; i < followingIds.length; i += FOLLOWING_CHUNK_SIZE) {
-      const chunk = followingIds.slice(i, i + FOLLOWING_CHUNK_SIZE);
-      if (chunk.length) {
-        chunks.push(chunk);
-      }
-    }
+    const chunks = chunkList(followingIds, FOLLOWING_CHUNK_SIZE);
 
     const dreamsRef = collection(db, 'dreams');
     const unsubscribes = chunks.map((chunk, index) => {

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import PropTypes from 'prop-types';
 import { faBook, faCompass, faSearch, faUser, faBell } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Link, useLocation } from 'react-router-dom';
 import './Navigation.css';
+import { firebaseUserPropType, activityPreviewPropType } from '../propTypes';
 
 const COMPACT_ENTER_OFFSET = 110;
 const COMPACT_EXIT_OFFSET = 40;
@@ -197,3 +199,8 @@ function Navigation({ user, activityPreview }) {
 }
 
 export default Navigation;
+
+Navigation.propTypes = {
+  user: firebaseUserPropType,
+  activityPreview: activityPreviewPropType
+};

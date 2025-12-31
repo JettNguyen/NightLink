@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParam
 import { useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { auth } from './firebase';
+import PropTypes from 'prop-types';
 import AuthPage from './pages/AuthPage';
 import DreamJournal from './pages/DreamJournal';
 import DreamDetail from './pages/DreamDetail';
@@ -12,6 +13,7 @@ import Search from './pages/Search';
 import Activity from './pages/Activity';
 import LoadingIndicator from './components/LoadingIndicator';
 import useActivityPreview from './hooks/useActivityPreview';
+import { firebaseUserPropType } from './propTypes';
 
 function ProtectedRoute({ user, children }) {
   if (!user) {
@@ -156,7 +158,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', 'dark');
+    document.documentElement.dataset.theme = 'dark';
   }, []);
 
   return (
@@ -167,3 +169,15 @@ function App() {
 }
 
 export default App;
+
+ProtectedRoute.propTypes = {
+  user: firebaseUserPropType,
+  children: PropTypes.node.isRequired
+};
+
+AppContent.propTypes = {
+  user: firebaseUserPropType,
+  loading: PropTypes.bool.isRequired,
+  authReady: PropTypes.bool.isRequired
+};
+

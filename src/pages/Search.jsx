@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +9,7 @@ import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } fr
 import LoadingIndicator from '../components/LoadingIndicator';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Search.css';
+import { firebaseUserPropType } from '../propTypes';
 
 const MIN_CHARS = 2;
 
@@ -320,3 +322,7 @@ export default function Search({ user }) {
     </div>
   );
 }
+
+Search.propTypes = {
+  user: firebaseUserPropType
+};

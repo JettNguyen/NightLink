@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHeart, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
@@ -9,6 +10,7 @@ import LoadingIndicator from '../components/LoadingIndicator';
 import { logActivityEvents } from '../services/ActivityService';
 import updateDreamReaction from '../services/ReactionService';
 import './DreamDetail.css';
+import { firebaseUserPropType } from '../propTypes';
 
 const VISIBILITY_OPTIONS = [
   { value: 'private', label: 'Private', helper: 'Only you can see this dream.' },
@@ -1668,3 +1670,7 @@ export default function DreamDetail({ user }) {
     </div>
   );
 }
+
+DreamDetail.propTypes = {
+  user: firebaseUserPropType
+};
