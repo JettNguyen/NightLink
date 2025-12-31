@@ -9,7 +9,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
-import { logActivityEvent } from '../services/ActivityService';
 import './Profile.css';
 
 export default function Profile({ user }) {
@@ -448,16 +447,13 @@ export default function Profile({ user }) {
   const handleFollow = () => {
     if (!user?.uid || !targetUserId || viewingOwnProfile || isFollowActionBusy) return;
     return performFollowAction('follow', async () => {
-      const shouldLogFollowActivity = await runTransaction(db, async (transaction) => {
+      await runTransaction(db, async (transaction) => {
         const viewerRef = doc(db, 'users', user.uid);
         const targetRef = doc(db, 'users', targetUserId);
         const targetSnap = await transaction.get(targetRef);
         if (!targetSnap.exists()) {
           throw new Error('profile-missing');
         }
-        const targetData = targetSnap.data() || {};
-        const followerIds = Array.isArray(targetData.followerIds) ? targetData.followerIds : [];
-        const alreadyFollower = followerIds.includes(user.uid);
 
         transaction.update(viewerRef, {
           followingIds: arrayUnion(targetUserId)
@@ -466,24 +462,7 @@ export default function Profile({ user }) {
         transaction.update(targetRef, {
           followerIds: arrayUnion(user.uid)
         });
-        return !alreadyFollower;
       });
-
-      if (shouldLogFollowActivity) {
-        try {
-          await logActivityEvent(targetUserId, {
-            type: 'follow',
-            actorId: user.uid,
-            actorUsername: viewerData?.username || viewerData?.normalizedUsername || '',
-            actorDisplayName: viewerData?.displayName || user?.displayName || user?.email || 'NightLink dreamer',
-            actorAvatarIcon: viewerData?.avatarIcon || null,
-            actorAvatarBackground: viewerData?.avatarBackground || null,
-            actorAvatarColor: viewerData?.avatarColor || null
-          });
-        } catch (activityError) {
-          console.error('Failed to log follow activity', activityError);
-        }
-      }
     }, 'Unable to follow this user.');
   };
 

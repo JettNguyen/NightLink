@@ -147,7 +147,7 @@ a {
   background: #0f172a;
   color: #e6f4ff;
   border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 10px 30px rgba(4, 12, 26, 0.35);
+  box-shadow: 0 10px 30px rgba(4, 12, 26, 0.2);
   position: relative;
   overflow: hidden;
 }
