@@ -16,5 +16,5 @@ A dream journal and social network. Log your dreams, get AI-generated titles and
 - OpenAI API for dream analysis
 - Deployed on Vercel
 
-![CI](https://github.com/JettNguyen/nightlink/actions/workflows/ci.yml/badge.svg)
+[![Node.js CI](https://github.com/JettNguyen/NightLink/actions/workflows/ci.yml/badge.svg)](https://github.com/JettNguyen/NightLink/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/JettNguyen/NightLink/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/JettNguyen/NightLink/actions/workflows/github-code-scanning/codeql)
