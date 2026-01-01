@@ -17,4 +17,4 @@ A dream journal and social network. Log your dreams, get AI-generated titles and
 - Deployed on Vercel
 
 ![CI](https://github.com/JettNguyen/nightlink/actions/workflows/ci.yml/badge.svg)
-![CodeQL](https://github.com/JettNguyen/nightlink/actions/workflows/codeql.yml/badge.svg)
+[![CodeQL](https://github.com/JettNguyen/NightLink/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/JettNguyen/NightLink/actions/workflows/github-code-scanning/codeql)
