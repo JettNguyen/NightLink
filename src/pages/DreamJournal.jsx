@@ -300,7 +300,7 @@ export default function DreamJournal({ user }) {
   };
 
   const handleOverlayKeyDown = (event) => {
-    if (['Escape', 'Enter', ' '].includes(event.key)) {
+    if (event.key === 'Escape') {
       event.preventDefault();
       closeModal();
     }
