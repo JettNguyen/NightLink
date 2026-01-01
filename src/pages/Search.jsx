@@ -309,7 +309,7 @@ export default function Search({ user }) {
                   <LoadingIndicator label="Collecting dreams…" size="md" />
                 </div>
               ) : dreamResults.length === 0 ? (
-                <div className="placeholder">No dreams matched "{lastTerm}".</div>
+                <div className="placeholder">No dreams matched &ldquo;{lastTerm}&rdquo;.</div>
               ) : (
                 <div className="dream-grid">
                   {dreamResults.map(renderDream)}

@@ -15,3 +15,5 @@ A dream journal and social network. Log your dreams, get AI-generated titles and
 - Firebase Auth and Firestore
 - OpenAI API for dream analysis
 - Deployed on Vercel
+
+![CI](https://github.com/JettNguyen/nightlink/actions/workflows/ci.yml/badge.svg)

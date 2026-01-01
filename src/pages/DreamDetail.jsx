@@ -1562,7 +1562,9 @@ export default function DreamDetail({ user }) {
                                 );
                               })
                             ) : (
-                              <p className="detail-hint">No matches for "{audienceQuery}".</p>
+                              <p className="detail-hint">
+                                No matches for &ldquo;{audienceQuery}&rdquo;.
+                              </p>
                             )}
                           </div>
                         )}

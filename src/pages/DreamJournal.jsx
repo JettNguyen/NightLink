@@ -562,7 +562,9 @@ export default function DreamJournal({ user }) {
                             );
                           })
                         ) : (
-                          <p className="hint">No matches for "{audienceQuery}".</p>
+                          <p className="hint">
+                            No matches for &ldquo;{audienceQuery}&rdquo;.
+                          </p>
                         )}
                       </div>
                     )}
