@@ -9,7 +9,7 @@ A dream journal and social network. Log your dreams, get AI-generated titles and
 - Social feed showing dreams from people you follow
 - User search and profile customization
 
-## Stack
+## Tech Stack
 
 - React 18 + Vite
 - Firebase Auth and Firestore
