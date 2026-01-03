@@ -3,54 +3,43 @@ import { db } from '../firebase';
 import { logActivityEvent } from './ActivityService';
 
 export const updateDreamReaction = async ({
-  dreamId,
-  dreamOwnerId,
-  dreamTitleSnapshot,
-  userId,
-  emoji,
-  actorDisplayName,
-  actorUsername
+  dreamId, dreamOwnerId, dreamTitleSnapshot,
+  userId, emoji, actorDisplayName, actorUsername
 }) => {
-  if (!dreamId || !userId) {
-    throw new Error('Missing dreamId or userId for reaction update');
-  }
+  if (!dreamId || !userId) throw new Error('Missing dreamId or userId');
 
-  const dreamRef = doc(db, 'dreams', dreamId);
+  const ref = doc(db, 'dreams', dreamId);
 
-  const result = await runTransaction(db, async (transaction) => {
-    const snapshot = await transaction.get(dreamRef);
-    if (!snapshot.exists()) {
-      throw new Error('Dream not found');
+  const result = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error('Dream not found');
+
+    const data = snap.data() || {};
+    const reactions = { ...(data.viewerReactions || {}) };
+    const counts = { ...(data.reactionCounts || {}) };
+    const prev = reactions[userId] || null;
+
+    if (!emoji && !prev) return { changed: false, prev, next: null };
+
+    if (prev) {
+      counts[prev] = Math.max((counts[prev] || 1) - 1, 0);
+      delete reactions[userId];
     }
 
-    const data = snapshot.data() || {};
-    const viewerReactions = { ...(data.viewerReactions || {}) };
-    const reactionCounts = { ...(data.reactionCounts || {}) };
-    const previous = viewerReactions[userId] || null;
-
-    if (!emoji && !previous) {
-      return { changed: false, previous, next: null };
-    }
-
-    if (previous) {
-      reactionCounts[previous] = Math.max((reactionCounts[previous] || 1) - 1, 0);
-      delete viewerReactions[userId];
-    }
-
-    let nextReaction = null;
+    let next = null;
     if (emoji) {
-      viewerReactions[userId] = emoji;
-      reactionCounts[emoji] = (reactionCounts[emoji] || 0) + 1;
-      nextReaction = emoji;
+      reactions[userId] = emoji;
+      counts[emoji] = (counts[emoji] || 0) + 1;
+      next = emoji;
     }
 
-    transaction.update(dreamRef, {
-      viewerReactions,
-      reactionCounts,
+    tx.update(ref, {
+      viewerReactions: reactions,
+      reactionCounts: counts,
       updatedAt: serverTimestamp()
     });
 
-    return { changed: true, previous, next: nextReaction };
+    return { changed: true, prev, next };
   });
 
   if (result?.changed && result.next && dreamOwnerId && dreamOwnerId !== userId) {
@@ -70,3 +59,58 @@ export const updateDreamReaction = async ({
 };
 
 export default updateDreamReaction;
+
+export const toggleCommentHeart = async ({
+  dreamId,
+  commentId,
+  userId,
+  actorDisplayName,
+  actorUsername,
+  commentAuthorId,
+  dreamTitleSnapshot
+}) => {
+  if (!dreamId || !commentId || !userId) {
+    throw new Error('Missing comment reaction params');
+  }
+
+  const ref = doc(db, 'dreams', dreamId, 'comments', commentId);
+  const result = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error('Comment not found');
+    const data = snap.data() || {};
+    const heartUserIds = { ...(data.heartUserIds || {}) };
+    let heartCount = Number(data.heartCount) || 0;
+    const alreadyHearted = Boolean(heartUserIds[userId]);
+
+    if (alreadyHearted) {
+      delete heartUserIds[userId];
+      heartCount = Math.max(heartCount - 1, 0);
+    } else {
+      heartUserIds[userId] = true;
+      heartCount += 1;
+    }
+
+    tx.update(ref, {
+      heartUserIds,
+      heartCount,
+      updatedAt: serverTimestamp()
+    });
+
+    return { added: !alreadyHearted, heartCount };
+  });
+
+  if (result?.added && commentAuthorId && commentAuthorId !== userId) {
+    await logActivityEvent(commentAuthorId, {
+      type: 'commentReaction',
+      actorId: userId,
+      actorDisplayName,
+      actorUsername,
+      dreamId,
+      commentId,
+      dreamTitleSnapshot,
+      emoji: '💙'
+    });
+  }
+
+  return result;
+};

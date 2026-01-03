@@ -1,0 +1,133 @@
+.reaction-popover {
+  position: fixed;
+  z-index: 1200;
+  pointer-events: none;
+}
+
+.reaction-popover-card {
+  pointer-events: auto;
+  width: min(360px, 90vw);
+  max-height: 320px;
+  border-radius: 18px;
+  background: rgba(15, 21, 36, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 22px 50px rgba(6, 8, 18, 0.45);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  position: relative;
+}
+
+.reaction-popover-card::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: rgba(15, 21, 36, 0.98);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  transform: translate(-50%, 0) rotate(45deg);
+  left: var(--pointer-offset, 50%);
+}
+
+.reaction-popover.placement-top .reaction-popover-card::after {
+  bottom: -8px;
+}
+
+.reaction-popover.placement-bottom .reaction-popover-card::after {
+  top: -8px;
+}
+
+.reaction-popover-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.reaction-popover-title {
+  margin: 0;
+  color: var(--text, #fff);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.reaction-popover-subtitle {
+  margin: 0;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.75));
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.reaction-popover-emoji {
+  font-size: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text, #fff);
+}
+
+.reaction-popover-emoji-heart {
+  color: var(--primary, #5ac8fa);
+}
+
+.reaction-popover-empty {
+  margin: 0;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.75));
+}
+
+.reaction-popover-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  overflow-y: auto;
+}
+
+.reaction-popover-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.45rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.reaction-popover-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  box-shadow: var(--shadow-light, 0 4px 16px rgba(0, 0, 0, 0.25));
+}
+
+.reaction-popover-avatar svg {
+  width: 1em;
+  height: 1em;
+}
+
+.reaction-popover-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.reaction-popover-name {
+  color: var(--text, #fff);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.reaction-popover-username {
+  color: var(--primary, #5ac8fa);
+  font-size: 0.8rem;
+  font-weight: 600;
+}

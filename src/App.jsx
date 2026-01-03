@@ -16,23 +16,19 @@ import useActivityPreview from './hooks/useActivityPreview';
 import { firebaseUserPropType } from './propTypes';
 
 function ProtectedRoute({ user, children }) {
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
+  return user ? children : <Navigate to="/login" replace />;
 }
 
-function LegacyDreamRedirect() {
+function LegacyRedirect() {
   const { dreamId } = useParams();
   return <Navigate to={`/dream/${dreamId}`} replace />;
 }
 
-function AppContent({ user, loading, authReady }) {
-  const location = useLocation();
-  const showNavigation = user && location.pathname !== '/login';
-  const redirectPath = useMemo(() => (user ? '/journal' : '/login'), [user]);
-  const activityPreview = useActivityPreview(user?.uid);
+function AppContent({ user, loading, ready }) {
+  const { pathname } = useLocation();
+  const showNav = user && pathname !== '/login';
+  const home = useMemo(() => (user ? '/journal' : '/login'), [user]);
+  const activity = useActivityPreview(user?.uid);
 
   if (loading) {
     return (
@@ -42,94 +38,35 @@ function AppContent({ user, loading, authReady }) {
     );
   }
 
-  // If auth is ready and no user, force redirect to login (prevents blank screen)
-  if (authReady && !user && location.pathname !== '/login') {
+  if (ready && !user && pathname !== '/login') {
     return <Navigate to="/login" replace />;
   }
 
+  const wrap = (Component) => (
+    <ProtectedRoute user={user}><Component user={user} /></ProtectedRoute>
+  );
+
   return (
     <div className="app">
-      {showNavigation && (
-        <Navigation user={user} activityPreview={activityPreview} />
-      )}
-      <main style={{ paddingTop: showNavigation ? '0px' : 0, minHeight: '100vh' }}>
+      {showNav && <Navigation user={user} activityPreview={activity} />}
+      <main style={{ minHeight: '100vh' }}>
         <Routes>
-          <Route path="/" element={<Navigate to={redirectPath} replace />} />
+          <Route path="/" element={<Navigate to={home} replace />} />
           <Route path="/login" element={user ? <Navigate to="/journal" replace /> : <AuthPage />} />
-          <Route
-            path="/journal"
-            element={(
-              <ProtectedRoute user={user}>
-                <DreamJournal user={user} />
-              </ProtectedRoute>
-            )}
-          />
-          <Route
-            path="/profile/:handle/dream/:dreamId"
-            element={(
-              <ProtectedRoute user={user}>
-                <DreamDetail user={user} />
-              </ProtectedRoute>
-            )}
-          />
-          <Route
-            path="/dream/:dreamId"
-            element={(
-              <ProtectedRoute user={user}>
-                <DreamDetail user={user} />
-              </ProtectedRoute>
-            )}
-          />
-          <Route
-            path="/journal/:dreamId"
-            element={(
-              <ProtectedRoute user={user}>
-                <LegacyDreamRedirect />
-              </ProtectedRoute>
-            )}
-          />
-          <Route
-            path="/feed"
-            element={(
-              <ProtectedRoute user={user}>
-                <Feed user={user} />
-              </ProtectedRoute>
-            )}
-          />
-          <Route
-            path="/profile"
-            element={(
-              <ProtectedRoute user={user}>
-                <Profile user={user} />
-              </ProtectedRoute>
-            )}
-          />
-          <Route
-            path="/profile/:handle"
-            element={(
-              <ProtectedRoute user={user}>
-                <Profile user={user} />
-              </ProtectedRoute>
-            )}
-          />
-          <Route
-            path="/search"
-            element={(
-              <ProtectedRoute user={user}>
-                <Search user={user} />
-              </ProtectedRoute>
-            )}
-          />
+          <Route path="/journal" element={wrap(DreamJournal)} />
+          <Route path="/profile/:handle/dream/:dreamId" element={wrap(DreamDetail)} />
+          <Route path="/dream/:dreamId" element={wrap(DreamDetail)} />
+          <Route path="/journal/:dreamId" element={<ProtectedRoute user={user}><LegacyRedirect /></ProtectedRoute>} />
+          <Route path="/feed" element={wrap(Feed)} />
+          <Route path="/profile" element={wrap(Profile)} />
+          <Route path="/profile/:handle" element={wrap(Profile)} />
+          <Route path="/search" element={wrap(Search)} />
           <Route
             path="/activity"
-            element={(
-              <ProtectedRoute user={user}>
-                <Activity user={user} activityPreview={activityPreview} />
-              </ProtectedRoute>
-            )}
+            element={<ProtectedRoute user={user}><Activity user={user} activityPreview={activity} /></ProtectedRoute>}
           />
           <Route path="/notifications" element={<Navigate to="/activity" replace />} />
-          <Route path="*" element={<Navigate to={redirectPath} replace />} />
+          <Route path="*" element={<Navigate to={home} replace />} />
         </Routes>
       </main>
     </div>
@@ -139,31 +76,27 @@ function AppContent({ user, loading, authReady }) {
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [authReady, setAuthReady] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    let unsubscribe = () => {};
-
+    let unsub = () => {};
     setPersistence(auth, browserLocalPersistence)
       .catch(() => {})
       .finally(() => {
-        unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-          setUser(currentUser);
+        unsub = onAuthStateChanged(auth, (u) => {
+          setUser(u);
           setLoading(false);
-          setAuthReady(true);
+          setReady(true);
         });
       });
-
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = 'dark';
-  }, []);
+  useEffect(() => { document.documentElement.dataset.theme = 'dark'; }, []);
 
   return (
-    <Router>
-      <AppContent user={user} loading={loading} authReady={authReady} />
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <AppContent user={user} loading={loading} ready={ready} />
     </Router>
   );
 }
@@ -178,6 +111,5 @@ ProtectedRoute.propTypes = {
 AppContent.propTypes = {
   user: firebaseUserPropType,
   loading: PropTypes.bool.isRequired,
-  authReady: PropTypes.bool.isRequired
+  ready: PropTypes.bool.isRequired
 };
-

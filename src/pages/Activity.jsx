@@ -99,6 +99,10 @@ export default function Activity({ user, activityPreview }) {
     } else if (entryType === 'comment') {
       pillLabel = 'Comment';
       headline = `${actorName} commented on “${dreamTitle}”`;
+    } else if (entryType === 'commentReaction') {
+      pillLabel = 'Reaction';
+      headline = `${actorName} reacted to your comment in “${dreamTitle}”`;
+      bodyText = entry.emoji ? `Reaction: ${entry.emoji}` : bodyFallback;
     } else if (entryType === 'tag') {
       pillLabel = 'Tag';
       headline = `${actorName} tagged you in “${dreamTitle}”`;

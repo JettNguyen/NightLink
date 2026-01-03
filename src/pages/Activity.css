@@ -240,28 +240,6 @@
   color: var(--primary);
 }
 
-.custom-emoji-popover {
-  margin-top: 0.5rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  align-items: center;
-}
-
-.custom-emoji-popover input {
-  min-width: 120px;
-  padding: 0.45rem 0.7rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text);
-}
-
-.custom-emoji-popover input:focus {
-  border-color: rgba(90, 200, 250, 0.6);
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(90, 200, 250, 0.2);
-}
 .activity-dot {
   width: 8px;
   height: 8px;

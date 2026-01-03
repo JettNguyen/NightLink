@@ -4,8 +4,28 @@ import { deleteDoc, doc, getDoc, runTransaction, serverTimestamp, setDoc } from 
 import { auth, db } from '../firebase';
 import './AuthPage.css';
 
+const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
+
+const err = (code) => { const e = new Error(code); e.code = code; return e; };
+
+const friendlyMsg = (e) => {
+  if (!e?.message) return 'Something went wrong.';
+  const map = {
+    'username-taken': 'Username already taken.',
+    'identifier-required': 'Enter your email or username.',
+    'username-not-found': 'No account with that username.',
+    'username-email-missing': 'Try using your email instead.'
+  };
+  if (map[e.code]) return map[e.code];
+  if (e.message.includes('auth/email-already-in-use')) return 'Email already in use.';
+  if (e.message.includes('auth/invalid-email')) return 'Invalid email address.';
+  if (e.message.includes('auth/invalid-credential')) return 'Wrong email or password.';
+  if (e.message.includes('auth/user-not-found')) return 'Account not found.';
+  return e.message;
+};
+
 export default function AuthPage() {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [mode, setMode] = useState('signin');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [identifier, setIdentifier] = useState('');
@@ -13,87 +33,48 @@ export default function AuthPage() {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const signupGroupRef = useRef(null);
-  const signinGroupRef = useRef(null);
-  const [fieldHeight, setFieldHeight] = useState(null);
+  const signupRef = useRef(null);
+  const signinRef = useRef(null);
+  const [height, setHeight] = useState(null);
+  const isSignUp = mode === 'signup';
 
   useEffect(() => {
-    const activeRef = isSignUp ? signupGroupRef : signinGroupRef;
-    if (activeRef.current) {
-      setFieldHeight(activeRef.current.scrollHeight);
-    }
+    const ref = isSignUp ? signupRef : signinRef;
+    if (ref.current) setHeight(ref.current.scrollHeight);
   }, [isSignUp, username, displayName, email, identifier]);
 
-  const normalizeUsername = (value) => value.trim().toLowerCase();
-  const usernamePattern = /^[a-zA-Z0-9_]{3,20}$/;
-
-  const reserveUsername = async (normalizedValue) => {
-    const usernameRef = doc(db, 'usernames', normalizedValue);
-
-    await runTransaction(db, async (transaction) => {
-      const snapshot = await transaction.get(usernameRef);
-
-      if (snapshot.exists()) {
-        const err = new Error('username-taken');
-        err.code = 'username-taken';
-        throw err;
-      }
-
-      transaction.set(usernameRef, {
-        normalizedUsername: normalizedValue,
-        reservedAt: serverTimestamp()
-      });
+  const reserveUsername = async (name) => {
+    const ref = doc(db, 'usernames', name);
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (snap.exists()) throw err('username-taken');
+      tx.set(ref, { normalizedUsername: name, reservedAt: serverTimestamp() });
     });
-
-    return usernameRef;
+    return ref;
   };
 
-  const releaseUsernameReservation = async (usernameRef) => {
-    if (!usernameRef) return;
-
+  const releaseUsername = async (ref) => {
+    if (!ref) return;
     try {
-      const snapshot = await getDoc(usernameRef);
-      if (!snapshot.exists() || snapshot.data()?.uid) return;
-      await deleteDoc(usernameRef);
-    } catch (_) {
-      // noop; cleanup best effort only
-    }
+      const snap = await getDoc(ref);
+      if (!snap.exists() || snap.data()?.uid) return;
+      await deleteDoc(ref);
+    } catch {}
   };
 
-  const resolveIdentifierToEmail = async (value) => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      const err = new Error('identifier-required');
-      err.code = 'identifier-required';
-      throw err;
-    }
-
-    if (trimmed.includes('@')) {
-      return trimmed;
-    }
-
-    const normalizedValue = trimmed.toLowerCase();
-    const usernameDoc = await getDoc(doc(db, 'usernames', normalizedValue));
-
-    if (!usernameDoc.exists()) {
-      const err = new Error('username-not-found');
-      err.code = 'username-not-found';
-      throw err;
-    }
-
-    const data = usernameDoc.data();
-    if (!data?.email) {
-      const err = new Error('username-email-missing');
-      err.code = 'username-email-missing';
-      throw err;
-    }
-
-    return data.email;
+  const resolveEmail = async (val) => {
+    const v = val.trim();
+    if (!v) throw err('identifier-required');
+    if (v.includes('@')) return v;
+    const snap = await getDoc(doc(db, 'usernames', v.toLowerCase()));
+    if (!snap.exists()) throw err('username-not-found');
+    if (!snap.data()?.email) throw err('username-email-missing');
+    return snap.data().email;
   };
 
-  const saveUserProfile = async (user, profile) => {
+  const createProfile = async (user, data) => {
     await setDoc(doc(db, 'users', user.uid), {
-      ...profile,
+      ...data,
       createdAt: new Date(),
       updatedAt: new Date(),
       allowAnonymousSharing: true,
@@ -102,63 +83,42 @@ export default function AuthPage() {
     });
   };
 
-  const friendlyMessage = (err) => {
-    if (!err?.message) return 'Something went wrong. Please try again.';
-    if (err.code === 'username-taken') return 'That username is already in use.';
-    if (err.code === 'identifier-required') return 'Please enter your email or username.';
-    if (err.code === 'username-not-found') return 'No account found with that username.';
-    if (err.code === 'username-email-missing') return 'This username cannot be used yet. Try your email.';
-    if (err.message.includes('auth/email-already-in-use')) return 'That email is already in use.';
-    if (err.message.includes('auth/invalid-email')) return 'Please use a valid email address.';
-    if (err.message.includes('auth/invalid-credential')) return 'Email or password is incorrect.';
-    if (err.message.includes('auth/user-not-found')) return 'Email or username is incorrect.';
-    return err.message;
-  };
-
   const handleSignUp = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    const trimmedUsername = username.trim();
-
-    if (!trimmedUsername) {
-      setError('Please choose a username.');
+    const name = username.trim();
+    if (!name) { setError('Choose a username.'); setLoading(false); return; }
+    if (!USERNAME_RE.test(name)) {
+      setError('3-20 chars: letters, numbers, underscores.');
       setLoading(false);
       return;
     }
 
-    if (!usernamePattern.test(trimmedUsername)) {
-      setError('Usernames must be 3-20 characters (letters, numbers, underscores).');
-      setLoading(false);
-      return;
-    }
-
-    let usernameRef = null;
-
+    let ref = null;
     try {
-      const normalizedValue = normalizeUsername(trimmedUsername);
-      usernameRef = await reserveUsername(normalizedValue);
+      const normalized = name.toLowerCase();
+      ref = await reserveUsername(normalized);
       const { user } = await createUserWithEmailAndPassword(auth, email, password);
-      await saveUserProfile(user, {
+      await createProfile(user, {
         email,
-        displayName: displayName || trimmedUsername,
-        username: trimmedUsername,
-        normalizedUsername: normalizedValue,
+        displayName: displayName || name,
+        username: name,
+        normalizedUsername: normalized,
         isAnonymous: false
       });
-      await setDoc(usernameRef, {
+      await setDoc(ref, {
         uid: user.uid,
-        username: trimmedUsername,
-        normalizedUsername: normalizedValue,
+        username: name,
+        normalizedUsername: normalized,
         email,
         updatedAt: serverTimestamp()
       }, { merge: true });
-    } catch (err) {
-      await releaseUsernameReservation(usernameRef);
-      setError(friendlyMessage(err));
+    } catch (e) {
+      await releaseUsername(ref);
+      setError(friendlyMsg(e));
     }
-
     setLoading(false);
   };
 
@@ -166,14 +126,12 @@ export default function AuthPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
-      const emailForSignIn = await resolveIdentifierToEmail(identifier);
-      await signInWithEmailAndPassword(auth, emailForSignIn, password);
-    } catch (err) {
-      setError(friendlyMessage(err));
+      const mail = await resolveEmail(identifier);
+      await signInWithEmailAndPassword(auth, mail, password);
+    } catch (e) {
+      setError(friendlyMsg(e));
     }
-
     setLoading(false);
   };
 
@@ -189,35 +147,20 @@ export default function AuthPage() {
         <p className="auth-subtitle">Your dreams, your story</p>
 
         <div className="auth-tabs">
-          <button 
-            className={!isSignUp ? 'active' : ''} 
-            onClick={() => {
-              setIsSignUp(false);
-              setError('');
-            }}
-          >
+          <button className={!isSignUp ? 'active' : ''} onClick={() => { setMode('signin'); setError(''); }}>
             Sign In
           </button>
-          <button 
-            className={isSignUp ? 'active' : ''} 
-            onClick={() => {
-              setIsSignUp(true);
-              setError('');
-            }}
-          >
+          <button className={isSignUp ? 'active' : ''} onClick={() => { setMode('signup'); setError(''); }}>
             Sign Up
           </button>
         </div>
 
         <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="auth-form">
-          <div
-            className="auth-field-switch"
-            style={fieldHeight ? { height: `${fieldHeight}px` } : undefined}
-          >
+          <div className="auth-field-switch" style={height ? { height: `${height}px` } : undefined}>
             <div
               className={`auth-field-group signup-group ${isSignUp ? 'is-active' : ''}`}
               aria-hidden={!isSignUp}
-              ref={signupGroupRef}
+              ref={signupRef}
             >
               <input
                 type="text"
@@ -253,7 +196,7 @@ export default function AuthPage() {
             <div
               className={`auth-field-group signin-group ${!isSignUp ? 'is-active' : ''}`}
               aria-hidden={isSignUp}
-              ref={signinGroupRef}
+              ref={signinRef}
             >
               <input
                 type="text"
@@ -282,7 +225,7 @@ export default function AuthPage() {
           {error && <p className="auth-error">{error}</p>}
 
           <button type="submit" disabled={loading} className="auth-submit">
-            {loading ? 'Loading...' : isSignUp ? 'Create Account' : 'Sign In'}
+            {loading ? 'Working...' : isSignUp ? 'Create Account' : 'Sign In'}
           </button>
         </form>
       </div>

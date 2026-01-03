@@ -7,62 +7,73 @@ import { doc, onSnapshot, updateDoc, deleteDoc, serverTimestamp, collection, que
 import { format, formatDistanceToNow } from 'date-fns';
 import { db } from '../firebase';
 import LoadingIndicator from '../components/LoadingIndicator';
+import ReactionInsightsModal from '../components/ReactionInsightsModal';
 import { logActivityEvents } from '../services/ActivityService';
-import updateDreamReaction from '../services/ReactionService';
+import updateDreamReaction, { toggleCommentHeart } from '../services/ReactionService';
+import fetchUserSummaries from '../services/UserService';
 import './DreamDetail.css';
 import { firebaseUserPropType } from '../propTypes';
+import { COMMON_EMOJI_REACTIONS, filterEmojiInput } from '../constants/emojiOptions';
 
 const VISIBILITY_OPTIONS = [
-  { value: 'private', label: 'Private', helper: 'Only you can see this dream.' },
-  { value: 'public', label: 'Public', helper: 'Visible on your profile and following feed.' },
-  { value: 'following', label: 'People you follow', helper: 'Shared only with the people you follow.' },
-  { value: 'anonymous', label: 'Anonymous', helper: 'Shared publicly without your identity.' }
+  { value: 'private', label: 'Private', helper: 'Only you can see this.' },
+  { value: 'public', label: 'Public', helper: 'Visible on your profile and feed.' },
+  { value: 'following', label: 'Followers only', helper: 'People you follow can see it.' },
+  { value: 'anonymous', label: 'Anonymous', helper: 'Shared without your identity.' }
 ];
 
-const AI_ENDPOINT = import.meta.env.VITE_AI_ENDPOINT || '/api/ai';
-const ACTIVITY_EVENT_PRIORITY = { mention: 1, comment: 2, reply: 3 };
-const DEFAULT_REACTION = '❤️';
-
-const describeVisibility = (value = 'private') => {
-  switch (value) {
-    case 'public':
-      return 'Public dream';
-    case 'anonymous':
-      return 'Anonymous dream';
-    case 'following':
-      return 'Shared with close connections';
-    case 'followers':
-      return 'Shared with followers';
-    default:
-      return 'Private dream';
-  }
+const AI_URL = import.meta.env.VITE_AI_ENDPOINT || '/api/ai';
+const DEFAULT_EMOJI = '💙';
+const ACTIVITY_PRIORITY = { mention: 2, reply: 1, comment: 0 };
+const INITIAL_INSIGHT_STATE = {
+  open: false,
+  emoji: '',
+  title: '',
+  subtitle: '',
+  userIds: [],
+  anchorRect: null
 };
 
-const canViewerAccessDream = (dreamData, viewerId, authorProfile) => {
-  if (!dreamData) return false;
-  if (dreamData.userId && dreamData.userId === viewerId) return true;
-  if (!viewerId) return false;
-
-  const excluded = Array.isArray(dreamData.excludedViewerIds) ? dreamData.excludedViewerIds : [];
-  if (excluded.includes(viewerId)) return false;
-
-  const tagged = Array.isArray(dreamData.taggedUserIds) ? dreamData.taggedUserIds : [];
-  if (tagged.includes(viewerId)) return true;
-
-  const visibility = dreamData.visibility || 'private';
-  if (visibility === 'public' || visibility === 'anonymous') return true;
-
-  const authorFollowingIds = Array.isArray(authorProfile?.followingIds) ? authorProfile.followingIds : [];
-  const authorFollowerIds = Array.isArray(authorProfile?.followerIds) ? authorProfile.followerIds : [];
-
-  if (visibility === 'following') {
-    return authorFollowingIds.includes(viewerId);
+const normalizeAnchorRect = (rect) => {
+  if (!rect) return null;
+  const keys = ['top', 'right', 'bottom', 'left', 'width', 'height'];
+  const next = {};
+  for (const key of keys) {
+    const value = typeof rect[key] === 'number' ? rect[key] : Number(rect[key]);
+    if (Number.isNaN(value)) {
+      return null;
+    }
+    next[key] = value;
   }
+  return next;
+};
 
-  if (visibility === 'followers') {
-    return authorFollowerIds.includes(viewerId);
-  }
+const visibilityLabel = (v = 'private') => ({
+  public: 'Public dream',
+  anonymous: 'Anonymous dream',
+  following: 'Shared with followers',
+  followers: 'Shared with followers'
+}[v] || 'Private dream');
 
+const canAccess = (dream, uid, author) => {
+  if (!dream) return false;
+  if (dream.userId === uid) return true;
+  if (!uid) return false;
+  
+  const excluded = dream.excludedViewerIds || [];
+  if (excluded.includes(uid)) return false;
+  
+  const tagged = dream.taggedUserIds || [];
+  if (tagged.includes(uid)) return true;
+  
+  const vis = dream.visibility || 'private';
+  if (vis === 'public' || vis === 'anonymous') return true;
+  
+  const following = author?.followingIds || [];
+  const followers = author?.followerIds || [];
+  
+  if (vis === 'following') return following.includes(uid);
+  if (vis === 'followers') return followers.includes(uid);
   return false;
 };
 
@@ -102,18 +113,28 @@ export default function DreamDetail({ user }) {
   const [commentStatus, setCommentStatus] = useState('');
   const [commentError, setCommentError] = useState('');
   const [removingCommentId, setRemovingCommentId] = useState(null);
+  const [heartingCommentIds, setHeartingCommentIds] = useState(() => new Set());
   const [sharingControlsOpen, setSharingControlsOpen] = useState(false);
   const [replyTarget, setReplyTarget] = useState(null);
   const [expandedThreads, setExpandedThreads] = useState({});
   const [reactionSnapshot, setReactionSnapshot] = useState({ counts: {}, viewerReaction: null });
   const [customEmojiValue, setCustomEmojiValue] = useState('');
   const [customEmojiPickerOpen, setCustomEmojiPickerOpen] = useState(false);
+  const [userSummaries, setUserSummaries] = useState({});
+  const [reactionInsightState, setReactionInsightState] = useState(INITIAL_INSIGHT_STATE);
   const viewerId = user?.uid || null;
   const [authorProfile, setAuthorProfile] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
   const location = useLocation();
   const fromNav = location.state?.fromNav || null;
   const commentInputRef = useRef(null);
+  const emojiInputRef = useRef(null);
+  const userSummariesRef = useRef(userSummaries);
+  const reactionInsightOpenRef = useRef(false);
+  const hoverCloseTimeoutRef = useRef(null);
+  const longPressTimeoutRef = useRef(null);
+  const longPressTriggeredRef = useRef(false);
+  const suppressNextClickRef = useRef(false);
   const commentLookup = useMemo(() => (
     comments.reduce((acc, entry) => {
       if (entry?.id) {
@@ -164,9 +185,203 @@ export default function DreamDetail({ user }) {
     return roots;
   }, [comments]);
 
+  useEffect(() => {
+    userSummariesRef.current = userSummaries;
+  }, [userSummaries]);
+
+  useEffect(() => {
+    reactionInsightOpenRef.current = reactionInsightState.open;
+  }, [reactionInsightState.open]);
+
   const totalDreamReactions = useMemo(() => (
     Object.values(reactionSnapshot.counts || {}).reduce((sum, value) => sum + (value || 0), 0)
   ), [reactionSnapshot]);
+
+  const reactionEntries = useMemo(() => (
+    Object.entries(reactionSnapshot.counts || {})
+      .filter(([emoji, count]) => typeof emoji === 'string' && emoji.trim().length && count > 0)
+      .sort((a, b) => b[1] - a[1])
+  ), [reactionSnapshot]);
+
+  const reactionInsightEntries = useMemo(() => {
+    const ids = reactionInsightState.userIds || [];
+    if (!ids.length) return [];
+    return ids.map((id) => ({
+      id,
+      displayName: userSummaries[id]?.displayName || 'Dreamer',
+      username: userSummaries[id]?.username || '',
+      avatarIcon: userSummaries[id]?.avatarIcon || null,
+      avatarBackground: userSummaries[id]?.avatarBackground || undefined,
+      avatarColor: userSummaries[id]?.avatarColor || undefined
+    }));
+  }, [reactionInsightState.userIds, userSummaries]);
+
+  const renderReactionSymbol = (emoji) => (
+    emoji === DEFAULT_EMOJI
+      ? <FontAwesomeIcon icon={faHeart} className="reaction-emoji-icon" aria-hidden="true" />
+      : <span className="reaction-emoji" aria-hidden="true">{emoji}</span>
+  );
+
+  const ensureUserSummaries = useCallback(async (ids = []) => {
+    const normalized = [...new Set(ids.filter((id) => typeof id === 'string' && id.trim().length))];
+    if (!normalized.length) return;
+    const missing = normalized.filter((id) => !userSummariesRef.current[id]);
+    if (!missing.length) return;
+    try {
+      const fetched = await fetchUserSummaries(missing);
+      if (fetched && Object.keys(fetched).length) {
+        setUserSummaries((prev) => ({ ...prev, ...fetched }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch user summaries', error);
+    }
+  }, []);
+
+  const cancelModalAutoClose = useCallback(() => {
+    if (hoverCloseTimeoutRef.current) {
+      clearTimeout(hoverCloseTimeoutRef.current);
+      hoverCloseTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleModalAutoClose = useCallback(() => {
+    cancelModalAutoClose();
+    if (!reactionInsightOpenRef.current) return;
+    hoverCloseTimeoutRef.current = setTimeout(() => {
+      setReactionInsightState({ ...INITIAL_INSIGHT_STATE });
+    }, 220);
+  }, [cancelModalAutoClose]);
+
+  const openReactionInsight = useCallback(async (payload = {}) => {
+    const ids = [...new Set((payload.userIds || []).filter((id) => typeof id === 'string' && id.trim().length))];
+    const anchorRect = normalizeAnchorRect(payload.anchorRect);
+    if (!ids.length || !anchorRect) return;
+    cancelModalAutoClose();
+    await ensureUserSummaries(ids);
+    setReactionInsightState({
+      open: true,
+      anchorRect,
+      emoji: payload.emoji || '',
+      title: payload.title || 'Reactions',
+      subtitle: payload.subtitle || '',
+      userIds: ids
+    });
+  }, [ensureUserSummaries, cancelModalAutoClose]);
+
+  const getDreamReactionUserIds = useCallback((emoji) => {
+    if (!emoji || !dream?.viewerReactions) return [];
+    return Object.entries(dream.viewerReactions)
+      .filter(([, value]) => value === emoji)
+      .map(([userId]) => userId)
+      .filter(Boolean);
+  }, [dream?.viewerReactions]);
+
+  const getCommentHeartUserIds = useCallback((entry) => (
+    Object.keys(entry?.heartUserIds || {}).filter((id) => typeof id === 'string' && id.trim().length)
+  ), []);
+
+  const buildDreamReactionPayload = useCallback((emoji) => {
+    const userIds = getDreamReactionUserIds(emoji);
+    if (!userIds.length) return null;
+    const countLabel = userIds.length === 1 ? '1 person' : `${userIds.length} people`;
+    const actionLabel = emoji === DEFAULT_EMOJI ? 'hearted this dream' : 'reacted this way';
+    return {
+      title: 'Dream reactions',
+      subtitle: `${countLabel} ${actionLabel}`,
+      emoji: emoji || '',
+      userIds
+    };
+  }, [getDreamReactionUserIds]);
+
+  const buildCommentHeartPayload = useCallback((entry) => {
+    const userIds = getCommentHeartUserIds(entry);
+    if (!userIds.length) return null;
+    const countLabel = userIds.length === 1 ? '1 person' : `${userIds.length} people`;
+    return {
+      title: 'Comment hearts',
+      subtitle: `${countLabel} hearted this comment`,
+      emoji: DEFAULT_EMOJI,
+      userIds
+    };
+  }, [getCommentHeartUserIds]);
+
+  const beginLongPressPreview = useCallback((payload, resolveAnchorRect) => {
+    if (!payload?.userIds?.length) return;
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current);
+    }
+    longPressTriggeredRef.current = false;
+    longPressTimeoutRef.current = setTimeout(async () => {
+      longPressTimeoutRef.current = null;
+      longPressTriggeredRef.current = true;
+      suppressNextClickRef.current = true;
+      const anchorRect = typeof resolveAnchorRect === 'function'
+        ? resolveAnchorRect()
+        : resolveAnchorRect;
+      await openReactionInsight({ ...payload, anchorRect });
+    }, 450);
+  }, [openReactionInsight]);
+
+  const cancelLongPressPreview = useCallback(() => {
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+    const triggered = longPressTriggeredRef.current;
+    longPressTriggeredRef.current = false;
+    return triggered;
+  }, []);
+
+  const consumeSuppressedClick = useCallback((event) => {
+    if (!suppressNextClickRef.current) return false;
+    suppressNextClickRef.current = false;
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    return true;
+  }, []);
+
+  const handleTouchEndInteraction = useCallback((event) => {
+    if (cancelLongPressPreview()) {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      setReactionInsightState({ ...INITIAL_INSIGHT_STATE });
+    }
+  }, [cancelLongPressPreview]);
+
+  const handleTouchMoveInteraction = useCallback(() => {
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  }, []);
+
+  const handleDreamReactionHoverStart = useCallback((event, emoji) => {
+    const payload = buildDreamReactionPayload(emoji);
+    if (!payload) return;
+    const anchorRect = event?.currentTarget?.getBoundingClientRect?.();
+    openReactionInsight({ ...payload, anchorRect });
+  }, [buildDreamReactionPayload, openReactionInsight]);
+
+  const handleDreamReactionTouchStart = useCallback((event, emoji) => {
+    const payload = buildDreamReactionPayload(emoji);
+    if (!payload) return;
+    const anchorElement = event?.currentTarget || null;
+    beginLongPressPreview(payload, () => anchorElement?.getBoundingClientRect?.());
+  }, [beginLongPressPreview, buildDreamReactionPayload]);
+
+  const handleCommentHeartHoverStart = useCallback((event, entry) => {
+    const payload = buildCommentHeartPayload(entry);
+    if (!payload) return;
+    const anchorRect = event?.currentTarget?.getBoundingClientRect?.();
+    openReactionInsight({ ...payload, anchorRect });
+  }, [buildCommentHeartPayload, openReactionInsight]);
+
+  const handleCommentHeartTouchStart = useCallback((event, entry) => {
+    const payload = buildCommentHeartPayload(entry);
+    if (!payload) return;
+    const anchorElement = event?.currentTarget || null;
+    beginLongPressPreview(payload, () => anchorElement?.getBoundingClientRect?.());
+  }, [beginLongPressPreview, buildCommentHeartPayload]);
 
   const getRootCommentId = (commentId) => {
     if (!commentId) return null;
@@ -203,13 +418,12 @@ export default function DreamDetail({ user }) {
   };
 
   const handleCustomEmojiChange = (value) => {
-    const normalized = Array.from(value || '').slice(-2).join('');
-    setCustomEmojiValue(normalized);
+    setCustomEmojiValue(filterEmojiInput(value));
   };
 
   const handleCustomEmojiSubmit = (event) => {
     event.preventDefault();
-    const emoji = customEmojiValue.trim();
+    const emoji = filterEmojiInput(customEmojiValue);
     if (!emoji) return;
     handleDreamReactionSelection(emoji);
     closeCustomEmojiPicker();
@@ -231,6 +445,13 @@ export default function DreamDetail({ user }) {
     };
 
     const currentReaction = previousSnapshot.viewerReaction;
+    if (currentReaction && emoji && emoji !== currentReaction) {
+      setStatusMessage('Clear your current reaction before choosing another emoji.');
+      setCustomEmojiPickerOpen(false);
+      setCustomEmojiValue('');
+      return;
+    }
+
     const nextReaction = emoji === currentReaction ? null : emoji;
     const optimisticCounts = { ...previousSnapshot.counts };
 
@@ -349,7 +570,7 @@ export default function DreamDetail({ user }) {
           }
         }
 
-        const hasAccess = canViewerAccessDream(data, viewerId, resolvedAuthorProfile);
+        const hasAccess = canAccess(data, viewerId, resolvedAuthorProfile);
         if (!hasAccess) {
           if (!cancelled) {
             setError('You do not have permission to view this dream.');
@@ -413,9 +634,15 @@ export default function DreamDetail({ user }) {
       const nextComments = snapshot.docs.map((docSnap) => {
         const data = docSnap.data() || {};
         const createdAt = data.createdAt?.toDate?.() ?? null;
+        const heartUserIds = (data.heartUserIds && typeof data.heartUserIds === 'object') ? data.heartUserIds : {};
+        const heartCount = typeof data.heartCount === 'number'
+          ? data.heartCount
+          : Object.keys(heartUserIds).length;
         return {
           id: docSnap.id,
           ...data,
+          heartUserIds,
+          heartCount,
           createdAt
         };
       });
@@ -447,11 +674,52 @@ export default function DreamDetail({ user }) {
   }, [dream, viewerId]);
 
   useEffect(() => {
+    ensureUserSummaries(Object.keys(dream?.viewerReactions || {}));
+  }, [dream?.viewerReactions, ensureUserSummaries]);
+
+  useEffect(() => {
+    if (!comments.length) return;
+    const ids = comments.flatMap((entry) => Object.keys(entry.heartUserIds || {}));
+    ensureUserSummaries(ids);
+  }, [comments, ensureUserSummaries]);
+
+  useEffect(() => {
     if (!replyTarget) return;
     if (!comments.some((comment) => comment.id === replyTarget.id)) {
       setReplyTarget(null);
     }
   }, [comments, replyTarget]);
+
+  useEffect(() => {
+    if (!customEmojiPickerOpen) {
+      return;
+    }
+    const input = emojiInputRef.current;
+    if (!input) {
+      return;
+    }
+    const raf = requestAnimationFrame(() => {
+      input.focus({ preventScroll: true });
+      const end = input.value.length;
+      input.setSelectionRange(end, end);
+      if (typeof navigator !== 'undefined' && navigator.virtualKeyboard?.show) {
+        try {
+          navigator.virtualKeyboard.show();
+        } catch {
+          /* ignored */
+        }
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [customEmojiPickerOpen]);
+
+  useEffect(() => () => {
+    cancelModalAutoClose();
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  }, [cancelModalAutoClose]);
 
   const formattedDate = useMemo(() => {
     if (!dream?.createdAt) return '';
@@ -827,6 +1095,8 @@ export default function DreamDetail({ user }) {
         parentCommentId: currentReplyTarget?.id || null,
         parentCommentUserId: currentReplyTarget?.userId || null,
         activityTargetIds,
+        heartUserIds: {},
+        heartCount: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -835,7 +1105,7 @@ export default function DreamDetail({ user }) {
       const targetEventMap = new Map();
       const registerActivity = (targetId, type) => {
         if (!targetId || targetId === viewerId) return;
-        const priority = ACTIVITY_EVENT_PRIORITY[type] || 0;
+        const priority = ACTIVITY_PRIORITY[type] || 0;
         const existing = targetEventMap.get(targetId);
         if (!existing || priority > existing.priority) {
           targetEventMap.set(targetId, { type, priority });
@@ -943,6 +1213,61 @@ export default function DreamDetail({ user }) {
     });
   };
 
+  const handleToggleCommentHeart = async (entry) => {
+    if (!viewerId || !dream?.id || !entry?.id) return;
+    if (heartingCommentIds.has(entry.id)) return;
+
+    setHeartingCommentIds((prev) => {
+      const next = new Set(prev);
+      next.add(entry.id);
+      return next;
+    });
+
+    let previousEntry = null;
+    setComments((prev) => prev.map((comment) => {
+      if (comment.id !== entry.id) return comment;
+      previousEntry = comment;
+      const viewerHearted = Boolean(comment.heartUserIds?.[viewerId]);
+      const nextMap = { ...(comment.heartUserIds || {}) };
+      if (viewerHearted) {
+        delete nextMap[viewerId];
+      } else {
+        nextMap[viewerId] = true;
+      }
+      const nextCount = Math.max((comment.heartCount || 0) + (viewerHearted ? -1 : 1), 0);
+      return {
+        ...comment,
+        heartUserIds: nextMap,
+        heartCount: nextCount
+      };
+    }));
+
+    try {
+      await toggleCommentHeart({
+        dreamId: dream.id,
+        commentId: entry.id,
+        userId: viewerId,
+        actorDisplayName: viewerProfile?.displayName || user?.displayName || 'Dreamer',
+        actorUsername: viewerProfile?.username || user?.username || '',
+        commentAuthorId: entry.userId || null,
+        dreamTitleSnapshot: dream?.title || dream?.aiTitle || 'Dream entry'
+      });
+    } catch (error) {
+      console.error('toggleCommentHeart failed', error);
+      if (previousEntry) {
+        setComments((prev) => prev.map((comment) => (
+          comment.id === entry.id ? previousEntry : comment
+        )));
+      }
+    } finally {
+      setHeartingCommentIds((prev) => {
+        const next = new Set(prev);
+        next.delete(entry.id);
+        return next;
+      });
+    }
+  };
+
   const handleAnalyzeDream = async () => {
     if (!dream || !isOwner || dream.id.startsWith('local-')) return;
 
@@ -963,7 +1288,7 @@ export default function DreamDetail({ user }) {
         return;
       }
 
-      const response = await fetch(AI_ENDPOINT, {
+      const response = await fetch(AI_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1051,6 +1376,9 @@ export default function DreamDetail({ user }) {
     const canRemove = isOwner || entry.userId === viewerId;
     const relativeTime = entry.createdAt ? formatDistanceToNow(entry.createdAt, { addSuffix: true }) : 'Just now';
     const replyingTo = entry.parentCommentId ? commentLookup[entry.parentCommentId] : null;
+    const viewerHearted = Boolean(entry.heartUserIds?.[viewerId]);
+    const heartCount = entry.heartCount || 0;
+    const heartDisabled = heartingCommentIds.has(entry.id);
     return (
       <div className={`comment-card${depth ? ' comment-card-reply' : ''}`}>
         <div className="comment-meta">
@@ -1071,22 +1399,45 @@ export default function DreamDetail({ user }) {
             {viewerId ? (
               <button
                 type="button"
-                className="comment-reply-btn"
-                onClick={() => handleReplyToComment(entry)}
+                className={`comment-heart-btn${viewerHearted ? ' active' : ''}`}
+                onClick={(event) => {
+                  if (consumeSuppressedClick(event)) return;
+                  handleToggleCommentHeart(entry);
+                }}
+                disabled={heartDisabled}
+                aria-pressed={viewerHearted}
+                onMouseEnter={(event) => handleCommentHeartHoverStart(event, entry)}
+                onMouseLeave={scheduleModalAutoClose}
+                onTouchStart={(event) => handleCommentHeartTouchStart(event, entry)}
+                onTouchEnd={handleTouchEndInteraction}
+                onTouchCancel={handleTouchEndInteraction}
+                onTouchMove={handleTouchMoveInteraction}
               >
-                Reply
+                <FontAwesomeIcon icon={faHeart} />
+                <span className="comment-heart-count">{heartCount}</span>
               </button>
-            ) : null}
-            {canRemove && (
-              <button
-                type="button"
-                className="comment-delete-btn"
-                onClick={() => handleDeleteComment(entry.id, entry.userId)}
-                disabled={removingCommentId === entry.id}
-              >
-                {removingCommentId === entry.id ? 'Removing…' : 'Remove'}
-              </button>
-            )}
+            ) : <span />}
+            <div className="comment-action-links">
+              {viewerId ? (
+                <button
+                  type="button"
+                  className="comment-reply-btn"
+                  onClick={() => handleReplyToComment(entry)}
+                >
+                  Reply
+                </button>
+              ) : null}
+              {canRemove && (
+                <button
+                  type="button"
+                  className="comment-delete-btn"
+                  onClick={() => handleDeleteComment(entry.id, entry.userId)}
+                  disabled={removingCommentId === entry.id}
+                >
+                  {removingCommentId === entry.id ? 'Removing…' : 'Remove'}
+                </button>
+              )}
+            </div>
           </div>
         ) : null}
       </div>
@@ -1169,7 +1520,7 @@ export default function DreamDetail({ user }) {
   const titleText = dream.title?.trim() || (dream.aiGenerated && dream.aiTitle) || 'Untitled dream';
   const hasAudienceQuery = audienceQuery.trim().length > 0;
   const commentCountLabel = comments.length ? ` (${comments.length})` : '';
-  const visibilitySummary = describeVisibility(dream.visibility);
+  const visibilitySummary = visibilityLabel(dream.visibility);
 
   return (
     <div className={containerClass}>
@@ -1333,12 +1684,15 @@ export default function DreamDetail({ user }) {
           <div className="reaction-buttons">
             <button
               type="button"
-              className={`reaction-button${reactionSnapshot.viewerReaction === DEFAULT_REACTION ? ' active' : ''}`}
-              onClick={() => handleDreamReactionSelection(DEFAULT_REACTION)}
+              className={`reaction-button${reactionSnapshot.viewerReaction === DEFAULT_EMOJI ? ' active' : ''}`}
+              onClick={(event) => {
+                if (consumeSuppressedClick(event)) return;
+                handleDreamReactionSelection(DEFAULT_EMOJI);
+              }}
               aria-label="React with a heart"
             >
               <FontAwesomeIcon icon={faHeart} className="reaction-icon" />
-              <span className="reaction-count">{reactionSnapshot.counts?.[DEFAULT_REACTION] || 0}</span>
+              <span className="reaction-count">{reactionSnapshot.counts?.[DEFAULT_EMOJI] || 0}</span>
             </button>
             <button
               type="button"
@@ -1358,30 +1712,77 @@ export default function DreamDetail({ user }) {
               Clear
             </button>
           </div>
+          {reactionEntries.length > 0 && (
+            <div className="reaction-chip-row" aria-label="Existing reactions">
+              {reactionEntries.map(([emoji, count]) => (
+                <button
+                  key={`${dream.id}-reaction-${emoji}`}
+                  type="button"
+                  className={`reaction-chip${reactionSnapshot.viewerReaction === emoji ? ' active' : ''}`}
+                  onClick={(event) => {
+                    if (consumeSuppressedClick(event)) return;
+                    handleDreamReactionSelection(emoji);
+                  }}
+                  aria-label={`React with ${emoji}`}
+                  onMouseEnter={(event) => handleDreamReactionHoverStart(event, emoji)}
+                  onMouseLeave={scheduleModalAutoClose}
+                  onTouchStart={(event) => handleDreamReactionTouchStart(event, emoji)}
+                  onTouchEnd={handleTouchEndInteraction}
+                  onTouchCancel={handleTouchEndInteraction}
+                  onTouchMove={handleTouchMoveInteraction}
+                >
+                  {renderReactionSymbol(emoji)}
+                  <span className="reaction-count">{count}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {customEmojiPickerOpen && (
-            <form className="custom-emoji-popover" onSubmit={handleCustomEmojiSubmit}>
-              <input
-                type="text"
-                inputMode="text"
-                maxLength={4}
-                value={customEmojiValue}
-                onChange={(event) => handleCustomEmojiChange(event.target.value)}
-                aria-label="Choose an emoji reaction"
-                placeholder="Type an emoji"
-                autoFocus
-              />
-              <button type="submit" className="primary-btn" disabled={!customEmojiValue.trim()}>
-                Add
-              </button>
-              <button type="button" className="ghost-btn" onClick={closeCustomEmojiPicker}>
-                Cancel
-              </button>
-            </form>
+            <div className="custom-emoji-popover">
+              <div className="emoji-picker-grid" role="listbox" aria-label="Emoji suggestions">
+                {COMMON_EMOJI_REACTIONS.map((emoji) => (
+                  <button
+                    key={`picker-${emoji}`}
+                    type="button"
+                    className="emoji-option"
+                    onClick={() => handleDreamReactionSelection(emoji)}
+                  >
+                    <span aria-hidden="true">{emoji}</span>
+                    <span className="sr-only">React with {emoji}</span>
+                  </button>
+                ))}
+              </div>
+              <form className="emoji-input-row" onSubmit={handleCustomEmojiSubmit}>
+                <input
+                  type="text"
+                  ref={emojiInputRef}
+                  inputMode="text"
+                  enterKeyHint="done"
+                  autoComplete="off"
+                  maxLength={4}
+                  value={customEmojiValue}
+                  onChange={(event) => handleCustomEmojiChange(event.target.value)}
+                  aria-label="Type an emoji"
+                  placeholder="Type or paste an emoji"
+                  autoFocus
+                />
+                <button type="submit" className="primary-btn" disabled={!filterEmojiInput(customEmojiValue)}>
+                  Add
+                </button>
+                <button type="button" className="ghost-btn" onClick={closeCustomEmojiPicker}>
+                  Cancel
+                </button>
+              </form>
+            </div>
           )}
           <span className="reaction-total">
             {totalDreamReactions ? `${totalDreamReactions} reaction${totalDreamReactions === 1 ? '' : 's'}` : 'Be the first to react'}
           </span>
         </div>
+
+        {statusMessage && (
+          <p className="detail-status-message">{statusMessage}</p>
+        )}
 
         <div className="detail-summary">
             <div>
@@ -1417,8 +1818,6 @@ export default function DreamDetail({ user }) {
             </button>
           </div>
         ) : null}
-
-        {isOwner && statusMessage && <p className="detail-status-message">{statusMessage}</p>}
 
         <div className="detail-comments">
           <div className="detail-section-head">
@@ -1670,6 +2069,15 @@ export default function DreamDetail({ user }) {
           )}
         </div>
       </div>
+
+      <ReactionInsightsModal
+        open={reactionInsightState.open}
+        anchorRect={reactionInsightState.anchorRect}
+        title={reactionInsightState.title}
+        subtitle={reactionInsightState.subtitle}
+        emoji={reactionInsightState.emoji}
+        entries={reactionInsightEntries}
+      />
     </div>
   );
 }

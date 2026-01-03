@@ -12,8 +12,7 @@ import { firebaseUserPropType } from '../propTypes';
 const VISIBILITY_LABELS = {
   private: 'Private',
   public: 'Public',
-  following: 'People you follow',
-  followers: 'People you follow',
+  following: 'Followers only',
   anonymous: 'Anonymous'
 };
 

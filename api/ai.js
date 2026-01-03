@@ -1,118 +1,75 @@
 const crypto = require('node:crypto');
 
-const resultCache = new Map();
-const userLimits = new Map();
-const DAILY_LIMIT = 10;
-const MAX_INPUT_LENGTH = 4000;
-const OPENAI_MODEL = 'gpt-4o-mini';
-const OPENAI_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
+const cache = new Map();
+const limits = new Map();
+const DAILY_CAP = 10;
+const MAX_LEN = 4000;
+const MODEL = 'gpt-4o-mini';
+const API_URL = 'https://api.openai.com/v1/chat/completions';
 
-const applyCors = (req, res) => {
-  const origin = req.headers?.origin ?? '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
+const setCors = (res, origin) => {
+  res.setHeader('Access-Control-Allow-Origin', origin || '*');
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
   res.setHeader('Access-Control-Max-Age', '86400');
 };
 
-const hashText = (text) => crypto.createHash('sha256').update(text).digest('hex');
-const todayString = () => new Date().toISOString().slice(0, 10);
+const hash = (text) => crypto.createHash('sha256').update(text).digest('hex');
+const today = () => new Date().toISOString().slice(0, 10);
 
-const checkRateLimit = (userId) => {
-  if (!userId) return true;
-  const today = todayString();
-  const record = userLimits.get(userId);
-  if (!record || record.date !== today) {
-    userLimits.set(userId, { date: today, count: 1 });
+const withinLimit = (uid) => {
+  if (!uid) return true;
+  const d = today();
+  const rec = limits.get(uid);
+  if (!rec || rec.date !== d) {
+    limits.set(uid, { date: d, count: 1 });
     return true;
   }
-  if (record.count >= DAILY_LIMIT) return false;
-  record.count += 1;
+  if (rec.count >= DAILY_CAP) return false;
+  rec.count++;
   return true;
 };
 
-const callOpenAI = async (dreamText, apiKey) => {
-  const systemPrompt = `
-You are a creative but cautious dream interpreter.
+const callOpenAI = async (text, key) => {
+  const sys = `You are a creative dream interpreter. Generate a short poetic title (2-4 words) and a brief themes paragraph. Use speculative language. Return only minified JSON: {"title":"string","themes":"string"}`;
 
-Your task:
-- Generate a short poetic title (2–4 words)
-- Generate a brief themes paragraph reflecting emotions, symbols, or tensions
-
-Rules:
-- Use speculative language only (might, could, seems, may)
-- Avoid clinical, diagnostic, or absolute statements
-- Do not give advice or conclusions
-- Do not restate the dream literally
-- Keep tone reflective and symbolic
-
-Output:
-- Return ONLY valid minified JSON
-- No markdown, no extra text, no explanations
-- Exact schema:
-{"title":"string","themes":"string"}
-
-Title constraints:
-- 2–4 words
-- No punctuation
-- Evocative but simple
-- Avoid generic words like dream, feeling, mind
-
-Themes constraints:
-- One short paragraph
-- Focus on emotional themes or symbolic meaning
-- Avoid phrases like 'this dream means' or 'this represents'
-`;
-  const userPrompt = `Dream:\n"""${dreamText}"""`;
-
-  const payload = {
-    model: OPENAI_MODEL,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
-    ],
-    max_tokens: 200,
-    temperature: 0.7
-  };
-
-  const response = await fetch(OPENAI_ENDPOINT, {
+  const res = await fetch(API_URL, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [
+        { role: 'system', content: sys },
+        { role: 'user', content: `Dream:\n"""${text}"""` }
+      ],
+      max_tokens: 200,
+      temperature: 0.7
+    })
   });
 
-  if (!response.ok) {
-    const errBody = await response.text().catch(() => '');
-    throw new Error(`OpenAI API error ${response.status}: ${errBody}`);
+  if (!res.ok) {
+    const err = await res.text().catch(() => '');
+    throw new Error(`OpenAI error ${res.status}: ${err}`);
   }
 
-  const data = await response.json();
+  const data = await res.json();
   const content = data.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error('Empty response from OpenAI');
-  }
+  if (!content) throw new Error('Empty AI response');
   return content;
 };
 
-const parseOutput = (raw) => {
-  let title = null;
-  let themes = null;
-  if (!raw) return { title, themes };
+const parse = (raw) => {
+  if (!raw) return { title: null, themes: null };
+  const t = raw.trim();
+  let title = null, themes = null;
 
-  const trimmed = raw.trim();
-
-  if (trimmed.startsWith('{')) {
+  if (t.startsWith('{')) {
     try {
-      const json = JSON.parse(trimmed);
-      if (typeof json.title === 'string') title = json.title.trim();
-      if (typeof json.themes === 'string') themes = json.themes.trim();
-    } catch {
-      // fall through to regex
-    }
+      const j = JSON.parse(t);
+      title = j.title?.trim() || null;
+      themes = j.themes?.trim() || null;
+    } catch { /* use regex fallback */ }
   }
 
   if (!title) {
@@ -123,78 +80,57 @@ const parseOutput = (raw) => {
     const m = raw.match(/"themes"\s*:\s*"([^"]+)"/i);
     if (m) themes = m[1].trim();
   }
-
   return { title, themes };
 };
 
 module.exports = async function handler(req, res) {
-  applyCors(req, res);
+  setCors(res, req.headers?.origin);
 
-  if (req.method === 'OPTIONS') {
-    res.status(204).end();
-    return;
-  }
-
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Only POST allowed' });
-    return;
-  }
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   let body = req.body;
   if (typeof body === 'string') {
-    try {
-      body = JSON.parse(body);
-    } catch {
-      res.status(400).json({ error: 'Invalid JSON' });
-      return;
-    }
+    try { body = JSON.parse(body); }
+    catch { return res.status(400).json({ error: 'Invalid JSON' }); }
   }
   body = body || {};
 
   const { dreamText, userId } = body;
   if (!dreamText || typeof dreamText !== 'string') {
-    res.status(400).json({ error: 'Missing dreamText' });
-    return;
+    return res.status(400).json({ error: 'Missing dreamText' });
   }
 
-  const trimmedText = dreamText.trim().slice(0, MAX_INPUT_LENGTH);
-  if (!trimmedText) {
-    res.status(400).json({ error: 'Empty dreamText' });
-    return;
+  const text = dreamText.trim().slice(0, MAX_LEN);
+  if (!text) return res.status(400).json({ error: 'Empty dreamText' });
+
+  const key = hash(text);
+  if (cache.has(key)) {
+    return res.status(200).json({ ...cache.get(key), cached: true });
   }
 
-  const cacheKey = hashText(trimmedText);
-  if (resultCache.has(cacheKey)) {
-    res.status(200).json({ ...resultCache.get(cacheKey), cached: true });
-    return;
-  }
-
-  if (!checkRateLimit(userId)) {
-    res.status(429).json({ error: 'Daily analysis limit reached. Try again tomorrow.' });
-    return;
+  if (!withinLimit(userId)) {
+    return res.status(429).json({ error: 'Daily limit reached. Try tomorrow.' });
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    res.status(500).json({ error: 'AI analysis is not configured on the server.' });
-    return;
+    return res.status(500).json({ error: 'AI not configured.' });
   }
 
-  let rawOutput = '';
+  let raw = '';
   try {
-    rawOutput = await callOpenAI(trimmedText, apiKey);
-  } catch (err) {
-    res.status(502).json({ error: err.message || 'AI request failed.' });
-    return;
+    raw = await callOpenAI(text, apiKey);
+  } catch (e) {
+    return res.status(502).json({ error: e.message || 'AI failed.' });
   }
 
-  const { title: parsedTitle, themes: parsedThemes } = parseOutput(rawOutput);
-  if (!parsedTitle || !parsedThemes) {
-    res.status(502).json({ error: 'AI response was incomplete.' });
-    return;
+  const { title, themes } = parse(raw);
+  if (!title || !themes) {
+    return res.status(502).json({ error: 'Incomplete AI response.' });
   }
 
-  const result = { title: parsedTitle, themes: parsedThemes };
-  resultCache.set(cacheKey, result);
+  const result = { title, themes };
+  cache.set(key, result);
   res.status(200).json(result);
 };

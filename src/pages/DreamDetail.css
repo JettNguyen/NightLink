@@ -345,8 +345,55 @@
 
 .comment-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.comment-action-links {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.comment-heart-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  padding: 0.25rem 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.comment-heart-btn svg {
+  color: inherit;
+}
+
+.comment-heart-btn.active {
+  border-color: rgba(90, 200, 250, 0.65);
+  background: rgba(90, 200, 250, 0.12);
+  color: var(--primary);
+  box-shadow: 0 0 12px rgba(56, 132, 255, 0.35);
+}
+
+.comment-heart-btn.active svg {
+  color: var(--primary);
+}
+
+.comment-heart-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.comment-heart-count {
+  font-size: 0.85rem;
 }
 
 .comment-reply-context {
@@ -575,7 +622,7 @@
 }
 
 .detail-reactions {
-  margin: 1.25rem 0;
+  margin: 0.9rem 0 0.4rem;
   padding-top: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -698,6 +745,7 @@
   border-radius: 14px;
   padding: 1rem 1.25rem;
   background: rgba(90, 200, 250, 0.06);
+  margin-top: 0.6rem;
 }
 
 .detail-summary h3 {
@@ -715,9 +763,10 @@
 }
 
 .detail-status-message {
-  margin: -0.25rem 0 0.5rem;
-  color: var(--text-secondary);
+  margin: 0.25rem 0 0.5rem;
+  color: var(--primary);
   font-size: 0.92rem;
+  font-weight: 500;
 }
 
 .detail-actions {
@@ -754,34 +803,6 @@
 .danger-btn:disabled {
   opacity: 0.6;
   cursor: wait;
-}
-
-@keyframes subtlePulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.detail-status-message {
-  margin: 0.5rem 0;
-  color: var(--primary);
-  font-size: 0.92rem;
-  font-weight: 500;
 }
 
 @media (max-width: 640px) {
