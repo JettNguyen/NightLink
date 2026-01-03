@@ -59,7 +59,9 @@ export default function AuthPage() {
       const snap = await getDoc(ref);
       if (!snap.exists() || snap.data()?.uid) return;
       await deleteDoc(ref);
-    } catch {}
+    } catch {
+      // Ignore cleanup failures to avoid masking the primary auth error
+    }
   };
 
   const resolveEmail = async (val) => {

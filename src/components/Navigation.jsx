@@ -50,7 +50,9 @@ function Navigation({ user, activityPreview }) {
     if (!w) return;
     const ref = Math.max(latestTs, Date.now());
     setFeedSeenAt(ref);
-    try { w.localStorage.setItem(storageKey, String(ref)); } catch {}
+    try { w.localStorage.setItem(storageKey, String(ref)); } catch {
+      // localStorage unavailable (private mode or quota); ignore markers
+    }
   }, [storageKey, latestTs]);
 
   const fromNav = location.state?.fromNav;
