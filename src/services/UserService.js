@@ -1,4 +1,13 @@
-import { collection, getDocs, query, where, documentId } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  documentId,
+  doc,
+  updateDoc,
+  serverTimestamp
+} from 'firebase/firestore';
 import { db } from '../firebase';
 
 const userSummaryCache = new Map();
@@ -63,6 +72,21 @@ export const primeUserSummaryCache = (profiles = []) => {
 
 export const clearUserSummaryCache = () => {
   userSummaryCache.clear();
+};
+
+export const persistFeedSeenTimestamp = async (uid, seenAt = Date.now()) => {
+  if (!uid) return false;
+
+  try {
+    await updateDoc(doc(db, 'users', uid), {
+      feedSeenAtMs: seenAt,
+      feedSeenAt: serverTimestamp()
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to persist feed seen timestamp', error);
+    return false;
+  }
 };
 
 export default fetchUserSummaries;

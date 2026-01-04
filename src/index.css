@@ -347,7 +347,6 @@ a {
 .emoji-option:hover,
 .emoji-option:focus-visible {
   border-color: var(--primary);
-  transform: translateY(-1px);
   outline: none;
 }
 

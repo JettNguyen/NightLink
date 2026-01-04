@@ -11,6 +11,7 @@ import Navigation from './components/Navigation';
 import Profile from './pages/Profile';
 import Search from './pages/Search';
 import Activity from './pages/Activity';
+import Settings from './pages/Settings';
 import LoadingIndicator from './components/LoadingIndicator';
 import useActivityPreview from './hooks/useActivityPreview';
 import { firebaseUserPropType } from './propTypes';
@@ -61,6 +62,7 @@ function AppContent({ user, loading, ready }) {
           <Route path="/profile" element={wrap(Profile)} />
           <Route path="/profile/:handle" element={wrap(Profile)} />
           <Route path="/search" element={wrap(Search)} />
+          <Route path="/settings" element={wrap(Settings)} />
           <Route
             path="/activity"
             element={<ProtectedRoute user={user}><Activity user={user} activityPreview={activity} /></ProtectedRoute>}

@@ -769,6 +769,87 @@
   font-weight: 500;
 }
 
+.reanalyze-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  position: relative;
+}
+
+.reanalyze-controls .ghost-btn {
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.reanalyze-controls .ghost-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--primary);
+}
+
+.prompt-selector-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 0.5rem;
+  min-width: 280px;
+  max-width: 320px;
+  background: rgba(6, 15, 27, 0.98);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.prompt-selector-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.prompt-option-btn {
+  width: 100%;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.prompt-option-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--primary);
+}
+
+.prompt-option-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.prompt-option-btn.current-prompt {
+  border-color: var(--primary);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.prompt-option-btn.current-prompt strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--primary);
+}
+
+.prompt-option-btn.current-prompt span {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
 .detail-actions {
   display: flex;
   justify-content: flex-end;

@@ -15,6 +15,28 @@ import './DreamDetail.css';
 import { firebaseUserPropType } from '../propTypes';
 import { COMMON_EMOJI_REACTIONS, filterEmojiInput } from '../constants/emojiOptions';
 
+const PROMPT_TEMPLATES = {
+  balanced: 'You are a compassionate dream interpreter. Analyze the dream by identifying 1-2 key symbolic elements and their possible meanings, then suggest one practical reflection question and one small grounded action the dreamer can take. Keep your response to a single short paragraph (3-6 sentences max). Be warm, insightful, and concise.',
+  investigator: 'You are a dream detective analyzing this entry like evidence at a crime scene. Identify recurring symbols, archetypal patterns, or subconscious clues, and explain why these elements might be significant based on common dream symbolism. Present your findings in a single short paragraph (3-6 sentences max). Be analytical but avoid overexplaining.',
+  therapist: 'You are a gentle inner therapist helping someone process their emotions through dreams. Acknowledge the feelings present in the dream, reflect on what emotional needs or conflicts might be surfacing, and offer one compassionate self-inquiry question. Keep your response to a single short paragraph (3-6 sentences max). Be empathetic and non-judgmental.',
+  coach: 'You are a sleep and wellness coach reviewing this dream for stress signals and rest quality indicators. Point out any nervous system cues (anxiety, excitement, exhaustion) and suggest one calming ritual or sleep hygiene tip the dreamer could try tonight. Respond in a single short paragraph (3-6 sentences max). Be practical and supportive.',
+  creative: 'You are a creative writing mentor helping turn dream imagery into story fuel. Highlight the most vivid or unusual elements, suggest a narrative angle (character arc, worldbuilding hook, or plot twist), and keep the dreamer emotionally grounded while sparking their imagination. Respond in a single short paragraph (3-6 sentences max). Be inspiring but concise.',
+  mystical: 'You are a mystical oracle interpreting dreams through archetypal and spiritual lenses. Weave in poetic language, universal symbols (moon, journey, shadow, rebirth), and a sense of deeper meaning or soul lesson. Keep your message to a single short paragraph (3-6 sentences max). Be enchanting but not vague.',
+  comedian: 'You are a dream comedian finding the humor in subconscious absurdity. Point out the funniest or most ridiculous aspects of the dream with light-hearted commentary, but still acknowledge any underlying feelings with kindness. Keep it to a single short paragraph (3-6 sentences max). Be playful, warm, and genuinely funny.',
+  scientist: 'You are a neuroscientist explaining dreams through the lens of brain science and REM sleep. Reference memory consolidation, emotional processing, or neural patterns, and help the dreamer understand why their brain might have created this scenario. Respond in a single short paragraph (3-6 sentences max). Be informative but accessible.'
+};
+
+const PROMPT_LABELS = {
+  balanced: 'Balanced guide',
+  investigator: 'Detective mode',
+  therapist: 'Inner therapist',
+  coach: 'Sleep coach',
+  creative: 'Story weaver',
+  mystical: 'Mystic oracle',
+  comedian: 'Dream comedian',
+  scientist: 'Brain scientist'
+};
+
 const VISIBILITY_OPTIONS = [
   { value: 'private', label: 'Private', helper: 'Only you can see this.' },
   { value: 'public', label: 'Public', helper: 'Visible on your profile and feed.' },
@@ -96,6 +118,10 @@ export default function DreamDetail({ user }) {
   const [editableTags, setEditableTags] = useState([]);
   const [newTag, setNewTag] = useState('');
   const [applyingAiTitle, setApplyingAiTitle] = useState(false);
+  const [reanalyzing, setReanalyzing] = useState(false);
+  const [promptSelectorOpen, setPromptSelectorOpen] = useState(false);
+  const [selectedPrompt, setSelectedPrompt] = useState(null);
+  const [userSettings, setUserSettings] = useState(null);
   const [audienceOptions, setAudienceOptions] = useState([]);
   const [audienceBusy, setAudienceBusy] = useState(false);
   const [audienceLoading, setAudienceLoading] = useState(false);
@@ -510,6 +536,7 @@ export default function DreamDetail({ user }) {
   useEffect(() => {
     if (!viewerId) {
       setViewerProfile(null);
+      setUserSettings(null);
       return undefined;
     }
 
@@ -518,10 +545,13 @@ export default function DreamDetail({ user }) {
       try {
         const viewerSnap = await getDoc(doc(db, 'users', viewerId));
         if (cancelled) return;
-        setViewerProfile(viewerSnap.exists() ? { id: viewerSnap.id, ...viewerSnap.data() } : null);
+        const data = viewerSnap.exists() ? { id: viewerSnap.id, ...viewerSnap.data() } : null;
+        setViewerProfile(data);
+        setUserSettings(data?.settings || null);
       } catch {
         if (!cancelled) {
           setViewerProfile(null);
+          setUserSettings(null);
         }
       }
     };
@@ -1268,7 +1298,7 @@ export default function DreamDetail({ user }) {
     }
   };
 
-  const handleAnalyzeDream = async () => {
+  const handleAnalyzeDream = async (customPrompt = null) => {
     if (!dream || !isOwner || dream.id.startsWith('local-')) return;
 
     const trimmedContent = (dream.content || '').trim();
@@ -1288,13 +1318,19 @@ export default function DreamDetail({ user }) {
         return;
       }
 
+      const requestBody = {
+        dreamText: trimmedContent,
+        idToken
+      };
+
+      if (customPrompt) {
+        requestBody.customPrompt = customPrompt;
+      }
+
       const response = await fetch(AI_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dreamText: trimmedContent,
-          idToken
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const raw = await response.text();
@@ -1338,6 +1374,33 @@ export default function DreamDetail({ user }) {
       setStatusMessage(err.message || 'Summary generation failed.');
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  const handleReanalyze = async (promptKey) => {
+    if (!dream || !isOwner) return;
+
+    setReanalyzing(true);
+    setPromptSelectorOpen(false);
+    setStatusMessage('');
+
+    try {
+      let customPrompt = null;
+
+      if (promptKey === 'current') {
+        const userPromptPreset = userSettings?.aiPromptPreset || 'balanced';
+        if (userPromptPreset === 'custom') {
+          customPrompt = userSettings?.aiPromptCustom || PROMPT_TEMPLATES.balanced;
+        } else {
+          customPrompt = PROMPT_TEMPLATES[userPromptPreset] || PROMPT_TEMPLATES.balanced;
+        }
+      } else if (promptKey && PROMPT_TEMPLATES[promptKey]) {
+        customPrompt = PROMPT_TEMPLATES[promptKey];
+      }
+
+      await handleAnalyzeDream(customPrompt);
+    } finally {
+      setReanalyzing(false);
     }
   };
 
@@ -1802,6 +1865,51 @@ export default function DreamDetail({ user }) {
               >
                 {analyzing ? 'Generating title & summary…' : 'Generate title & summary'}
               </button>
+            ) : null}
+            {isOwner && dream.aiGenerated ? (
+              <div className="reanalyze-controls">
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={() => setPromptSelectorOpen(!promptSelectorOpen)}
+                  disabled={reanalyzing || analyzing}
+                >
+                  {reanalyzing ? 'Regenerating…' : 'Regenerate with different prompt'}
+                </button>
+                {promptSelectorOpen && (
+                  <div className="prompt-selector-panel">
+                    <p className="prompt-selector-label">Choose a prompt style:</p>
+                    <button
+                      type="button"
+                      className="prompt-option-btn current-prompt"
+                      onClick={() => handleReanalyze('current')}
+                      disabled={reanalyzing}
+                    >
+                      <strong>Use my settings</strong>
+                      <span>({PROMPT_LABELS[userSettings?.aiPromptPreset] || 'Balanced guide'})</span>
+                    </button>
+                    {Object.keys(PROMPT_TEMPLATES).map((key) => (
+                      <button
+                        key={key}
+                        type="button"
+                        className="prompt-option-btn"
+                        onClick={() => handleReanalyze(key)}
+                        disabled={reanalyzing}
+                      >
+                        {PROMPT_LABELS[key]}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className="ghost-btn"
+                      onClick={() => setPromptSelectorOpen(false)}
+                      style={{ marginTop: '0.5rem' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : null}
           </div>
 

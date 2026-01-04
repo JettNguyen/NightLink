@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Link, useLocation } from 'react-router-dom';
 import './Navigation.css';
 import { firebaseUserPropType, activityPreviewPropType } from '../propTypes';
+import { persistFeedSeenTimestamp } from '../services/UserService';
 
 const COMPACT_ENTER = 110;
 const COMPACT_EXIT = 40;
@@ -13,47 +14,62 @@ function Navigation({ user, activityPreview }) {
   const location = useLocation();
   const [compact, setCompact] = useState(false);
   const compactRef = useRef(compact);
-  const uid = user?.uid || 'anon';
+  const viewerId = user?.uid || '';
   const inbox = activityPreview?.inboxEntries ?? [];
   const unreadCount = activityPreview?.unreadActivityCount ?? inbox.filter((e) => !e?.read).length;
   const hasUnread = activityPreview?.hasUnreadActivity ?? unreadCount > 0;
   const updates = activityPreview?.followingUpdates ?? [];
   const latestTs = activityPreview?.latestFollowingTimestamp || 0;
-  const storageKey = `nightlink:feedSeen:${uid}`;
+  const remoteFeedSeenAt = activityPreview?.feedSeenAt ?? 0;
+  const storageKey = `nightlink:feedSeen:${viewerId || 'anon'}`;
 
-  const [feedSeenAt, setFeedSeenAt] = useState(() => {
+  const readLocalFeedSeenAt = () => {
     const w = getWin();
     if (!w) return 0;
     try { return Number(w.localStorage.getItem(storageKey)) || 0; }
     catch { return 0; }
-  });
+  };
+
+  const [localFeedSeenAt, setLocalFeedSeenAt] = useState(() => readLocalFeedSeenAt());
 
   useEffect(() => {
+    setLocalFeedSeenAt(readLocalFeedSeenAt());
+  }, [storageKey]);
+
+  const persistLocalFeedSeenAt = useCallback((value) => {
+    setLocalFeedSeenAt(value);
     const w = getWin();
     if (!w) return;
-    try { setFeedSeenAt(Number(w.localStorage.getItem(storageKey)) || 0); }
-    catch { setFeedSeenAt(0); }
+    try { w.localStorage.setItem(storageKey, String(value)); } catch {
+      // localStorage unavailable (private mode or quota); ignore markers
+    }
   }, [storageKey]);
+
+  useEffect(() => {
+    if (remoteFeedSeenAt > localFeedSeenAt) {
+      persistLocalFeedSeenAt(remoteFeedSeenAt);
+    }
+  }, [remoteFeedSeenAt, localFeedSeenAt, persistLocalFeedSeenAt]);
+
+  const effectiveFeedSeenAt = Math.max(localFeedSeenAt, remoteFeedSeenAt);
 
   const newFeedCount = useMemo(() => {
     const count = updates.reduce((n, e) => {
       const t = (e.updatedAt || e.createdAt)?.getTime?.() || 0;
-      return t > feedSeenAt ? n + 1 : n;
+      return t > effectiveFeedSeenAt ? n + 1 : n;
     }, 0);
-    return count > 0 ? count : (latestTs > feedSeenAt ? 1 : 0);
-  }, [updates, feedSeenAt, latestTs]);
+    return count > 0 ? count : (latestTs > effectiveFeedSeenAt ? 1 : 0);
+  }, [updates, effectiveFeedSeenAt, latestTs]);
 
   const hasNewFeed = newFeedCount > 0;
 
   const markFeedSeen = useCallback(() => {
-    const w = getWin();
-    if (!w) return;
     const ref = Math.max(latestTs, Date.now());
-    setFeedSeenAt(ref);
-    try { w.localStorage.setItem(storageKey, String(ref)); } catch {
-      // localStorage unavailable (private mode or quota); ignore markers
+    persistLocalFeedSeenAt(ref);
+    if (viewerId) {
+      persistFeedSeenTimestamp(viewerId, ref).catch(() => {});
     }
-  }, [storageKey, latestTs]);
+  }, [latestTs, viewerId, persistLocalFeedSeenAt]);
 
   const fromNav = location.state?.fromNav;
 

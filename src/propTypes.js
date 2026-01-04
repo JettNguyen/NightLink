@@ -15,5 +15,6 @@ export const activityPreviewPropType = PropTypes.shape({
   unreadActivityCount: PropTypes.number,
   hasUnreadActivity: PropTypes.bool,
   followingUpdates: PropTypes.array,
-  latestFollowingTimestamp: PropTypes.number
+  latestFollowingTimestamp: PropTypes.number,
+  feedSeenAt: PropTypes.number
 });

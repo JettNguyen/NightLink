@@ -802,10 +802,10 @@ export default function Profile({ user }) {
                 </button>
                 <button
                   type="button"
-                  className="activity-btn"
-                  onClick={() => navigate('/activity')}
+                  className="settings-btn"
+                  onClick={() => navigate('/settings')}
                 >
-                  Activity
+                  Settings
                 </button>
                 <button
                   type="button"

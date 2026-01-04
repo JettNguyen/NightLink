@@ -31,8 +31,12 @@ const withinLimit = (uid) => {
   return true;
 };
 
-const callOpenAI = async (text, key) => {
-  const sys = `You are a creative dream interpreter. Generate a short poetic title (2-4 words) and a brief themes paragraph. Use speculative language. Return only minified JSON: {"title":"string","themes":"string"}`;
+const callOpenAI = async (text, key, customPrompt = null) => {
+  const defaultSys = `You are a creative dream interpreter. Generate a short poetic title (2-4 words) and a brief themes paragraph. Use speculative language. Return only minified JSON: {"title":"string","themes":"string"}`;
+  
+  const sys = customPrompt 
+    ? `${customPrompt}\n\nAlso generate a short poetic title (2-4 words). Return only minified JSON: {"title":"string","themes":"string"}`
+    : defaultSys;
 
   const res = await fetch(API_URL, {
     method: 'POST',
@@ -96,7 +100,7 @@ module.exports = async function handler(req, res) {
   }
   body = body || {};
 
-  const { dreamText, userId } = body;
+  const { dreamText, userId, customPrompt } = body;
   if (!dreamText || typeof dreamText !== 'string') {
     return res.status(400).json({ error: 'Missing dreamText' });
   }
@@ -104,7 +108,7 @@ module.exports = async function handler(req, res) {
   const text = dreamText.trim().slice(0, MAX_LEN);
   if (!text) return res.status(400).json({ error: 'Empty dreamText' });
 
-  const key = hash(text);
+  const key = hash(text + (customPrompt || ''));
   if (cache.has(key)) {
     return res.status(200).json({ ...cache.get(key), cached: true });
   }
@@ -120,7 +124,7 @@ module.exports = async function handler(req, res) {
 
   let raw = '';
   try {
-    raw = await callOpenAI(text, apiKey);
+    raw = await callOpenAI(text, apiKey, customPrompt);
   } catch (e) {
     return res.status(502).json({ error: e.message || 'AI failed.' });
   }

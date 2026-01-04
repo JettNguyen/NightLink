@@ -14,13 +14,17 @@
 - Comment on dreams
 - React to dreams and comments
 
+> Screens / clips live in [docs/ux-case-study.md](docs/ux-case-study.md).
+
 ## Tech Stack
 
 | Layer | Tech |
 | --- | --- |
-| Frontend | React 18 + Vite, CSS modules |
-| Auth/Data | Firebase Auth & Firestore |
-| Deployment | Vercel + GitHub Actions (CI & CodeQL) |
+| Frontend | React 18 + Vite, CSS |
+| Auth/Data | Firebase Auth + Firestore |
+| AI | API proxy at `/api/ai` |
+| Tooling | ESLint 9, Vite PWA plugin, GitHub Actions |
+| Hosting | Vercel (with GH Pages fallback workflow) |
 
 ## CI/CD Flow
 

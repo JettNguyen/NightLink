@@ -64,6 +64,28 @@ const sortEntriesDescending = (entries) => (
   })
 );
 
+const toMillis = (value) => {
+  if (!value) return 0;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  if (typeof value === 'object' && typeof value.toDate === 'function') {
+    try {
+      return value.toDate().getTime();
+    } catch {
+      return 0;
+    }
+  }
+  return 0;
+};
+
 const fetchProfilesByIds = async (ids = []) => {
   const uniqueIds = Array.from(new Set(ids.filter((id) => typeof id === 'string' && id.trim())));
   if (!uniqueIds.length) {
@@ -144,6 +166,12 @@ export default function useActivityPreview(viewerId, options = {}) {
   const [inboxError, setInboxError] = useState('');
   const [followingUpdates, setFollowingUpdates] = useState([]);
   const [followingLoading, setFollowingLoading] = useState(Boolean(viewerId));
+  const feedSeenAt = useMemo(() => (
+    Math.max(
+      toMillis(viewerProfile?.feedSeenAtMs),
+      toMillis(viewerProfile?.feedSeenAt)
+    )
+  ), [viewerProfile?.feedSeenAt, viewerProfile?.feedSeenAtMs]);
 
   useEffect(() => {
     if (!viewerId) {
@@ -313,6 +341,7 @@ export default function useActivityPreview(viewerId, options = {}) {
     unreadInboxCount,
     unreadActivityCount: unreadInboxCount,
     hasUnreadActivity,
-    latestFollowingTimestamp
+    latestFollowingTimestamp,
+    feedSeenAt
   };
 }
