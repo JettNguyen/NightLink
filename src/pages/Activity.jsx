@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faHeart } from '@fortawesome/free-solid-svg-icons';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { buildDreamPath, buildProfilePath } from '../utils/urlHelpers';
 import { markActivityEntryRead, removeActivityEntry } from '../services/ActivityService';
@@ -18,6 +20,13 @@ export default function Activity({ user, activityPreview }) {
     inboxLoading = Boolean(viewerId),
     inboxError = ''
   } = activityPreview || {};
+
+  const formatReactionEmoji = (emoji) => {
+    if (emoji === '💙') {
+      return <FontAwesomeIcon icon={faHeart} style={{ color: 'var(--primary)' }} />;
+    }
+    return emoji;
+  };
 
   const activityEntries = useMemo(() => (
     [...inboxEntries].sort((a, b) => {
@@ -102,14 +111,14 @@ export default function Activity({ user, activityPreview }) {
     } else if (entryType === 'commentReaction') {
       pillLabel = 'Reaction';
       headline = `${actorName} reacted to your comment in “${dreamTitle}”`;
-      bodyText = entry.emoji ? `Reaction: ${entry.emoji}` : bodyFallback;
+      bodyText = entry.emoji ? <span>Reaction: {formatReactionEmoji(entry.emoji)}</span> : bodyFallback;
     } else if (entryType === 'tag') {
       pillLabel = 'Tag';
-      headline = `${actorName} tagged you in “${dreamTitle}”`;
+      headline = `${actorName} tagged you in "${dreamTitle}"`;
     } else if (entryType === 'reaction') {
       pillLabel = 'Reaction';
-      headline = `${actorName} reacted to “${dreamTitle}”`;
-      bodyText = entry.emoji ? `Reaction: ${entry.emoji}` : bodyFallback;
+      headline = `${actorName} reacted to "${dreamTitle}"`;
+      bodyText = entry.emoji ? <span>Reaction: {formatReactionEmoji(entry.emoji)}</span> : bodyFallback;
     } else if (entryType === 'follow') {
       pillLabel = 'Follow';
       headline = `${actorName} followed you`;
