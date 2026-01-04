@@ -14,7 +14,7 @@
 - Comment on dreams
 - React to dreams and comments
 
-> Screens / clips live in [docs/ux-case-study.md](docs/ux-case-study.md).
+> See [docs/ux-case-study.md](docs/ux-case-study.md) to see why NightLink exists.
 
 ## Tech Stack
 

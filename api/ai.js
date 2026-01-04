@@ -35,7 +35,7 @@ const callOpenAI = async (text, key, customPrompt = null) => {
   const defaultSys = `You are a creative dream interpreter. Generate a short poetic title (2-4 words) and a brief themes paragraph. Use speculative language. Return only minified JSON: {"title":"string","themes":"string"}`;
   
   const sys = customPrompt 
-    ? `${customPrompt}\n\nAlso generate a short poetic title (2-4 words). Return only minified JSON: {"title":"string","themes":"string"}`
+    ? `${customPrompt}\n\nAlso generate a short poetic title (2-4 words). Return only minified JSON: {"title":"string","themes":"string"} where "themes" contains your full analysis.`
     : defaultSys;
 
   const res = await fetch(API_URL, {
@@ -47,7 +47,7 @@ const callOpenAI = async (text, key, customPrompt = null) => {
         { role: 'system', content: sys },
         { role: 'user', content: `Dream:\n"""${text}"""` }
       ],
-      max_tokens: 200,
+      max_tokens: 400,
       temperature: 0.7
     })
   });
