@@ -1,6 +1,9 @@
 # [NightLink](https://nightlink.dev)
 
-A dream journal and social network. Log your dreams, get AI-generated titles and summaries, and share with friends, family, or the world.
+[![Node.js CI](https://github.com/JettNguyen/NightLink/actions/workflows/ci.yml/badge.svg)](https://github.com/JettNguyen/NightLink/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/JettNguyen/NightLink/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/JettNguyen/NightLink/actions/workflows/github-code-scanning/codeql)
+
+> A dream journal and social network. Log your dreams, get AI-generated titles and summaries, and share with friends, family, or the world.
 
 ## Features
 
@@ -8,13 +11,23 @@ A dream journal and social network. Log your dreams, get AI-generated titles and
 - AI dream analysis (title and summary generation)
 - Social feed showing dreams from people you follow
 - User search and profile customization
+- Comment on dreams
+- React to dreams and comments
 
 ## Tech Stack
 
-- React 18 + Vite
-- Firebase Auth and Firestore
-- OpenAI API for dream analysis
-- Deployed on Vercel
+| Layer | Tech |
+| --- | --- |
+| Frontend | React 18 + Vite, CSS modules |
+| Auth/Data | Firebase Auth & Firestore |
+| Deployment | Vercel + GitHub Actions (CI & CodeQL) |
 
-[![Node.js CI](https://github.com/JettNguyen/NightLink/actions/workflows/ci.yml/badge.svg)](https://github.com/JettNguyen/NightLink/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/JettNguyen/NightLink/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/JettNguyen/NightLink/actions/workflows/github-code-scanning/codeql)
+## CI/CD Flow
+
+1. **GitHub Actions** – Lint + multi-node builds (18/20/22) per push.
+2. **CodeQL** – Security scanning for JavaScript/TypeScript.
+3. **Deploy** – Vercel hooks (GH Pages workflow available for static fallback).
+
+## License
+
+Released under the [MIT License](LICENSE).
