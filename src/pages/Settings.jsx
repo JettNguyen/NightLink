@@ -103,8 +103,9 @@ const sanitizePrompt = (raw) => {
   
   // eslint-disable-next-line no-control-regex
   let clean = raw
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
-    .replace(/\s+/g, ' ')
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+    .replace(/[<>]/g, '') // Remove HTML brackets to prevent injection
+    .replace(/\s+/g, ' ') // Normalize whitespace
     .trim()
     .slice(0, MAX_PROMPT_LENGTH);
   
