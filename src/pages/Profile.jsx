@@ -4,7 +4,7 @@ import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, limit, onSna
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
+import { faRightFromBracket, faPencil, faGear } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
@@ -798,14 +798,16 @@ export default function Profile({ user }) {
             {viewingOwnProfile && (
               <div className="profile-btn-row">
                 <button onClick={() => setIsEditing(true)} className="edit-profile-btn">
-                  Edit Profile
+                  <FontAwesomeIcon icon={faPencil} />
+                  <span>Edit Profile</span>
                 </button>
                 <button
                   type="button"
                   className="settings-btn"
                   onClick={() => navigate('/settings')}
                 >
-                  Settings
+                  <FontAwesomeIcon icon={faGear} />
+                  <span>Settings</span>
                 </button>
                 <button
                   type="button"

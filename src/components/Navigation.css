@@ -87,7 +87,6 @@
 
 .nav-icon {
   font-size: 1.25rem;
-  margin-bottom: 9px;
   color: currentColor;
   opacity: 1;
   max-height: 1.5em;
@@ -148,11 +147,13 @@
 .navigation-compact .nav-links {
   margin-top: 0;
   padding-bottom: 0px;
+  align-items: center;
 }
 
 .navigation-compact .nav-links a {
   flex-direction: row;
   gap: 0.4rem;
+  align-items: center;
 }
 
 .navigation-compact .nav-icon {
@@ -247,6 +248,7 @@
     padding: 0.25rem 0.3rem;
     gap: 0.15rem;
     flex-direction: row;
+    align-items: center;
   }
 
   .nav-icon {
@@ -313,6 +315,7 @@
 
   .navigation-compact .nav-links a {
     gap: 0.35rem;
+    align-items: center;
   }
 
   .navigation-compact .nav-icon {

@@ -123,7 +123,9 @@ function Navigation({ user, activityPreview }) {
 
         <div className="nav-links">
           <Link to="/journal" aria-label="Journal" className={isActive('/journal')}>
-            <FontAwesomeIcon icon={faBook} className="nav-icon" />
+            <span className="nav-icon-wrapper">
+              <FontAwesomeIcon icon={faBook} className="nav-icon" />
+            </span>
             <span className="nav-tab-label">Journal</span>
           </Link>
           <Link to="/feed" aria-label="Feed" className={isActive('/feed')} onClick={markFeedSeen}>
@@ -138,7 +140,9 @@ function Navigation({ user, activityPreview }) {
             <span className="nav-tab-label">Feed</span>
           </Link>
           <Link to="/search" aria-label="Search" className={isActive('/search')}>
-            <FontAwesomeIcon icon={faSearch} className="nav-icon" />
+            <span className="nav-icon-wrapper">
+              <FontAwesomeIcon icon={faSearch} className="nav-icon" />
+            </span>
             <span className="nav-tab-label">Search</span>
           </Link>
           <Link to="/activity" aria-label="Activity" className={isActive('/activity')}>
@@ -153,7 +157,9 @@ function Navigation({ user, activityPreview }) {
             <span className="nav-tab-label">Activity</span>
           </Link>
           <Link to="/profile" aria-label="Profile" className={isActive('/profile')}>
-            <FontAwesomeIcon icon={faUser} className="nav-icon" />
+            <span className="nav-icon-wrapper">
+              <FontAwesomeIcon icon={faUser} className="nav-icon" />
+            </span>
             <span className="nav-tab-label">Profile</span>
           </Link>
         </div>

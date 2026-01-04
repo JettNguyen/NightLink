@@ -26,12 +26,12 @@ const renderEmojiBadge = (symbol) => {
 };
 
 export default function ReactionInsightsModal({
-  open,
-  anchorRect,
-  title,
-  subtitle,
-  emoji,
-  entries
+  open = false,
+  anchorRect = null,
+  title = 'Reactions',
+  subtitle = '',
+  emoji = '',
+  entries = []
 }) {
   const safeEntries = Array.isArray(entries) ? entries : [];
   const cardRef = useRef(null);
@@ -218,13 +218,4 @@ ReactionInsightsModal.propTypes = {
     avatarBackground: PropTypes.string,
     avatarColor: PropTypes.string
   }))
-};
-
-ReactionInsightsModal.defaultProps = {
-  open: false,
-  anchorRect: null,
-  title: 'Reactions',
-  subtitle: '',
-  emoji: '',
-  entries: []
 };
