@@ -1394,6 +1394,8 @@ export default function DreamDetail({ user }) {
         } else {
           customPrompt = PROMPT_TEMPLATES[userPromptPreset] || PROMPT_TEMPLATES.balanced;
         }
+      } else if (promptKey === 'custom') {
+        customPrompt = userSettings?.aiPromptCustom || PROMPT_TEMPLATES.balanced;
       } else if (promptKey && PROMPT_TEMPLATES[promptKey]) {
         customPrompt = PROMPT_TEMPLATES[promptKey];
       }
@@ -1881,7 +1883,7 @@ export default function DreamDetail({ user }) {
                       disabled={reanalyzing}
                     >
                       <strong>Use my settings</strong>
-                      <span>({PROMPT_LABELS[userSettings?.aiPromptPreset] || 'Balanced guide'})</span>
+                      <span>({userSettings?.aiPromptPreset === 'custom' ? 'Custom prompt' : PROMPT_LABELS[userSettings?.aiPromptPreset] || 'Balanced guide'})</span>
                     </button>
                     <div className="prompt-options-grid">
                       {Object.keys(PROMPT_TEMPLATES).map((key) => (
@@ -1895,6 +1897,16 @@ export default function DreamDetail({ user }) {
                           {PROMPT_LABELS[key]}
                         </button>
                       ))}
+                      {userSettings?.aiPromptPreset === 'custom' && userSettings?.aiPromptCustom && (
+                        <button
+                          type="button"
+                          className="prompt-option-btn custom-prompt-option"
+                          onClick={() => handleReanalyze('custom')}
+                          disabled={reanalyzing}
+                        >
+                          My custom prompt
+                        </button>
+                      )}
                     </div>
                     <button
                       type="button"
