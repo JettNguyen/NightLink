@@ -209,10 +209,6 @@ export default function Settings({ user }) {
 
   const selectPreset = (id) => {
     update('aiPromptPreset', id);
-    if (id !== 'custom') {
-      update('aiPromptCustom', '');
-      setPromptError('');
-    }
   };
 
   const handleCustomPromptChange = (value) => {
