@@ -101,8 +101,8 @@ const MAX_PROMPT_LENGTH = 400;
 const sanitizePrompt = (raw) => {
   if (!raw || typeof raw !== 'string') return '';
   
-  // eslint-disable-next-line no-control-regex
   let clean = raw
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
     .replace(/[<>]/g, '') // Remove HTML brackets to prevent injection
     .replace(/\s+/g, ' ') // Normalize whitespace
