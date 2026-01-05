@@ -1,18 +1,21 @@
 import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { auth, db } from '../firebase';
 
 const activityCol = (uid) => collection(db, 'users', uid, 'activity');
 const activityDoc = (uid, id) => doc(db, 'users', uid, 'activity', id);
+const PUSHABLE_ACTIVITY_TYPES = new Set(['reaction', 'commentReaction']);
 
 export const logActivityEvent = async (targetId, payload = {}) => {
   if (!targetId || !payload.actorId || targetId === payload.actorId) return null;
   try {
-    return await addDoc(activityCol(targetId), {
+    const ref = await addDoc(activityCol(targetId), {
       ...payload,
       targetUserId: targetId,
       read: false,
       createdAt: serverTimestamp()
     });
+    triggerPushNotification(targetId, payload);
+    return ref;
   } catch (e) {
     console.error('Activity log failed', e);
     return null;
@@ -49,5 +52,34 @@ export const removeActivityEntry = async (uid, id) => {
   } catch (e) {
     console.error('Delete activity failed', e);
     return false;
+  }
+};
+
+const triggerPushNotification = async (targetId, payload = {}) => {
+  if (typeof window === 'undefined' || typeof fetch !== 'function') return;
+  if (!PUSHABLE_ACTIVITY_TYPES.has(payload.type)) return;
+  if (!targetId || !payload.actorId) return;
+  const currentUser = auth?.currentUser;
+  if (!currentUser || currentUser.uid !== payload.actorId) return;
+
+  try {
+    const idToken = await currentUser.getIdToken?.();
+    if (!idToken) return;
+
+    const response = await fetch('/api/notify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`
+      },
+      body: JSON.stringify({ targetUserId: targetId, payload })
+    });
+
+    if (!response.ok) {
+      const details = await response.text().catch(() => '');
+      console.error('Notification request failed', details);
+    }
+  } catch (error) {
+    console.error('Notification request failed', error);
   }
 };
