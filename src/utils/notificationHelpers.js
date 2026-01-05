@@ -10,7 +10,6 @@ import { db } from '../firebase';
  */
 export async function requestNotificationPermission(userId) {
   if (typeof window === 'undefined' || !messaging) {
-    console.warn('Firebase Messaging not supported in this browser');
     return null;
   }
 
@@ -19,7 +18,6 @@ export async function requestNotificationPermission(userId) {
     const permission = await Notification.requestPermission();
     
     if (permission !== 'granted') {
-      console.log('Notification permission denied');
       return null;
     }
 
@@ -28,7 +26,6 @@ export async function requestNotificationPermission(userId) {
     if (!registration) {
       registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
     }
-    console.log('Service Worker registered:', registration);
 
     // Get FCM token
     const token = await getToken(messaging, {
@@ -37,8 +34,6 @@ export async function requestNotificationPermission(userId) {
     });
 
     if (token) {
-      console.log('FCM Token:', token);
-      
       // Save token to user's profile in Firestore
       if (userId) {
         await updateDoc(doc(db, 'users', userId), {
@@ -51,7 +46,6 @@ export async function requestNotificationPermission(userId) {
       
       return token;
     } else {
-      console.log('No registration token available');
       return null;
     }
   } catch (error) {
@@ -89,13 +83,10 @@ export async function disableNotifications(userId) {
  */
 export function onForegroundMessage(callback) {
   if (!messaging) {
-    console.warn('Firebase Messaging not supported');
     return () => {};
   }
 
   return onMessage(messaging, (payload) => {
-    console.log('Foreground message received:', payload);
-    
     // Show browser notification
     if (Notification.permission === 'granted') {
       new Notification(payload.notification?.title || 'New notification', {

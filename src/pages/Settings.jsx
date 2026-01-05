@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
-import { useNavigate } from 'react-router-dom';
+import { EmailAuthProvider, linkWithCredential, updatePassword } from 'firebase/auth';
+import { auth, db } from '../firebase';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { firebaseUserPropType } from '../propTypes';
 import { areNotificationsSupported, disableNotifications, getNotificationPermission, requestNotificationPermission } from '../utils/notificationHelpers';
@@ -155,7 +155,6 @@ Toggle.defaultProps = {
 };
 
 export default function Settings({ user }) {
-  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -165,6 +164,13 @@ export default function Settings({ user }) {
   const [notificationPermission, setNotificationPermission] = useState(() => getNotificationPermission());
   const [notificationBusy, setNotificationBusy] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState('');
+  const [hasPasswordLogin, setHasPasswordLogin] = useState(() => (
+    user?.providerData?.some((p) => p.providerId === 'password') ?? false
+  ));
+  const [passwordForm, setPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordStatus, setPasswordStatus] = useState('');
   const savedRef = useRef(JSON.stringify(DEFAULT_SETTINGS));
 
   const uid = user?.uid || null;
@@ -215,6 +221,10 @@ export default function Settings({ user }) {
   }, []);
 
   useEffect(() => {
+    setHasPasswordLogin(user?.providerData?.some((p) => p.providerId === 'password') ?? false);
+  }, [user]);
+
+  useEffect(() => {
     if (!status) return undefined;
     const t = setTimeout(() => setStatus(''), 3000);
     return () => clearTimeout(t);
@@ -225,6 +235,12 @@ export default function Settings({ user }) {
     const t = setTimeout(() => setNotificationMessage(''), 4000);
     return () => clearTimeout(t);
   }, [notificationMessage]);
+
+  useEffect(() => {
+    if (!passwordStatus) return undefined;
+    const t = setTimeout(() => setPasswordStatus(''), 4000);
+    return () => clearTimeout(t);
+  }, [passwordStatus]);
 
   const [promptError, setPromptError] = useState('');
 
@@ -251,6 +267,11 @@ export default function Settings({ user }) {
     } else {
       setPromptError('');
     }
+  };
+
+  const handlePasswordField = (key, value) => {
+    setPasswordForm((prev) => ({ ...prev, [key]: value }));
+    setPasswordError('');
   };
 
   const handleNotificationsToggle = useCallback(async () => {
@@ -289,6 +310,54 @@ export default function Settings({ user }) {
       setNotificationBusy(false);
     }
   }, [uid, notificationBusy, notificationsSupported, settings.notificationsEnabled, update]);
+
+  const passwordRequirementsMet = useMemo(() => {
+    const next = passwordForm.newPassword.trim();
+    if (next.length < 8) return false;
+    return next === passwordForm.confirmPassword.trim();
+  }, [passwordForm.newPassword, passwordForm.confirmPassword]);
+
+  const handlePasswordSave = useCallback(async () => {
+    if (!auth.currentUser?.email) {
+      setPasswordError('This account is missing an email, so password login cannot be enabled.');
+      return;
+    }
+    const next = passwordForm.newPassword.trim();
+    const confirm = passwordForm.confirmPassword.trim();
+
+    if (next.length < 8) {
+      setPasswordError('Use at least 8 characters for your password.');
+      return;
+    }
+    if (next !== confirm) {
+      setPasswordError('Passwords do not match.');
+      return;
+    }
+
+    setPasswordBusy(true);
+    setPasswordError('');
+    setPasswordStatus('');
+    try {
+      if (hasPasswordLogin) {
+        await updatePassword(auth.currentUser, next);
+      } else {
+        const credential = EmailAuthProvider.credential(auth.currentUser.email, next);
+        await linkWithCredential(auth.currentUser, credential);
+        setHasPasswordLogin(true);
+      }
+      await auth.currentUser?.reload();
+      setPasswordStatus('Password saved. You can now sign in with your email or username again.');
+      setPasswordForm({ newPassword: '', confirmPassword: '' });
+    } catch (error) {
+      if (error.code === 'auth/requires-recent-login') {
+        setPasswordError('Please sign in again (e.g., with Google) and then retry updating the password.');
+      } else {
+        setPasswordError(error.message || 'Failed to update password.');
+      }
+    } finally {
+      setPasswordBusy(false);
+    }
+  }, [passwordForm, hasPasswordLogin]);
 
   const notificationPermissionLabel = useMemo(() => {
     if (notificationPermission === 'granted') return 'Permission granted';
@@ -522,6 +591,53 @@ export default function Settings({ user }) {
               {notificationMessage && (
                 <p className="notification-alert">{notificationMessage}</p>
               )}
+            </div>
+          </section>
+
+          <section className="settings-section">
+            <div className="settings-section-head">
+              <h2>Account access</h2>
+              <p>Keep Google sign-in and password login in sync.</p>
+            </div>
+            <div className="settings-section-body">
+              <p className="password-helper">
+                {hasPasswordLogin
+                  ? 'Password login is currently enabled. Update it anytime to keep your username/email credentials working.'
+                  : 'This account only has Google sign-in enabled. Set a password so you can continue to log in with your email or username.'}
+              </p>
+
+              <div className="password-fields">
+                <input
+                  type="password"
+                  placeholder="New password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => handlePasswordField('newPassword', e.target.value)}
+                  minLength={8}
+                  autoComplete="new-password"
+                />
+                <input
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => handlePasswordField('confirmPassword', e.target.value)}
+                  minLength={8}
+                  autoComplete="new-password"
+                />
+              </div>
+
+              <p className="password-hint">Use at least 8 characters. Passwords are stored securely by Firebase Authentication.</p>
+
+              {passwordError && <p className="password-error">{passwordError}</p>}
+              {passwordStatus && <p className="password-success">{passwordStatus}</p>}
+
+              <button
+                type="button"
+                className="primary-btn password-btn"
+                onClick={handlePasswordSave}
+                disabled={!passwordRequirementsMet || passwordBusy}
+              >
+                {passwordBusy ? 'Saving…' : hasPasswordLogin ? 'Update password' : 'Enable password login'}
+              </button>
             </div>
           </section>
         </div>

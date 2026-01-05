@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { createUserWithEmailAndPassword, fetchSignInMethodsForEmail, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { deleteDoc, doc, getDoc, runTransaction, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase';
 import './AuthPage.css';
@@ -128,11 +128,31 @@ export default function AuthPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
+    let mail = '';
     try {
-      const mail = await resolveEmail(identifier);
+      mail = await resolveEmail(identifier);
       await signInWithEmailAndPassword(auth, mail, password);
     } catch (e) {
-      setError(friendlyMsg(e));
+      const baseMsg = friendlyMsg(e);
+      let msg = baseMsg;
+      let hintNeeded = e?.code === 'auth/invalid-credential' || e?.code === 'auth/wrong-password';
+
+      if (mail) {
+        try {
+          const methods = await fetchSignInMethodsForEmail(auth, mail);
+          if (methods.includes('google.com')) {
+            hintNeeded = true;
+          }
+        } catch {
+          // ignore provider lookup errors; fall back to default message
+        }
+      }
+
+      if (hintNeeded) {
+        msg = `${baseMsg.replace(/\.$/, '')}. If you previously tapped Continue with Google, use that option first, then set a password in Settings → Account access.`;
+      }
+
+      setError(msg);
     }
     setLoading(false);
   };

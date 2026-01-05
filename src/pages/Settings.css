@@ -366,6 +366,49 @@
   color: #93c5fd;
 }
 
+.password-helper {
+  margin: 0 0 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.password-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.password-fields input {
+  width: 100%;
+  padding: 0.8rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+}
+
+.password-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.password-error {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: #f87171;
+}
+
+.password-success {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: #4ade80;
+}
+
+.password-btn {
+  margin-top: 0.9rem;
+}
+
 .action-buttons {
   display: flex;
   flex-wrap: wrap;
