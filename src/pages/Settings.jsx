@@ -5,11 +5,16 @@ import { db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { firebaseUserPropType } from '../propTypes';
+import { areNotificationsSupported, disableNotifications, getNotificationPermission, requestNotificationPermission } from '../utils/notificationHelpers';
 import './Settings.css';
 
 const DEFAULT_SETTINGS = {
   aiPromptPreset: 'balanced',
-  aiPromptCustom: ''
+  aiPromptCustom: '',
+  notificationsEnabled: false,
+  notifyDreamReminders: true,
+  notifyFeedUpdates: true,
+  notifyActivityAlerts: true
 };
 
 const PROMPT_PRESETS = [
@@ -103,9 +108,9 @@ const sanitizePrompt = (raw) => {
   
   let clean = raw
     // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
-    .replace(/[<>]/g, '') // Remove HTML brackets to prevent injection
-    .replace(/\s+/g, ' ') // Normalize whitespace
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+    .replace(/[<>]/g, '')
+    .replace(/\s+/g, ' ')
     .trim()
     .slice(0, MAX_PROMPT_LENGTH);
   
@@ -123,14 +128,15 @@ const isPromptSafe = (text) => {
   return !BLOCKED_PATTERNS.some((p) => p.test(text));
 };
 
-function Toggle({ checked, onChange, id }) {
+function Toggle({ checked, onChange, id, disabled }) {
   return (
-    <label className="toggle-switch" htmlFor={id}>
+    <label className={`toggle-switch${disabled ? ' is-disabled' : ''}`} htmlFor={id}>
       <input
         type="checkbox"
         id={id}
         checked={checked}
         onChange={onChange}
+        disabled={disabled}
       />
       <span className="toggle-track" />
     </label>
@@ -140,7 +146,12 @@ function Toggle({ checked, onChange, id }) {
 Toggle.propTypes = {
   checked: PropTypes.bool.isRequired,
   onChange: PropTypes.func.isRequired,
-  id: PropTypes.string.isRequired
+  id: PropTypes.string.isRequired,
+  disabled: PropTypes.bool
+};
+
+Toggle.defaultProps = {
+  disabled: false
 };
 
 export default function Settings({ user }) {
@@ -150,6 +161,10 @@ export default function Settings({ user }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
+  const [notificationsSupported, setNotificationsSupported] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState(() => getNotificationPermission());
+  const [notificationBusy, setNotificationBusy] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState('');
   const savedRef = useRef(JSON.stringify(DEFAULT_SETTINGS));
 
   const uid = user?.uid || null;
@@ -181,6 +196,10 @@ export default function Settings({ user }) {
         aiPromptCustom: incoming.aiPromptCustom ?? data.aiPromptPreference?.customPrompt ?? ''
       };
 
+      if (incoming.notifyReactions !== undefined && incoming.notifyActivityAlerts === undefined) {
+        merged.notifyActivityAlerts = incoming.notifyReactions;
+      }
+
       savedRef.current = JSON.stringify(merged);
       setSettings(merged);
     }, () => {
@@ -191,10 +210,21 @@ export default function Settings({ user }) {
   }, [uid]);
 
   useEffect(() => {
+    setNotificationsSupported(areNotificationsSupported());
+    setNotificationPermission(getNotificationPermission());
+  }, []);
+
+  useEffect(() => {
     if (!status) return undefined;
     const t = setTimeout(() => setStatus(''), 3000);
     return () => clearTimeout(t);
   }, [status]);
+
+  useEffect(() => {
+    if (!notificationMessage) return undefined;
+    const t = setTimeout(() => setNotificationMessage(''), 4000);
+    return () => clearTimeout(t);
+  }, [notificationMessage]);
 
   const [promptError, setPromptError] = useState('');
 
@@ -222,6 +252,49 @@ export default function Settings({ user }) {
       setPromptError('');
     }
   };
+
+  const handleNotificationsToggle = useCallback(async () => {
+    if (!uid || notificationBusy) return;
+    if (!notificationsSupported) {
+      setNotificationMessage('Push notifications are not supported in this browser.');
+      return;
+    }
+
+    setNotificationBusy(true);
+    setNotificationMessage('');
+
+    try {
+      if (!settings.notificationsEnabled) {
+        const token = await requestNotificationPermission(uid);
+        const permission = getNotificationPermission();
+        setNotificationPermission(permission);
+        if (token) {
+          update('notificationsEnabled', true);
+          setNotificationMessage('Notifications enabled for this device.');
+        } else if (permission === 'denied') {
+          setNotificationMessage('Permission blocked. Enable notifications in your browser settings to continue.');
+        } else {
+          setNotificationMessage('Could not enable notifications. Please try again.');
+        }
+      } else {
+        await disableNotifications(uid);
+        update('notificationsEnabled', false);
+        setNotificationPermission(getNotificationPermission());
+        setNotificationMessage('Notifications disabled for this device.');
+      }
+    } catch (error) {
+      console.error('Notification toggle failed', error);
+      setNotificationMessage('Something went wrong while updating notifications.');
+    } finally {
+      setNotificationBusy(false);
+    }
+  }, [uid, notificationBusy, notificationsSupported, settings.notificationsEnabled, update]);
+
+  const notificationPermissionLabel = useMemo(() => {
+    if (notificationPermission === 'granted') return 'Permission granted';
+    if (notificationPermission === 'denied') return 'Permission blocked';
+    return 'Permission pending';
+  }, [notificationPermission]);
 
   const resolvedPrompt = useMemo(() => {
     if (settings.aiPromptPreset === 'custom') {
@@ -301,7 +374,7 @@ export default function Settings({ user }) {
     <div className="page-container settings-page">
       <header className="settings-header">
         <h1>Settings</h1>
-        <p>Customize how AI interprets your dreams.</p>
+        <p>Customize your experience.</p>
       </header>
 
       <div className="settings-save-bar">
@@ -372,6 +445,83 @@ export default function Settings({ user }) {
                 <p className="preview-label">Active prompt</p>
                 <p className="preview-text">{resolvedPrompt}</p>
               </div>
+            </div>
+          </section>
+
+          <section className="settings-section">
+            <div className="settings-section-head">
+              <h2>Notifications</h2>
+              <p>Stay in the loop with morning reminders, feed drops, and activity alerts.</p>
+            </div>
+            <div className="settings-section-body">
+              <div className="notification-support">
+                <span className={`notification-chip${notificationsSupported ? ' success' : ' warn'}`}>
+                  {notificationsSupported ? 'Browser supports push' : 'Push not supported'}
+                </span>
+                <span className={`notification-chip${notificationPermission === 'granted' ? ' success' : notificationPermission === 'denied' ? ' warn' : ''}`}>
+                  {notificationPermissionLabel}
+                </span>
+              </div>
+
+              {!notificationsSupported && (
+                <p className="notification-hint">Push notifications require a modern browser with Service Worker support.</p>
+              )}
+
+              <div className="toggle-row">
+                <div className="toggle-label">
+                  <strong>Push notifications</strong>
+                  <span>Receive updates even when NightLink is closed.</span>
+                </div>
+                <Toggle
+                  id="notificationsEnabled"
+                  checked={settings.notificationsEnabled}
+                  onChange={handleNotificationsToggle}
+                  disabled={!notificationsSupported || notificationBusy}
+                />
+              </div>
+
+              <div className="toggle-row">
+                <div className="toggle-label">
+                  <strong>Dream reminders</strong>
+                  <span>Morning nudges to capture your dream journal while it&apos;s fresh.</span>
+                </div>
+                <Toggle
+                  id="notifyDreamReminders"
+                  checked={settings.notifyDreamReminders}
+                  onChange={() => toggle('notifyDreamReminders')}
+                  disabled={!settings.notificationsEnabled}
+                />
+              </div>
+
+              <div className="toggle-row">
+                <div className="toggle-label">
+                  <strong>New feed drops</strong>
+                  <span>Alerts when people you follow share new dreams or journal entries.</span>
+                </div>
+                <Toggle
+                  id="notifyFeedUpdates"
+                  checked={settings.notifyFeedUpdates}
+                  onChange={() => toggle('notifyFeedUpdates')}
+                  disabled={!settings.notificationsEnabled}
+                />
+              </div>
+
+              <div className="toggle-row">
+                <div className="toggle-label">
+                  <strong>Activity alerts</strong>
+                  <span>Followers, comments, and reactions—AI insights are never pushed.</span>
+                </div>
+                <Toggle
+                  id="notifyActivityAlerts"
+                  checked={settings.notifyActivityAlerts}
+                  onChange={() => toggle('notifyActivityAlerts')}
+                  disabled={!settings.notificationsEnabled}
+                />
+              </div>
+
+              {notificationMessage && (
+                <p className="notification-alert">{notificationMessage}</p>
+              )}
             </div>
           </section>
         </div>

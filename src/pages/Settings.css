@@ -5,7 +5,7 @@
 }
 
 .settings-page .settings-header {
-  margin-bottom: 1.75rem;
+  margin-bottom: 0rem;
 }
 
 .settings-page .settings-header h1 {
@@ -28,7 +28,7 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 0.75rem 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -203,6 +203,15 @@
   outline-offset: 2px;
 }
 
+.toggle-switch.is-disabled .toggle-track {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.toggle-switch.is-disabled .toggle-track::after {
+  box-shadow: none;
+}
+
 .prompt-options {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -317,6 +326,44 @@
   font-size: 0.9rem;
   line-height: 1.5;
   color: var(--text);
+}
+
+.notification-support {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.notification-chip {
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+}
+
+.notification-chip.success {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.35);
+}
+
+.notification-chip.warn {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.notification-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.notification-alert {
+  margin-top: 0.85rem;
+  font-size: 0.85rem;
+  color: #93c5fd;
 }
 
 .action-buttons {
