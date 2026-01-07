@@ -1857,7 +1857,7 @@ export default function DreamDetail({ user }) {
               <button
                 type="button"
                 className="primary-btn"
-                onClick={handleAnalyzeDream}
+                onClick={() => handleAnalyzeDream()}
                 disabled={analyzing}
               >
                 {analyzing ? 'Generating title & summary…' : 'Generate title & summary'}
