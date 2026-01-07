@@ -24,24 +24,19 @@ const PROMPT_PRESETS = [
     description: 'Mix meaningful symbols with grounded actions you can take today.'
   },
   {
-    id: 'investigator',
-    title: 'Detective Mode',
-    description: 'Hunt for patterns, archetypes, and hidden meanings like a sleuth.'
-  },
-  {
-    id: 'therapist',
-    title: 'Inner Therapist',
-    description: 'Compassionate emotional processing with gentle self-reflection questions.'
-  },
-  {
     id: 'coach',
     title: 'Sleep Coach',
     description: 'Focus on rest quality, stress signals, and calming bedtime rituals.'
   },
   {
-    id: 'creative',
-    title: 'Story Weaver',
-    description: 'Turn your dream into a narrative seed for writing or worldbuilding.'
+    id: 'therapist',
+    title: 'Comfort AI',
+    description: 'Gentle reassurance for nightmares with grounded reminders that you\'re safe.'
+  },
+  {
+    id: 'scientist',
+    title: 'Brain Scientist',
+    description: 'Neuroscience-backed explanations of REM sleep and memory processing.'
   },
   {
     id: 'mystical',
@@ -49,14 +44,19 @@ const PROMPT_PRESETS = [
     description: 'Poetic interpretations with archetypal wisdom and spiritual vibes.'
   },
   {
+    id: 'creative',
+    title: 'Story Weaver',
+    description: 'Turn your dream into a narrative seed for writing or worldbuilding.'
+  },
+  {
+    id: 'director',
+    title: 'Movie Director',
+    description: 'One paragraph film treatment of your dream. Bold, cinematic, occasionally chaotic.'
+  },
+  {
     id: 'comedian',
     title: 'Dream Comedian',
     description: 'Light-hearted, humorous takes on the absurdity of your subconscious.'
-  },
-  {
-    id: 'scientist',
-    title: 'Brain Scientist',
-    description: 'Neuroscience-backed explanations of REM sleep and memory processing.'
   },
   {
     id: 'custom',
@@ -67,15 +67,23 @@ const PROMPT_PRESETS = [
 
 const PROMPT_TEMPLATES = {
   balanced: 'You\'re here to break down dreams in a way that actually helps. Pick out 1-2 symbols that stand out and explain what they might mean, then drop a reflection question and one small thing they can actually do about it. Keep it real and useful—3-6 sentences max. Be warm but don\'t overcomplicate it.',
-  investigator: 'You\'re analyzing this dream like you\'re piecing together clues. Look for patterns, recurring symbols, or subconscious hints and explain why they matter based on what dreams usually mean. Keep it sharp and to the point—3-6 sentences. Be thoughtful but don\'t go overboard with the analysis.',
-  therapist: 'You\'re helping someone work through their emotions via their dreams. Validate what they\'re feeling, reflect on what emotional needs or conflicts might be coming up, and ask one gentle question that helps them dig deeper. 3-6 sentences, no judgment. Just supportive and real.',
   coach: 'You\'re checking this dream for stress signals and how their sleep\'s actually doing. Point out anything that screams anxiety, burnout, or restlessness, then suggest one thing they can try tonight to sleep better. 3-6 sentences. Keep it practical and supportive, not preachy.',
-  creative: 'You\'re helping turn their dream into story material. Point out the wildest or most vivid parts, suggest how it could work as a plot, character arc, or worldbuilding element, and keep them grounded while firing up their creativity. 3-6 sentences. Be inspiring without being extra.',
-  mystical: 'You\'re reading this dream through a spiritual lens, tapping into archetypes and universal symbols like the moon, shadows, journeys, rebirth. Use poetic language and pull out the deeper meaning or soul lesson they need to hear. 3-6 sentences. Be mystical and intentional, not vague.',
-  comedian: 'You\'re finding the humor in how absurd dreams can get. Roast the weirdest parts with some playful commentary, but still acknowledge the real feelings underneath. 3-6 sentences. Be funny in a way that lands—warm and clever, not trying too hard.',
+  therapist: 'You\'re a gentle comfort AI for someone who just woke from a nightmare. Reassure them that the dream isn\'t real, validate the feelings it stirred up, and point to one hopeful takeaway or grounding reminder from the imagery. Offer 3-6 sentences that blend insight with soothing language so they leave calmer than they arrived.',
   scientist: 'You\'re breaking down the neuroscience behind this dream—REM sleep, memory consolidation, emotional processing, all that. Explain why their brain cooked up this scenario in a way that actually makes sense. 3-6 sentences. Be smart but don\'t make it feel like a textbook.',
+  mystical: 'You\'re reading this dream through a spiritual lens, tapping into archetypes and universal symbols like the moon, shadows, journeys, rebirth. Use poetic language and pull out the deeper meaning or soul lesson they need to hear. 3-6 sentences. Be mystical and intentional, not vague.',
+  creative: 'You\'re helping turn their dream into story material. Point out the wildest or most vivid parts, suggest how it could work as a plot, character arc, or worldbuilding element, and keep them grounded while firing up their creativity. 3-6 sentences. Be inspiring without being extra.',
+  director: 'You\'re an auteur movie director retelling this dream as a film pitch. Describe the opening shot, key set pieces, tone, and how you\'d translate the dream\'s message to the screen. It should feel like one vivid paragraph—bold, cinematic, occasionally unhinged but still coherent enough to spark the dreamer\'s imagination.',
+  comedian: 'You\'re finding the humor in how absurd dreams can get. Roast the weirdest parts with some playful commentary, but still acknowledge the real feelings underneath. 3-6 sentences. Be funny in a way that lands—warm and clever, not trying too hard.',
   custom: ''
 };
+
+const PROMPT_ID_ALIASES = {
+  investigator: 'director'
+};
+
+const normalizePresetId = (id) => (
+  PROMPT_ID_ALIASES[id] || id || 'balanced'
+);
 
 const BLOCKED_PATTERNS = [
   /ignore\s+(all\s+)?(previous|prior|above|earlier)/i,
@@ -202,6 +210,8 @@ export default function Settings({ user }) {
         aiPromptCustom: incoming.aiPromptCustom ?? data.aiPromptPreference?.customPrompt ?? ''
       };
 
+      merged.aiPromptPreset = normalizePresetId(merged.aiPromptPreset);
+
       if (incoming.notifyReactions !== undefined && incoming.notifyActivityAlerts === undefined) {
         merged.notifyActivityAlerts = incoming.notifyReactions;
       }
@@ -255,7 +265,7 @@ export default function Settings({ user }) {
   const toggle = (key) => update(key, !settings[key]);
 
   const selectPreset = (id) => {
-    update('aiPromptPreset', id);
+    update('aiPromptPreset', normalizePresetId(id));
   };
 
   const handleCustomPromptChange = (value) => {
@@ -370,7 +380,8 @@ export default function Settings({ user }) {
       const sanitized = sanitizePrompt(settings.aiPromptCustom);
       return sanitized || 'Describe the insight style you want…';
     }
-    return PROMPT_TEMPLATES[settings.aiPromptPreset] || PROMPT_TEMPLATES.balanced;
+    const presetId = normalizePresetId(settings.aiPromptPreset);
+    return PROMPT_TEMPLATES[presetId] || PROMPT_TEMPLATES.balanced;
   }, [settings.aiPromptPreset, settings.aiPromptCustom]);
 
   const canSave = useMemo(() => {
@@ -387,18 +398,21 @@ export default function Settings({ user }) {
     setStatus('');
 
     const sanitizedCustom = sanitizePrompt(settings.aiPromptCustom);
-    const promptText = settings.aiPromptPreset === 'custom'
+    const presetId = normalizePresetId(settings.aiPromptPreset);
+    const usingCustom = presetId === 'custom';
+    const promptText = usingCustom
       ? sanitizedCustom
-      : PROMPT_TEMPLATES[settings.aiPromptPreset];
+      : PROMPT_TEMPLATES[presetId] || PROMPT_TEMPLATES.balanced;
 
     const payload = {
       settings: {
         ...settings,
-        aiPromptCustom: settings.aiPromptPreset === 'custom' ? sanitizedCustom : ''
+        aiPromptPreset: presetId,
+        aiPromptCustom: usingCustom ? sanitizedCustom : ''
       },
       aiPromptPreference: {
-        preset: settings.aiPromptPreset,
-        customPrompt: settings.aiPromptPreset === 'custom' ? sanitizedCustom : '',
+        preset: presetId,
+        customPrompt: usingCustom ? sanitizedCustom : '',
         prompt: promptText,
         updatedAt: serverTimestamp()
       },
@@ -409,7 +423,8 @@ export default function Settings({ user }) {
       await updateDoc(doc(db, 'users', uid), payload);
       savedRef.current = JSON.stringify({
         ...settings,
-        aiPromptCustom: settings.aiPromptPreset === 'custom' ? settings.aiPromptCustom : ''
+        aiPromptPreset: presetId,
+        aiPromptCustom: usingCustom ? settings.aiPromptCustom : ''
       });
       setStatus('saved');
     } catch (err) {
