@@ -73,7 +73,10 @@ const parse = (raw) => {
       const j = JSON.parse(t);
       title = j.title?.trim() || null;
       themes = j.themes?.trim() || null;
-    } catch { /* use regex fallback */ }
+    } catch (e) {
+      console.error('JSON parse error:', e.message);
+      // use regex fallback
+    }
   }
 
   if (!title) {

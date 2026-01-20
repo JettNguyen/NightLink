@@ -1351,8 +1351,9 @@ export default function DreamDetail({ user }) {
       let payload = null;
       try {
         payload = raw ? JSON.parse(raw) : null;
-      } catch {
-        payload = null;
+      } catch (parseError) {
+        console.error('Failed to parse AI response:', parseError, 'Raw response:', raw);
+        throw new Error('Invalid response from summary service.');
       }
 
       if (!response.ok) {
