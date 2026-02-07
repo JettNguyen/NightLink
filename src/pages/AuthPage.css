@@ -219,7 +219,6 @@
   flex-shrink: 0;
 }
 
-
 @keyframes authFade {
   from {
     opacity: 0;

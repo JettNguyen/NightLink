@@ -283,7 +283,6 @@
   .navigation:not(.navigation-compact) .nav-tab-label {
     display: block;
   }
-
 }
 
 @media (max-width: 620px) {

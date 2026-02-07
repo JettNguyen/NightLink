@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import LoadingIndicator from '../components/LoadingIndicator';
+import { ListSkeleton } from '../components/SkeletonLoader';
 import { buildDreamPath } from '../utils/urlHelpers';
 import './DreamJournal.css';
 import { firebaseUserPropType } from '../propTypes';
@@ -438,9 +439,7 @@ export default function DreamJournal({ user }) {
       {listenError && <div className="alert-banner">{listenError}</div>}
 
       {initialLoading ? (
-        <div className="dreams-loading loading-slot">
-          <LoadingIndicator label="Loading your dreams…" size="lg" />
-        </div>
+        <ListSkeleton count={4} />
       ) : dreams.length ? (
         <div className="dreams-list">
           {dreams.map((dream) => renderDreamCard(dream))}

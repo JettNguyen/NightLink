@@ -1,7 +1,13 @@
 .activity-page {
-  padding-top: 12px;
+  padding-top: 100px;
   display: flex;
   flex-direction: column;
+}
+
+@media (max-width: 768px) {
+  .activity-page {
+    padding-top: 12px;
+  }
 }
 
 .activity-head {
@@ -206,7 +212,7 @@
   gap: 0.35rem;
   cursor: pointer;
   font-size: 0.9rem;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 }
 
 .reaction-button.custom-emoji-trigger {
@@ -268,7 +274,7 @@
   padding: 0.3rem 0.9rem;
   font-size: 0.8rem;
   cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
 }
 
 .activity-clear-btn:hover:not(:disabled) {

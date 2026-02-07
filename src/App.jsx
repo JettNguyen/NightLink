@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { auth } from './firebase';
 import PropTypes from 'prop-types';
@@ -8,16 +8,28 @@ import DreamJournal from './pages/DreamJournal';
 import DreamDetail from './pages/DreamDetail';
 import Feed from './pages/Feed';
 import Navigation from './components/Navigation';
-import Profile from './pages/Profile';
-import Search from './pages/Search';
-import Activity from './pages/Activity';
-import Settings from './pages/Settings';
+import OfflineIndicator from './components/OfflineIndicator';
 import LoadingIndicator from './components/LoadingIndicator';
+import ErrorBoundary from './components/ErrorBoundary';
 import useActivityPreview from './hooks/useActivityPreview';
 import { firebaseUserPropType } from './propTypes';
 
+// Lazy load less critical pages
+const Profile = lazy(() => import('./pages/Profile'));
+const Search = lazy(() => import('./pages/Search'));
+const Activity = lazy(() => import('./pages/Activity'));
+const Settings = lazy(() => import('./pages/Settings'));
+
 function ProtectedRoute({ user, children }) {
   return user ? children : <Navigate to="/login" replace />;
+}
+
+function LazyRouteLoader() {
+  return (
+    <div className="lazy-route-loading">
+      <LoadingIndicator label="Loading…" size="md" />
+    </div>
+  );
 }
 
 function LegacyRedirect() {
@@ -49,6 +61,7 @@ function AppContent({ user, loading, ready }) {
 
   return (
     <div className="app">
+      <OfflineIndicator />
       {showNav && <Navigation user={user} activityPreview={activity} />}
       <main style={{ minHeight: '100vh' }}>
         <Routes>
@@ -59,13 +72,43 @@ function AppContent({ user, loading, ready }) {
           <Route path="/dream/:dreamId" element={wrap(DreamDetail)} />
           <Route path="/journal/:dreamId" element={<ProtectedRoute user={user}><LegacyRedirect /></ProtectedRoute>} />
           <Route path="/feed" element={wrap(Feed)} />
-          <Route path="/profile" element={wrap(Profile)} />
-          <Route path="/profile/:handle" element={wrap(Profile)} />
-          <Route path="/search" element={wrap(Search)} />
-          <Route path="/settings" element={wrap(Settings)} />
+          <Route path="/profile" element={
+            <ProtectedRoute user={user}>
+              <Suspense fallback={<LazyRouteLoader />}>
+                <Profile user={user} />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/profile/:handle" element={
+            <ProtectedRoute user={user}>
+              <Suspense fallback={<LazyRouteLoader />}>
+                <Profile user={user} />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/search" element={
+            <ProtectedRoute user={user}>
+              <Suspense fallback={<LazyRouteLoader />}>
+                <Search user={user} />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/settings" element={
+            <ProtectedRoute user={user}>
+              <Suspense fallback={<LazyRouteLoader />}>
+                <Settings user={user} />
+              </Suspense>
+            </ProtectedRoute>
+          } />
           <Route
             path="/activity"
-            element={<ProtectedRoute user={user}><Activity user={user} activityPreview={activity} /></ProtectedRoute>}
+            element={
+              <ProtectedRoute user={user}>
+                <Suspense fallback={<LazyRouteLoader />}>
+                  <Activity user={user} activityPreview={activity} />
+                </Suspense>
+              </ProtectedRoute>
+            }
           />
           <Route path="/notifications" element={<Navigate to="/activity" replace />} />
           <Route path="*" element={<Navigate to={home} replace />} />
@@ -98,7 +141,9 @@ function App() {
 
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AppContent user={user} loading={loading} ready={ready} />
+      <ErrorBoundary>
+        <AppContent user={user} loading={loading} ready={ready} />
+      </ErrorBoundary>
     </Router>
   );
 }

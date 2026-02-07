@@ -341,7 +341,7 @@ a {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  transition: border-color 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
 }
 
 .emoji-option:hover,
@@ -400,7 +400,6 @@ a {
   gap: 1rem;
 }
 
-/* Audience search controls */
 .audience-search-input {
   width: 100%;
   margin-bottom: 0.5rem;

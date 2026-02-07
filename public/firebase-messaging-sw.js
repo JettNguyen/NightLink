@@ -2,13 +2,11 @@
 /* global importScripts firebase clients */
 
 // Firebase Cloud Messaging Service Worker
-// This runs in the background and handles push notifications
 
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
 // Initialize Firebase in the service worker
-// Note: You'll need to replace these with your actual config values
 firebase.initializeApp({
   apiKey: "AIzaSyDGA6GVcDdzfnncfd_Nozv6W2Lykt1x53U",
   authDomain: "nightlink-3d3e8.firebaseapp.com",

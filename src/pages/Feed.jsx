@@ -10,6 +10,7 @@ import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } fr
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Feed.css';
 import LoadingIndicator from '../components/LoadingIndicator';
+import { ListSkeleton } from '../components/SkeletonLoader';
 import ReactionInsightsModal from '../components/ReactionInsightsModal';
 import updateDreamReaction from '../services/ReactionService';
 import fetchUserSummaries from '../services/UserService';
@@ -551,9 +552,7 @@ export default function Feed({ user }) {
           </button>
         </div>
       ) : loading ? (
-          <div className="feed-empty-card loading-slot">
-            <LoadingIndicator label="Loading your following feed…" size="md" />
-        </div>
+        <ListSkeleton count={3} />
       ) : visibleDreams.length === 0 ? (
         <div className="feed-empty-card">
           <p>No dreams from the people you follow yet.</p>

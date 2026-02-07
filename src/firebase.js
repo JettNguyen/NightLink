@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, persistentLocalCache } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getMessaging } from 'firebase/messaging';
 
@@ -24,7 +24,19 @@ if (missing.length) {
 const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Initialize Firestore with persistent offline cache (modern API)
+export const db = (() => {
+  try {
+    return initializeFirestore(app, {
+      cache: persistentLocalCache()
+    });
+  } catch (err) {
+    // Firestore already initialized in another module
+    return getFirestore(app);
+  }
+})();
+
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 

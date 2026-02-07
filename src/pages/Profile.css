@@ -45,6 +45,7 @@
 .avatar-circle:hover {
   box-shadow: var(--shadow-soft);
   border-color: var(--primary);
+  transition: 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .profile-info {
@@ -55,8 +56,6 @@
   font-size: 1.75rem;
   margin-bottom: 0.5rem;
 }
-
-
 
 .profile-username {
   color: var(--text-secondary);
@@ -237,7 +236,6 @@
   cursor: wait;
 }
 
-
 .stat-item {
   text-align: center;
   border-radius: 14px;
@@ -250,7 +248,6 @@
   flex: 1 1 0;
 }
 
-
 .stat-button {
   background: rgba(255, 255, 255, 0.04);
   color: inherit;
@@ -258,7 +255,6 @@
   cursor: pointer;
   transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
-
 
 .stat-button:hover {
   background: rgba(90, 200, 250, 0.08);
@@ -271,7 +267,6 @@
   outline-offset: 3px;
 }
 
-
 .stat-button[aria-expanded='true'] {
   background: rgba(90, 200, 250, 0.15);
   border-color: rgba(90, 200, 250, 0.45);
@@ -281,7 +276,6 @@
 .stat-button:active {
   box-shadow: var(--shadow-light);
 }
-
 
 .connection-panel-placeholder {
   color: var(--text-secondary);
