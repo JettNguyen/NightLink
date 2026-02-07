@@ -21,7 +21,7 @@ export default function OfflineIndicator() {
 
   return (
     <div className="offline-indicator" role="alert" aria-live="polite">
-      <span className="offline-indicator-text">You are offline • Changes will sync when you're back online</span>
+      <span className="offline-indicator-text">You are offline • Changes will sync when you&apos;re back online</span>
     </div>
   );
 }

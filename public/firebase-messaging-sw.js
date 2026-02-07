@@ -1,5 +1,4 @@
-/* eslint-env serviceworker */
-/* global importScripts firebase clients */
+/* global importScripts, firebase, clients */
 
 // Firebase Cloud Messaging Service Worker
 
