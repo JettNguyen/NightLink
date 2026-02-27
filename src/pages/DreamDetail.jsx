@@ -85,14 +85,16 @@ const canAccess = (dream, uid, author) => {
   if (!dream) return false;
   if (dream.userId === uid) return true;
   if (!uid) return false;
+
+  const vis = dream.visibility || 'private';
+  if (vis === 'private') return false;
   
   const excluded = dream.excludedViewerIds || [];
   if (excluded.includes(uid)) return false;
   
   const tagged = dream.taggedUserIds || [];
   if (tagged.includes(uid)) return true;
-  
-  const vis = dream.visibility || 'private';
+
   if (vis === 'public' || vis === 'anonymous') return true;
   
   const following = author?.followingIds || [];
@@ -2177,7 +2179,11 @@ export default function DreamDetail({ user }) {
                       ))}
                     </div>
                   ) : (
-                    <p className="detail-hint">Tagged dreamers will see this on their profile.</p>
+                    <p className="detail-hint">
+                      {dream?.visibility === 'private'
+                        ? 'Tags are for your own record on this private dream.'
+                        : 'Tagged dreamers will see this on their profile.'}
+                    </p>
                   )}
                 </div>
               </div>

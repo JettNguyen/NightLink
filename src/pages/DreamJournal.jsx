@@ -653,7 +653,11 @@ export default function DreamJournal({ user }) {
                     ))}
                   </div>
                 ) : (
-                  <p className="hint">Tagged dreamers will see this on their profile.</p>
+                  <p className="hint">
+                    {visibility === 'private'
+                      ? 'Tags are for your own record on this private dream.'
+                      : 'Tagged dreamers will see this on their profile.'}
+                  </p>
                 )}
               </div>
 

@@ -172,6 +172,9 @@ export default function Feed({ user }) {
     const filtered = rawDreams.filter((dream) => {
       if (!dream) return false;
       const visibility = dream.visibility || 'private';
+      if (visibility === 'private') {
+        return dream.userId === viewerId;
+      }
       if (viewerId && Array.isArray(dream.excludedViewerIds) && dream.excludedViewerIds.includes(viewerId)) {
         return false;
       }
@@ -195,10 +198,6 @@ export default function Feed({ user }) {
 
       if (visibility === 'followers') {
         return authorFollowerIds.includes(viewerId);
-      }
-
-      if (visibility === 'private') {
-        return dream.userId === viewerId;
       }
 
       return false;

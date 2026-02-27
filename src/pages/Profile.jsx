@@ -380,6 +380,10 @@ export default function Profile({ user }) {
   }, [viewerId, viewingOwnProfile, targetFollowingIds]);
   const viewerCanSeeTaggedDream = useCallback((dream) => {
     if (!dream) return false;
+    const visibility = dream.visibility || 'private';
+    if (visibility === 'private') {
+      return viewerId && dream.userId === viewerId;
+    }
     if (viewerId && Array.isArray(dream.excludedViewerIds) && dream.excludedViewerIds.includes(viewerId)) {
       return false;
     }
@@ -388,7 +392,6 @@ export default function Profile({ user }) {
       return true;
     }
     if (viewerId === targetUserId) return true;
-    const visibility = dream.visibility || 'private';
     if (visibility === 'public' || visibility === 'anonymous') return true;
     if ((visibility === 'following' || visibility === 'followers') && viewerId) {
       const authorFollowing = dream.authorProfile?.followingIds || [];
@@ -402,12 +405,15 @@ export default function Profile({ user }) {
     if (viewingOwnProfile) return dreams;
     return dreams.filter((dream) => {
       if (!dream) return false;
+      const visibility = dream.visibility || 'private';
+      if (visibility === 'private') {
+        return viewerId && dream.userId === viewerId;
+      }
       const excluded = viewerId && Array.isArray(dream.excludedViewerIds) && dream.excludedViewerIds.includes(viewerId);
       if (excluded) return false;
       if (viewerId && Array.isArray(dream.taggedUserIds) && dream.taggedUserIds.includes(viewerId)) {
         return true;
       }
-      const visibility = dream.visibility || 'private';
       if (visibility === 'public') return true;
       if ((visibility === 'following' || visibility === 'followers') && viewerFollowedByTarget) {
         return true;

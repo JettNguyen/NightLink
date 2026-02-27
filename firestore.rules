@@ -10,16 +10,22 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function userFollows(targetUserId) {
-      return isAuthenticated() && 
-        request.auth.uid in get(/databases/$(database)/documents/users/$(targetUserId)).data.followingIds;
+    function userIsInAuthorFollowing(authorUserId) {
+      return isAuthenticated() &&
+        request.auth.uid in get(/databases/$(database)/documents/users/$(authorUserId)).data.followingIds;
+    }
+
+    function userIsInAuthorFollowers(authorUserId) {
+      return isAuthenticated() &&
+        request.auth.uid in get(/databases/$(database)/documents/users/$(authorUserId)).data.followerIds;
     }
 
     function canReadDream(dreamData) {
-      return dreamData.visibility == 'public' ||
-        isOwner(dreamData.userId) ||
-        (dreamData.visibility == 'following' && userFollows(dreamData.userId)) ||
-        (dreamData.visibility == 'anonymous' && dreamData.visibility == 'anonymous');
+      return isOwner(dreamData.userId) ||
+        (dreamData.visibility == 'public') ||
+        (dreamData.visibility == 'anonymous') ||
+        (dreamData.visibility == 'following' && userIsInAuthorFollowing(dreamData.userId)) ||
+        (dreamData.visibility == 'followers' && userIsInAuthorFollowers(dreamData.userId));
     }
 
     // Users can read/write their own profile
