@@ -1,9 +1,21 @@
-# [NightLink](https://nightlink.dev)
+<p align="center">
+  <a href="https://nightlink.dev">
+    <img src="public/favicon.svg" alt="NightLink logo" width="88" height="88" />
+  </a>
+</p>
 
-[![Node.js CI](https://github.com/JettNguyen/NightLink/actions/workflows/ci.yml/badge.svg)](https://github.com/JettNguyen/NightLink/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/JettNguyen/NightLink/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/JettNguyen/NightLink/actions/workflows/github-code-scanning/codeql)
+<h1 align="center">
+  <a href="https://nightlink.dev">NightLink</a>
+</h1>
 
-> A dream journal and social network. Log your dreams, get AI-generated titles and summaries, and share with friends, family, or the world.
+<p align="center">
+  A dream journal and social network. Log your dreams, get AI-generated titles and summaries, and share with friends, family, or the world.
+</p>
+
+<p align="center">
+  <a href="https://github.com/JettNguyen/NightLink/actions/workflows/ci.yml"><img src="https://github.com/JettNguyen/NightLink/actions/workflows/ci.yml/badge.svg" alt="Node.js CI" /></a>
+  <a href="https://github.com/JettNguyen/NightLink/actions/workflows/github-code-scanning/codeql"><img src="https://github.com/JettNguyen/NightLink/actions/workflows/github-code-scanning/codeql/badge.svg" alt="CodeQL" /></a>
+</p>
 
 ## Features
 
