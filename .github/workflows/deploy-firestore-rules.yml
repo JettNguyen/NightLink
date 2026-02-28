@@ -2,6 +2,7 @@ name: Deploy Firestore Rules
 
 permissions:
   contents: read
+  id-token: write
 
 on:
   push:
@@ -20,6 +21,11 @@ concurrency:
 jobs:
   deploy-firestore-rules:
     runs-on: ubuntu-latest
+    env:
+      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID || secrets.VITE_FIREBASE_PROJECT_ID || 'nightlink-3d3e8' }}
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
     steps:
       - name: Checkout repository
@@ -30,13 +36,36 @@ jobs:
         with:
           node-version: 20
 
-      - name: Authenticate to Google Cloud
+      - name: Validate auth configuration
+        run: |
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "Using FIREBASE_SERVICE_ACCOUNT credentials_json auth."
+            exit 0
+          fi
+
+          if [ -n "$GCP_WORKLOAD_IDENTITY_PROVIDER" ] && [ -n "$GCP_SERVICE_ACCOUNT_EMAIL" ]; then
+            echo "Using Workload Identity Federation auth."
+            exit 0
+          fi
+
+          echo "Missing auth secrets. Set FIREBASE_SERVICE_ACCOUNT, or set both GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT_EMAIL."
+          exit 1
+
+      - name: Authenticate to Google Cloud (Service Account JSON)
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          credentials_json: ${{ env.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Authenticate to Google Cloud (Workload Identity)
+        if: env.FIREBASE_SERVICE_ACCOUNT == '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && env.GCP_SERVICE_ACCOUNT_EMAIL != ''
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT_EMAIL }}
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
       - name: Deploy Firestore rules
-        run: firebase deploy --only firestore:rules --project "${{ secrets.VITE_FIREBASE_PROJECT_ID }}"
+        run: firebase deploy --only firestore:rules --project "$FIREBASE_PROJECT_ID"
