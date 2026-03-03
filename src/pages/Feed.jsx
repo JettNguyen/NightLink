@@ -124,16 +124,20 @@ export default function Feed({ user }) {
     setLoading(true);
     setError('');
     const chunkResults = new Map();
-    const chunks = chunkArray(followingIds);
-    const unsubscribes = chunks.map((chunk) => {
-      const friendQuery = query(
-        collection(db, 'dreams'),
-        where('userId', 'in', chunk),
-        orderBy('createdAt', 'desc'),
-        limit(20)
-      );
+    const unsubscribes = [];
+    const mergeChunkResults = () => {
+      const merged = Array.from(chunkResults.values()).flat();
+      const byId = new Map();
+      merged.forEach((dream) => {
+        byId.set(dream.id, dream);
+      });
+      const candidates = Array.from(byId.values()).filter((dream) => ['anonymous', 'public', 'following', 'followers'].includes(dream.visibility));
+      setRawDreams(candidates);
+      setLoading(false);
+    };
 
-      return onSnapshot(friendQuery, (snapshot) => {
+    const attachDreamSnapshot = (resultKey, dreamQuery) => {
+      const unsubscribe = onSnapshot(dreamQuery, (snapshot) => {
         const docs = snapshot.docs.map((docSnap) => {
           const data = docSnap.data();
           const createdAt = data.createdAt?.toDate?.() ?? data.createdAt ?? null;
@@ -145,26 +149,82 @@ export default function Feed({ user }) {
           };
         });
 
-        chunkResults.set(chunk.join(','), docs);
-        const merged = Array.from(chunkResults.values()).flat();
-        const byId = new Map();
-        merged.forEach((dream) => {
-          byId.set(dream.id, dream);
-        });
-        const candidates = Array.from(byId.values()).filter((dream) => ['anonymous', 'public', 'following', 'followers'].includes(dream.visibility));
-        setRawDreams(candidates);
-        setLoading(false);
+        chunkResults.set(resultKey, docs);
+        mergeChunkResults();
       }, () => {
         setError('Unable to load your following feed right now.');
         setLoading(false);
       });
+
+      unsubscribes.push(unsubscribe);
+    };
+
+    const followedChunks = chunkArray(followingIds);
+    followedChunks.forEach((chunk, index) => {
+      const publicQuery = query(
+        collection(db, 'dreams'),
+        where('userId', 'in', chunk),
+        where('visibility', '==', 'public'),
+        orderBy('createdAt', 'desc'),
+        limit(20)
+      );
+      const anonymousQuery = query(
+        collection(db, 'dreams'),
+        where('userId', 'in', chunk),
+        where('visibility', '==', 'anonymous'),
+        orderBy('createdAt', 'desc'),
+        limit(20)
+      );
+      attachDreamSnapshot(`public:${index}`, publicQuery);
+      attachDreamSnapshot(`anonymous:${index}`, anonymousQuery);
     });
+
+    const followingVisibleAuthors = followingIds.filter((authorId) => {
+      const profile = followingProfiles[authorId];
+      const authorFollowingIds = Array.isArray(profile?.followingIds) ? profile.followingIds : [];
+      return viewerId && authorFollowingIds.includes(viewerId);
+    });
+
+    const followersVisibleAuthors = followingIds.filter((authorId) => {
+      const profile = followingProfiles[authorId];
+      const authorFollowerIds = Array.isArray(profile?.followerIds) ? profile.followerIds : [];
+      return viewerId && authorFollowerIds.includes(viewerId);
+    });
+
+    chunkArray(followingVisibleAuthors).forEach((chunk, index) => {
+      if (!chunk.length) return;
+      const followingOnlyQuery = query(
+        collection(db, 'dreams'),
+        where('userId', 'in', chunk),
+        where('visibility', '==', 'following'),
+        orderBy('createdAt', 'desc'),
+        limit(20)
+      );
+      attachDreamSnapshot(`following:${index}`, followingOnlyQuery);
+    });
+
+    chunkArray(followersVisibleAuthors).forEach((chunk, index) => {
+      if (!chunk.length) return;
+      const followersOnlyQuery = query(
+        collection(db, 'dreams'),
+        where('userId', 'in', chunk),
+        where('visibility', '==', 'followers'),
+        orderBy('createdAt', 'desc'),
+        limit(20)
+      );
+      attachDreamSnapshot(`followers:${index}`, followersOnlyQuery);
+    });
+
+    if (!unsubscribes.length) {
+      setRawDreams([]);
+      setLoading(false);
+    }
 
     return () => {
       chunkResults.clear();
       unsubscribes.forEach((unsubscribe) => unsubscribe());
     };
-  }, [followingIds]);
+  }, [followingIds, followingProfiles, viewerId]);
 
   const visibleDreams = useMemo(() => {
     if (!rawDreams.length) return [];
