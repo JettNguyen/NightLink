@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { collection, doc, query, where, orderBy, limit, onSnapshot, documentId } from 'firebase/firestore';
+import { collection, doc, query, where, orderBy, limit, onSnapshot, documentId, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -123,6 +123,7 @@ export default function Feed({ user }) {
 
     setLoading(true);
     setError('');
+    let cancelled = false;
     const chunkResults = new Map();
     const unsubscribes = [];
     const mergeChunkResults = () => {
@@ -137,23 +138,44 @@ export default function Feed({ user }) {
     };
 
     const attachDreamSnapshot = (resultKey, dreamQuery) => {
+      const parseSnapshotEntries = (snapshot) => snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        const createdAt = data.createdAt?.toDate?.() ?? data.createdAt ?? null;
+        return {
+          id: docSnap.id,
+          ...data,
+          visibility: data.visibility || 'private',
+          createdAt
+        };
+      });
+
       const unsubscribe = onSnapshot(dreamQuery, (snapshot) => {
-        const docs = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data();
-          const createdAt = data.createdAt?.toDate?.() ?? data.createdAt ?? null;
-          return {
-            id: docSnap.id,
-            ...data,
-            visibility: data.visibility || 'private',
-            createdAt
-          };
-        });
+        if (cancelled) return;
+        const docs = parseSnapshotEntries(snapshot);
 
         chunkResults.set(resultKey, docs);
         mergeChunkResults();
-      }, () => {
-        setError('Unable to load your following feed right now.');
-        setLoading(false);
+      }, (snapshotError) => {
+        if (cancelled) return;
+        if (snapshotError?.code === 'permission-denied') {
+          chunkResults.set(resultKey, []);
+          mergeChunkResults();
+          return;
+        }
+
+        (async () => {
+          try {
+            const fallbackSnapshot = await getDocs(dreamQuery);
+            if (cancelled) return;
+            const fallbackDocs = parseSnapshotEntries(fallbackSnapshot);
+            chunkResults.set(resultKey, fallbackDocs);
+            mergeChunkResults();
+          } catch {
+            if (cancelled) return;
+            setError('Unable to load your following feed right now.');
+            setLoading(false);
+          }
+        })();
       });
 
       unsubscribes.push(unsubscribe);
@@ -221,6 +243,7 @@ export default function Feed({ user }) {
     }
 
     return () => {
+      cancelled = true;
       chunkResults.clear();
       unsubscribes.forEach((unsubscribe) => unsubscribe());
     };

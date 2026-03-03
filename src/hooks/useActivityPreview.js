@@ -3,6 +3,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
@@ -243,6 +244,7 @@ export default function useActivityPreview(viewerId, options = {}) {
     let cancelled = false;
     let refreshToken = 0;
     const chunkSnapshots = new Map();
+    const unsubscribes = [];
 
     const recomputeFollowing = async () => {
       const requestId = ++refreshToken;
@@ -271,38 +273,102 @@ export default function useActivityPreview(viewerId, options = {}) {
       }
     };
 
-    const chunks = chunkList(followingIds, FOLLOWING_CHUNK_SIZE);
-
     const dreamsRef = collection(db, 'dreams');
-    const unsubscribes = chunks.map((chunk, index) => {
-      const chunkKey = `chunk-${index}`;
-      const chunkQuery = query(
-        dreamsRef,
-        where('userId', 'in', chunk),
-        orderBy('createdAt', 'desc'),
-        limit(FOLLOWING_PER_CHUNK)
-      );
-
-      return onSnapshot(chunkQuery, (snapshot) => {
+    const attachDreamSnapshot = (chunkKey, chunkQuery) => {
+      const unsubscribe = onSnapshot(chunkQuery, (snapshot) => {
         if (cancelled) return;
-        const entries = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() || {};
-          const createdAt = data.createdAt?.toDate?.() ?? null;
-          const updatedAt = data.updatedAt?.toDate?.() ?? createdAt;
-          return {
-            id: docSnap.id,
-            ...data,
-            createdAt,
-            updatedAt
-          };
-        });
+        const entries = snapshot.docs.map(parseDreamSnapshot);
         chunkSnapshots.set(chunkKey, entries);
         recomputeFollowing();
       }, (error) => {
-        console.error('Following feed snapshot failed', error);
-        chunkSnapshots.delete(chunkKey);
-        recomputeFollowing();
+        if (error?.code === 'permission-denied') {
+          chunkSnapshots.delete(chunkKey);
+          recomputeFollowing();
+          return;
+        }
+
+        (async () => {
+          try {
+            const fallbackSnapshot = await getDocs(chunkQuery);
+            if (cancelled) return;
+            const entries = fallbackSnapshot.docs.map(parseDreamSnapshot);
+            chunkSnapshots.set(chunkKey, entries);
+            recomputeFollowing();
+          } catch (fallbackError) {
+            if (cancelled) return;
+            console.error('Following feed snapshot failed', fallbackError);
+            chunkSnapshots.delete(chunkKey);
+            recomputeFollowing();
+          }
+        })();
       });
+
+      unsubscribes.push(unsubscribe);
+    };
+
+    const attachVisibilitySnapshots = (ids, visibility, prefix) => {
+      const chunks = chunkList(ids, FOLLOWING_CHUNK_SIZE);
+      chunks.forEach((chunk, index) => {
+        const chunkQuery = query(
+          dreamsRef,
+          where('userId', 'in', chunk),
+          where('visibility', '==', visibility),
+          orderBy('createdAt', 'desc'),
+          limit(FOLLOWING_PER_CHUNK)
+        );
+        attachDreamSnapshot(`${prefix}-${index}`, chunkQuery);
+      });
+    };
+
+    const bootstrapFollowingSnapshots = async () => {
+      const publicAndAnonymousChunks = chunkList(followingIds, FOLLOWING_CHUNK_SIZE);
+      publicAndAnonymousChunks.forEach((chunk, index) => {
+        const publicQuery = query(
+          dreamsRef,
+          where('userId', 'in', chunk),
+          where('visibility', '==', 'public'),
+          orderBy('createdAt', 'desc'),
+          limit(FOLLOWING_PER_CHUNK)
+        );
+        const anonymousQuery = query(
+          dreamsRef,
+          where('userId', 'in', chunk),
+          where('visibility', '==', 'anonymous'),
+          orderBy('createdAt', 'desc'),
+          limit(FOLLOWING_PER_CHUNK)
+        );
+        attachDreamSnapshot(`public-${index}`, publicQuery);
+        attachDreamSnapshot(`anonymous-${index}`, anonymousQuery);
+      });
+
+      const ownerProfiles = await fetchProfilesByIds(followingIds);
+      if (cancelled) return;
+
+      const followingVisibleIds = followingIds.filter((authorId) => {
+        const authorFollowingIds = normalizeIdList(ownerProfiles[authorId]?.followingIds);
+        return authorFollowingIds.includes(viewerId);
+      });
+
+      const followerVisibleIds = followingIds.filter((authorId) => {
+        const authorFollowerIds = normalizeIdList(ownerProfiles[authorId]?.followerIds);
+        return authorFollowerIds.includes(viewerId);
+      });
+
+      attachVisibilitySnapshots(followingVisibleIds, 'following', 'following');
+      attachVisibilitySnapshots(followerVisibleIds, 'followers', 'followers');
+
+      if (unsubscribes.length === 0) {
+        setFollowingUpdates([]);
+        setFollowingLoading(false);
+      }
+    };
+
+    bootstrapFollowingSnapshots().catch((error) => {
+      console.error('Failed to start following snapshots', error);
+      if (!cancelled) {
+        setFollowingUpdates([]);
+        setFollowingLoading(false);
+      }
     });
 
     return () => {
