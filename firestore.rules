@@ -63,6 +63,27 @@ service cloud.firestore {
       allow write: if isOwner(userId) || canMutateFollowerIdsBySelf();
     }
 
+    // Username index used for signup/signin lookup
+    match /usernames/{normalizedUsername} {
+      allow read: if true;
+
+      // Pre-auth reservation step during email signup
+      allow create: if request.auth == null &&
+        request.resource.data.keys().hasOnly(['normalizedUsername', 'reservedAt']) &&
+        request.resource.data.normalizedUsername == normalizedUsername &&
+        normalizedUsername.matches('^[a-z0-9_]{3,20}$');
+
+      // Claim/update username to a specific authenticated uid
+      allow update: if isAuthenticated() &&
+        request.resource.data.keys().hasOnly(['normalizedUsername', 'reservedAt', 'uid', 'username', 'email', 'updatedAt']) &&
+        request.resource.data.normalizedUsername == normalizedUsername &&
+        request.resource.data.uid == request.auth.uid &&
+        (resource.data.uid == null || resource.data.uid == request.auth.uid);
+
+      // Allow cleanup of unclaimed reservations and owner-managed deletes
+      allow delete: if resource.data.uid == null || (isAuthenticated() && resource.data.uid == request.auth.uid);
+    }
+
     // Dreams: visibility-based access control
     match /dreams/{dreamId} {
       allow read: if canReadDream(resource.data);

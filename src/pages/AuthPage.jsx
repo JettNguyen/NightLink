@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createUserWithEmailAndPassword, fetchSignInMethodsForEmail, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { createUserWithEmailAndPassword, fetchSignInMethodsForEmail, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
 import { deleteDoc, doc, getDoc, runTransaction, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase';
 import './AuthPage.css';
@@ -162,22 +162,24 @@ export default function AuthPage() {
     setLoading(true);
     try {
       const { user } = await signInWithPopup(auth, googleProvider);
-      
+      let provisioned = false;
+
       // Check if user profile exists
       const userDoc = await getDoc(doc(db, 'users', user.uid));
-      
+
       if (!userDoc.exists()) {
         // First-time Google sign-in - create profile with auto-generated username
-        const baseUsername = user.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
+        const emailPrefix = user.email?.split('@')[0] || 'dreamer';
+        const baseUsername = emailPrefix.replace(/[^a-zA-Z0-9_]/g, '_') || 'dreamer';
         let username = baseUsername;
         let counter = 1;
-        
+
         // Find available username
         while (true) {
           const normalized = username.toLowerCase();
           const usernameDoc = await getDoc(doc(db, 'usernames', normalized));
           if (!usernameDoc.exists()) {
-            // Reserve this username
+            // Claim this username
             await setDoc(doc(db, 'usernames', normalized), {
               uid: user.uid,
               username,
@@ -185,23 +187,42 @@ export default function AuthPage() {
               email: user.email,
               updatedAt: serverTimestamp()
             });
+
+            // Create user profile
+            await createProfile(user, {
+              email: user.email,
+              displayName: user.displayName || username,
+              username,
+              normalizedUsername: username.toLowerCase(),
+              isAnonymous: false,
+              photoURL: user.photoURL || null
+            });
+
+            provisioned = true;
             break;
           }
           username = `${baseUsername}${counter}`;
           counter++;
+
+          if (counter > 5000) {
+            throw new Error('Unable to allocate username. Please try again.');
+          }
         }
-        
-        // Create user profile
-        await createProfile(user, {
-          email: user.email,
-          displayName: user.displayName || username,
-          username,
-          normalizedUsername: username.toLowerCase(),
-          isAnonymous: false,
-          photoURL: user.photoURL || null
-        });
+      } else {
+        provisioned = true;
+      }
+
+      if (!provisioned) {
+        throw new Error('Unable to finish account setup.');
       }
     } catch (e) {
+      if (auth.currentUser) {
+        try {
+          await signOut(auth);
+        } catch {
+          // Ignore sign-out errors and keep original message
+        }
+      }
       setError(friendlyMsg(e));
     }
     setLoading(false);
