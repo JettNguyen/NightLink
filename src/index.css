@@ -192,28 +192,26 @@ a {
 }
 
 .pill {
-  min-height: 100dvh;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0.35rem 0.8rem;
+  padding: 0.25rem 0.6rem;
   border-radius: 100px;
-  min-height: 100dvh;
   color: var(--text-secondary);
   font-size: 0.9rem;
   border: 1px solid var(--border);
+  line-height: 1;
 }
 
-  
 .pill-active {
-  background: rgba(90, 200, 350, 0.1);
+  background: rgba(90, 200, 250, 0.1);
   color: var(--text);
   border-color: var(--primary);
   box-shadow: var(--glow-primary);
-  min-height: 100dvh;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
+  padding: 0.25rem 0.8rem;
 }
 
 *:not(input):not(textarea) {
