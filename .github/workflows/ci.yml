@@ -23,7 +23,7 @@ jobs:
         # Node 18.x removed due to dependency requirements for Node 20+
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v6
       with:
