@@ -7,6 +7,8 @@
 }
 
 :root {
+  --safe-area-inset-top: env(safe-area-inset-top);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom);
   --primary: #5abcea;
   --primary-strong: #0a68ff;
   --accent: #ffc266;
@@ -35,13 +37,13 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: linear-gradient(180deg, #060811 0%, #0b0f1a 55%, #060811 100%);
   background-color: #05070f;
-  background-attachment: fixed;
+  background-attachment: scroll;
   position: relative;
   color: var(--text);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  min-height: 100vh;
+  min-height: 100dvh;
   overscroll-behavior: contain;
 }
 
@@ -59,7 +61,7 @@ body {
 }
 
 #root {
-  min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   z-index: 2;
 }
@@ -190,23 +192,44 @@ a {
 }
 
 .pill {
-  display: inline-flex;
+  min-height: 100dvh;
   align-items: center;
   gap: 6px;
   padding: 0.35rem 0.8rem;
   border-radius: 100px;
-  background: var(--surface-muted);
+  min-height: 100dvh;
   color: var(--text-secondary);
   font-size: 0.9rem;
   border: 1px solid var(--border);
 }
 
+  
 .pill-active {
-  background: rgba(90, 200, 250, 0.18);
+  background: rgba(90, 200, 350, 0.1);
   color: var(--text);
   border-color: var(--primary);
   box-shadow: var(--glow-primary);
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
 }
+
+*:not(input):not(textarea) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a, [role="button"] {
+  touch-action: manipulation;
+}
+
+.primary-btn, .secondary-btn, .ghost-btn {
+  min-height: 44px;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
 
 .card-shell {
   background: rgba(255, 255, 255, 0.04);
@@ -240,7 +263,7 @@ a {
 }
 
 .app-loading-shell {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -278,6 +301,13 @@ a {
   flex-wrap: wrap;
   gap: 0.35rem;
   margin: 0.5rem 0;
+}
+
+.reaction-popover-list,
+.modal-content,
+.search-results,
+.app-loading-shell {
+  -webkit-overflow-scrolling: touch;
 }
 
 .reaction-chip {

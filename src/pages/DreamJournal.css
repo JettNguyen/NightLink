@@ -242,7 +242,8 @@
   padding: 1.85rem;
   width: 92%;
   max-width: 640px;
-  max-height: 92vh;
+  max-height: 92dvh;
+  padding-bottom: calc(1.85rem + env(safe-area-inset-bottom));
   overflow: auto;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-soft);

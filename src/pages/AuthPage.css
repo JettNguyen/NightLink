@@ -1,14 +1,14 @@
 .auth-page {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1.5rem 3rem;
+  padding: 2rem 1.5rem calc(3rem + env(safe-area-inset-bottom));
   background: radial-gradient(circle at 100% 100%, rgba(90, 200, 250, 0.1), transparent 45%),
     radial-gradient(circle at 80% 0%, rgba(10, 132, 255, 0.1), transparent 55%),
     var(--background);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .auth-page::before {

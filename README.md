@@ -25,8 +25,26 @@
 - User search and profile customization
 - Comment on dreams
 - React to dreams and comments
+- PWA compatability
 
 > See [docs/ux-case-study.md](docs/ux-case-study.md) to see why NightLink exists.
+
+## Use as a Progressive Web App (PWA)
+
+**iOS:**
+
+- Go to the website on an iPhone
+- Press the ```Share``` icon
+- Select ```Add to Home Screen```
+- Ensure ```Open as Web App``` is toggled "On"
+- Add
+
+**Android:**
+
+- Go to the website on an Andoid device
+- Click the three dots to open the browser menu
+- Select ```Add to home screen```
+- Press ```Install```
 
 ## Tech Stack
 

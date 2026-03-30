@@ -63,7 +63,7 @@ function AppContent({ user, loading, ready }) {
     <div className="app">
       <OfflineIndicator />
       {showNav && <Navigation user={user} activityPreview={activity} />}
-      <main style={{ minHeight: '100vh' }}>
+    <main style={{ minHeight: '100dvh', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <Routes>
           <Route path="/" element={<Navigate to={home} replace />} />
           <Route path="/login" element={user ? <Navigate to="/journal" replace /> : <AuthPage />} />

@@ -2,12 +2,13 @@
   position: fixed;
   z-index: 1200;
   pointer-events: none;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .reaction-popover-card {
   pointer-events: auto;
   width: min(360px, 90vw);
-  max-height: 320px;
+  max-height: calc(100dvh - 160px);
   border-radius: 18px;
   background: rgba(15, 21, 36, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.08);
