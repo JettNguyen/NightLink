@@ -191,12 +191,18 @@ export default function Profile({ user }) {
   useEffect(() => {
     if (!targetUserId) return undefined;
 
-    const dreamsQuery = query(
-      collection(db, 'dreams'),
-      where('userId', '==', targetUserId),
-      orderBy('createdAt', 'desc'),
-      limit(12)
-    );
+    const visibilityAllowed = ['anonymous', 'public', 'following', 'followers'];
+    const queryClauses = [where('userId', '==', targetUserId)];
+
+    if (!viewingOwnProfile) {
+      // restrict to visible dreams when viewing someone else's profile
+      queryClauses.push(where('visibility', 'in', visibilityAllowed));
+    }
+
+    queryClauses.push(orderBy('createdAt', 'desc'));
+    queryClauses.push(limit(12));
+
+    const dreamsQuery = query(collection(db, 'dreams'), ...queryClauses);
 
     const unsubscribe = onSnapshot(dreamsQuery, (snapshot) => {
       const dreamsList = snapshot.docs.map((d) => {
