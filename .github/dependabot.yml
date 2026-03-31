@@ -6,9 +6,6 @@ updates:
       interval: "daily"
     open-pull-requests-limit: 10
     rebase-strategy: "auto"
-    labels:
-      - "dependencies"
-      - "automated"
     target-branch: "main"
 
   - package-ecosystem: "github-actions"
@@ -16,6 +13,3 @@ updates:
     schedule:
       interval: "daily"
     open-pull-requests-limit: 5
-    labels:
-      - "ci"
-      - "dependencies"
