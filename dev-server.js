@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+/* global require, __dirname, process */
 // dev-server.js — local API shim for /api endpoints used by the frontend
 // Loads .env.local if present and starts an Express server that delegates
 // requests to handlers in the `api/` folder.
@@ -16,13 +18,14 @@ try {
   }
 } catch (e) {
   // ignore
+  void e;
 }
 
 const express = require('express');
 const handler = require('./api/ai');
 
 // debug: show whether key is present (never print the key)
-try { console.log('[dev] dev-server OPENAI_API_KEY present:', !!process.env.OPENAI_API_KEY); } catch (e) {}
+try { console.log('[dev] dev-server OPENAI_API_KEY present:', !!process.env.OPENAI_API_KEY); } catch (e) { void e; }
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
