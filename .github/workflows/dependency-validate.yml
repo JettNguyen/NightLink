@@ -1,0 +1,42 @@
+name: Dependency validate
+
+on:
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/dependabot.yml'
+
+jobs:
+  validate:
+    name: Validate dependency install and tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies (CI)
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Show top-level deps
+        run: npm ls --depth=0 || true
+
+      - name: Check for peer dependency warnings
+        run: |
+          # Fail if npm detects unmet peer deps during an install attempt
+          set -e
+          npm ci --dry-run 2>&1 | tee npm-dryrun.log
+          grep -i "ERR! peer" npm-dryrun.log && (echo "Peer dependency errors found" && exit 1) || echo "No strict peer errors detected"

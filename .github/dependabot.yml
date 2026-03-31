@@ -4,6 +4,17 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 6
+    allow:
+      - dependency-type: "all"
+    # Ensure lockfile is updated together with package.json changes
+    rebase-strategy: "auto"
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
     open-pull-requests-limit: 10
     rebase-strategy: "auto"
     target-branch: "main"

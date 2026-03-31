@@ -1,0 +1,36 @@
+name: Dependency audit
+
+on:
+  schedule:
+    - cron: '0 3 * * 0' # weekly on Sunday at 03:00 UTC
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit (fail on high)
+        run: |
+          npm audit --audit-level=high || (echo "Vulnerabilities found" && exit 1)
+
+      - name: List outdated packages
+        run: |
+          echo "Outdated packages (top-level):"
+          npm outdated --depth=0 || true
+
+      - name: Show npm audit summary
+        run: npm audit --json | jq '.metadata'
