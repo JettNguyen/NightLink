@@ -84,12 +84,18 @@ service cloud.firestore {
       allow delete: if resource.data.uid == null || (isAuthenticated() && resource.data.uid == request.auth.uid);
     }
 
+    function isReactionUpdate() {
+      return isAuthenticated() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewerReactions', 'reactionCounts', 'updatedAt']);
+    }
+
     // Dreams: visibility-based access control
     match /dreams/{dreamId} {
       allow read: if canReadDream(resource.data);
       allow write: if isOwner(resource.data.userId);
       allow create: if isOwner(request.resource.data.userId);
       allow delete: if isOwner(resource.data.userId);
+      allow update: if canReadDream(resource.data) && isReactionUpdate();
 
       // Comments under dreams - can read if dream is readable
       match /comments/{commentId} {
@@ -99,9 +105,13 @@ service cloud.firestore {
       }
     }
 
-    // Activity under users - private to user
+    // Activity under users - owner can read/update/delete; any authed user can create entries for others
     match /users/{userId}/activity/{activityId} {
-      allow read, write: if isOwner(userId);
+      allow read, update, delete: if isOwner(userId);
+      allow create: if isAuthenticated() &&
+        request.resource.data.actorId == request.auth.uid &&
+        request.resource.data.targetUserId == userId &&
+        request.resource.data.read == false;
     }
   }
 }
