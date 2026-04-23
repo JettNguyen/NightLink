@@ -11,24 +11,30 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
         name: 'NightLink',
         short_name: 'NightLink',
         description: 'Dream journal and social network',
-        theme_color: '#6366f1',
-        background_color: '#ffffff',
+        id: '/',
+        scope: '/',
+        start_url: '/',
+        theme_color: '#05070f',
+        background_color: '#05070f',
         display: 'standalone',
+        orientation: 'portrait',
         icons: [
           {
             src: 'icon-192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
             src: 'icon-512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
       }

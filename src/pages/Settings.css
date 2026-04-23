@@ -1,7 +1,9 @@
 .settings-page {
   max-width: 920px;
   margin: 0 auto;
-  padding: 0 1.25rem 3rem;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  padding-bottom: calc(3rem + env(safe-area-inset-bottom));
 }
 
 .settings-page .settings-header {
@@ -21,7 +23,7 @@
 
 .settings-save-bar {
   position: sticky;
-  top: 72px;
+  top: calc(88px + env(safe-area-inset-top));
   z-index: 10;
   background: rgba(6, 8, 17, 0.88);
   backdrop-filter: blur(12px);
@@ -453,6 +455,12 @@
   display: flex;
   justify-content: center;
   padding: 3rem 1rem;
+}
+
+@media (max-width: 768px) {
+  .settings-save-bar {
+    top: 0;
+  }
 }
 
 @media (max-width: 600px) {

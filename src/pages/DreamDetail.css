@@ -1,5 +1,5 @@
 .dream-detail-page {
-  padding-top: 72px;
+  padding-top: calc(88px + env(safe-area-inset-top) + 0.75rem);
   animation: fadeIn 0.4s ease;
 }
 
@@ -953,6 +953,13 @@
   cursor: wait;
 }
 
+@media (max-width: 768px) {
+  /* Nav is sticky on mobile — it occupies flow space, no top padding needed */
+  .dream-detail-page {
+    padding-top: 0.75rem;
+  }
+}
+
 @media (max-width: 640px) {
   .detail-summary {
     flex-direction: column;
@@ -961,10 +968,6 @@
 
   .detail-card {
     padding: 1.5rem;
-  }
-
-  .dream-detail-page {
-    padding-top: 64px;
   }
 
   .detail-back-btn {

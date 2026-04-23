@@ -23,7 +23,7 @@
 
 .activity-time {
   color: var(--text-secondary);
-  margin-bottom: 5px;
+  margin-bottom: 0.3rem;
 }
 
 .activity-title {
@@ -36,25 +36,25 @@
 }
 
 .activity-subtitle {
-  margin:5px 0 0;
+  margin: 0.3rem 0 0;
   color: var(--text-secondary);
 }
 
 .activity-section {
   font-size: 1rem;
-  border-radius: 15px;
-  padding: 20px;
+  border-radius: 0.9rem;
+  padding: 1.25rem;
   background: rgba(255, 255, 255, 0.05);
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 0.9rem;
 }
 
 .activity-section-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 15px;
+  gap: 0.9rem;
 }
 
 .activity-section-head h2 {
@@ -64,14 +64,14 @@
 .activity-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 15px;
+  gap: 0.9rem;
 }
 
 .activity-card {
   display: flex;
   border: 1px solid var(--border);
-  border-radius: 15px;
-  padding: 15px;
+  border-radius: 0.9rem;
+  padding: 0.9rem;
   background: var(--surface);
   flex-direction: column;
   gap: 0.5rem;
@@ -147,12 +147,11 @@
 
 .activity-pill {
   border-radius: 100px;
-  padding: 3px 12px;
-  margin-bottom: 5px;
-  font-size: 12px;
+  padding: 0.2rem 0.75rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.75rem;
   border: 2px solid rgba(255, 255, 255, 0.15);
   color: var(--text-secondary);
-  translate: -3px 0;
 }
 
 .activity-pill.teal {
@@ -247,12 +246,12 @@
 }
 
 .activity-dot {
-  width: 8px;
-  height: 8px;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 50%;
   background: var(--primary);
   box-shadow: 0 0 0 4px rgba(90, 200, 250, 0.15);
-  margin-bottom: 5px;
+  margin-bottom: 0.3rem;
 }
 
 

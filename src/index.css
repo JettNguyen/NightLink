@@ -31,6 +31,7 @@ html {
   min-height: 100%;
   overscroll-behavior: none;
   scroll-behavior: smooth;
+  color-scheme: dark;
 }
 
 body {
@@ -532,8 +533,19 @@ button, a, [role="button"] {
 }
 
 @media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+
+  /* Prevent iOS auto-zoom on input focus (triggered when font-size < 16px) */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
   .page-container {
-    padding: 10px 1.25rem 50px;
+    padding: 10px 1.25rem calc(50px + env(safe-area-inset-bottom));
   }
 
   .page-header {
@@ -545,12 +557,6 @@ button, a, [role="button"] {
     width: 100%;
     justify-content: flex-start;
     flex-wrap: wrap;
-  }
-}
-
-@media (max-width: 768px) {
-  html {
-    font-size: 14px;
   }
 }
 

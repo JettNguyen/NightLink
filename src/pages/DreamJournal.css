@@ -41,6 +41,7 @@
   color: var(--text);
   font-size: 1rem;
   width: fit-content;
+  max-width: 100%;
   transition: border-color 0.22s ease;
 }
 
@@ -234,6 +235,14 @@
   justify-content: center;
   z-index: 1000;
   backdrop-filter: blur(8px);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+@media (max-width: 768px) {
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
 }
 
 .modal-content {
@@ -490,6 +499,16 @@
   animation: slideInUp 0.4s ease both;
 }
 
+@media (max-width: 768px) {
+  .modal-content {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92dvh;
+    border-radius: 20px 20px 0 0;
+    padding-bottom: calc(1.85rem + env(safe-area-inset-bottom));
+  }
+}
+
 @media (max-width: 640px) {
   .dreams-list {
     grid-template-columns: 1fr;
@@ -497,6 +516,7 @@
 
   .modal-content {
     padding: 1.25rem;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
   }
 
   .modal-actions {
