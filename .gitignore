@@ -13,4 +13,4 @@ pnpm-debug.log*
 netlify/.netlify
 .vercel
 .env*.local
-.claude
+.claude/

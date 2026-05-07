@@ -12,6 +12,11 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
+      workbox: {
+        cleanupOutdatedCaches: true,
+        // Never let the SW return index.html for asset/api paths
+        navigateFallbackDenylist: [/^\/assets\//, /^\/api\//],
+      },
       manifest: {
         name: 'NightLink',
         short_name: 'NightLink',
