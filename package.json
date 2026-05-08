@@ -19,7 +19,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "firebase": "^12.13.0",
-    "firebase-admin": "^13.8.0",
+    "firebase-admin": "^13.9.0",
     "prop-types": "^15.8.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
