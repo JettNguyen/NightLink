@@ -48,10 +48,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage', 'firebase/messaging'],
-          'date-fns': ['date-fns'],
-          'vendor': ['react', 'react-dom', 'react-router-dom']
+        manualChunks: (id) => {
+          if (/[\\/]node_modules[\\/](firebase|@firebase)/.test(id)) return 'firebase';
+          if (/[\\/]node_modules[\\/]date-fns/.test(id)) return 'date-fns';
+          if (/[\\/]node_modules[\\/](react|react-dom|react-router)/.test(id)) return 'vendor';
         }
       }
     }
