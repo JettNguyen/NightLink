@@ -8,7 +8,9 @@ import { supabase } from '../supabase';
 import { mapProfile, mapDream } from '../utils/mappers';
 import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
 import LoadingIndicator from '../components/LoadingIndicator';
+import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
+import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
 import './Profile.css';
 import { appUserPropType } from '../propTypes';
 
@@ -184,6 +186,7 @@ export default function Profile({ user }) {
       // Refresh local state
       const { data } = await supabase.from('profiles').select('*').eq('id', user.uid).single();
       if (data) setUserData(mapProfile(data));
+      void triggerMediumHaptic();
     } catch {
       alert('Failed to update profile');
     }
@@ -204,6 +207,7 @@ export default function Profile({ user }) {
       ]);
       setViewerData((prev) => prev ? { ...prev, followingIds: [...new Set([...(prev.followingIds || []), targetUserId])] } : prev);
       setUserData((prev) => prev ? { ...prev, followerIds: [...new Set([...(prev.followerIds || []), user.uid])] } : prev);
+      void triggerLightHaptic();
     } catch { alert('Unable to follow this user.'); }
     finally { setFollowAction({ type: null }); }
   };
@@ -222,6 +226,7 @@ export default function Profile({ user }) {
       ]);
       setViewerData((prev) => prev ? { ...prev, followingIds: (prev.followingIds || []).filter((id) => id !== targetUserId) } : prev);
       setUserData((prev) => prev ? { ...prev, followerIds: (prev.followerIds || []).filter((id) => id !== user.uid) } : prev);
+      void triggerLightHaptic();
     } catch { alert('Unable to unfollow right now.'); }
     finally { setFollowAction({ type: null }); }
   };
@@ -310,7 +315,7 @@ export default function Profile({ user }) {
   const renderDreamPreview = (dream) => {
     const title = dream.title || (dream.aiGenerated ? dream.aiTitle?.trim() : '');
     const snippet = dream.content?.length > 180 ? `${dream.content.slice(0, 180)}…` : dream.content;
-    const dateLabel = dream.createdAt ? format(dream.createdAt, 'MMM d, yyyy') : 'Pending sync';
+    const dateLabel = dream.createdAt ? formatDreamDate(dream.createdAt) : 'Pending sync';
     const visLabel = dream.visibility === 'anonymous' ? 'Shared anonymously' : dream.visibility === 'public' ? 'Public dream' : dream.visibility === 'following' || dream.visibility === 'followers' ? 'People you follow' : 'Private';
     const taggedList = Array.isArray(dream.taggedUsers) ? dream.taggedUsers : [];
     const visibleTagged = taggedList.slice(0, 3);
@@ -352,7 +357,7 @@ export default function Profile({ user }) {
     const isAnonymous = dream.visibility === 'anonymous';
     const authorName = isAnonymous ? 'Anonymous dreamer' : dream.authorProfile?.displayName || 'Dreamer';
     const authorHandle = !isAnonymous ? (dream.authorProfile?.username || '') : '';
-    const dateLabel = dream.createdAt ? format(dream.createdAt, 'MMM d, yyyy') : 'Shared recently';
+    const dateLabel = dream.createdAt ? formatDreamDate(dream.createdAt) : 'Shared recently';
     const snippet = dream.content?.length > 200 ? `${dream.content.slice(0, 200)}…` : (dream.content || 'No description yet.');
     return (
       <div key={dream.id} className="tagged-dream-card" role="button" tabIndex={0}

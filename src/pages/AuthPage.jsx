@@ -169,8 +169,13 @@ export default function AuthPage() {
         let appUrlListener;
         let browserFinishedListener;
         let authStateSubscription;
+        let browserFinishTimeout;
 
         const cleanup = async () => {
+          if (browserFinishTimeout) {
+            clearTimeout(browserFinishTimeout);
+            browserFinishTimeout = null;
+          }
           if (appUrlListener) await appUrlListener.remove();
           if (browserFinishedListener) await browserFinishedListener.remove();
           if (authStateSubscription) authStateSubscription.unsubscribe();
@@ -232,7 +237,12 @@ export default function AuthPage() {
             setError(friendlyMsg(exchangeErr));
             setLoading(false);
           } finally {
-            if (!finished) await cleanup();
+            if (!finished) {
+              // Keep listeners alive briefly so a delayed SIGNED_IN event can still complete.
+              browserFinishTimeout = setTimeout(() => {
+                cleanup().catch(() => {});
+              }, 12000);
+            }
           }
         });
 
@@ -240,10 +250,29 @@ export default function AuthPage() {
           // If the browser closes naturally, keep listeners active a little longer
           // because callback handoff can be delayed on iOS.
           if (finished) return;
-          await wait(1200);
+          await wait(3000);
           if (finished) return;
-          await cleanup();
-          setLoading(false);
+
+          // Recover when appUrlOpen is delayed/missed: if session already exists, complete sign-in.
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+              await completeNativeOAuth('browserFinished session check');
+              return;
+            }
+          } catch {
+            // Ignore and fall through to timeout-based cleanup.
+          }
+
+          if (browserFinishTimeout) {
+            clearTimeout(browserFinishTimeout);
+          }
+          browserFinishTimeout = setTimeout(async () => {
+            if (finished) return;
+            await cleanup();
+            setLoading(false);
+            setError('Google sign-in timed out. Please try again.');
+          }, 9000);
         });
 
         await Browser.open({

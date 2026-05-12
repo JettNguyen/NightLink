@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
-import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import { mapDream } from '../utils/mappers';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
 import LoadingIndicator from '../components/LoadingIndicator';
+import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Search.css';
 import { appUserPropType } from '../propTypes';
@@ -87,7 +87,7 @@ export default function Search({ user }) {
   const renderDream = (dream) => {
     const title = dream.title || (dream.aiGenerated ? dream.aiTitle?.trim() : '');
     const snippet = dream.content?.length > 200 ? `${dream.content.slice(0, 200)}…` : dream.content;
-    const dateLabel = dream.createdAt ? format(dream.createdAt, 'MMM d, yyyy') : 'Recent';
+    const dateLabel = dream.createdAt ? formatDreamDate(dream.createdAt) : 'Recent';
     return (
       <div className="search-dream-card" key={dream.id} role="button" tabIndex={0}
         onClick={() => handleDreamNavigation(dream)}

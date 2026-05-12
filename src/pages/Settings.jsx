@@ -6,6 +6,7 @@ import LoadingIndicator from '../components/LoadingIndicator';
 import { appUserPropType } from '../propTypes';
 import { Capacitor } from '@capacitor/core';
 import { areNotificationsSupported, disableNotifications, getNotificationPermission, getNotificationPermissionStatus, requestNotificationPermission } from '../utils/notificationHelpers';
+import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
 import './Settings.css';
 
 const DEFAULT_SETTINGS = {
@@ -339,13 +340,19 @@ export default function Settings({ user }) {
 
   const hasChanges = useMemo(() => JSON.stringify(settings) !== savedRef.current, [settings]);
   const update = useCallback((key, value) => setSettings((prev) => ({ ...prev, [key]: value })), []);
-  const toggle = (key) => update(key, !settings[key]);
+  const toggle = (key) => {
+    void triggerLightHaptic();
+    update(key, !settings[key]);
+  };
 
   const selectPreset = (id) => {
     const normalized = normalizePresetId(id);
     if (isPresetLocked(tier, normalized)) {
       setBillingStatus('That style is part of Pro. Upgrade to unlock it.');
       return;
+    }
+    if (settings.aiPromptPreset !== normalized) {
+      void triggerLightHaptic();
     }
     update('aiPromptPreset', normalized);
   };
@@ -497,6 +504,7 @@ export default function Settings({ user }) {
       if (error) throw error;
       savedRef.current = JSON.stringify(savedSettings);
       setStatus('saved');
+      void triggerMediumHaptic();
     } catch (err) {
       console.error('Settings save failed', err);
       setStatus('error');

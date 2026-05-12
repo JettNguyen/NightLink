@@ -7,6 +7,7 @@ import { faHeart, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../supabase';
 import { mapDream, mapProfile } from '../utils/mappers';
 import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
+import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Feed.css';
 import LoadingIndicator from '../components/LoadingIndicator';
@@ -361,7 +362,7 @@ export default function Feed({ user }) {
             const avatarIcon = getAvatarIconById(isAnonymous ? 'ghost' : profile?.avatarIcon);
             const avatarBackground = profile?.avatarBackground || DEFAULT_AVATAR_BACKGROUND;
             const avatarColor = profile?.avatarColor || DEFAULT_AVATAR_COLOR;
-            const dateLabel = dream.createdAt ? format(dream.createdAt, 'MMM d, yyyy') : 'Just now';
+            const dateLabel = dream.createdAt ? formatDreamDate(dream.createdAt) : 'Just now';
             const snippet = dream.content ? (dream.content.length > 240 ? `${dream.content.slice(0, 240)}…` : dream.content) : 'No entry text yet.';
             const visibilityLabel = dream.visibility === 'anonymous' ? 'Anonymous dream' : dream.visibility === 'following' || dream.visibility === 'followers' ? 'Shared with people they follow' : 'Public dream';
             const showProfileLink = !isAnonymous && Boolean(dream.userId);

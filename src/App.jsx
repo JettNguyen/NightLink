@@ -2,7 +2,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParam
 import { useEffect, useMemo, useRef, useState, Suspense, lazy } from 'react';
 import PropTypes from 'prop-types';
 import { Capacitor } from '@capacitor/core';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { supabase } from './supabase';
 import AuthPage from './pages/AuthPage';
@@ -15,6 +14,7 @@ import LoadingIndicator from './components/LoadingIndicator';
 import ErrorBoundary from './components/ErrorBoundary';
 import useActivityPreview from './hooks/useActivityPreview';
 import { pushActivityLocalNotification, syncDailyDreamReminder } from './utils/notificationHelpers';
+import { triggerMediumHaptic } from './utils/haptics';
 import { appUserPropType } from './propTypes';
 
 // Lazy load less critical pages
@@ -50,17 +50,26 @@ function AppContent({ user, loading, ready }) {
   const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
   const seenActivityNotificationIdsRef = useRef(new Set());
   const activityHydratedRef = useRef(false);
+  const startupBusyRef = useRef(true);
   const lastPullRefreshAtRef = useRef(0);
   const pullStartYRef = useRef(0);
   const pullDistanceRef = useRef(0);
   const pullActiveRef = useRef(false);
+  const pullReadyRef = useRef(false);
   const [pullDistance, setPullDistance] = useState(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      startupBusyRef.current = false;
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!isNativeIOS) return undefined;
 
-    const PULL_THRESHOLD = 96;
-    const MAX_PULL_DISTANCE = 140;
+    const PULL_THRESHOLD = 250;
+    const MAX_PULL_DISTANCE = 500;
     const REFRESH_COOLDOWN_MS = 2000;
     const initialLastRefresh = Number(sessionStorage.getItem('nightlink_last_pull_refresh') || '0');
     if (initialLastRefresh > 0) {
@@ -79,6 +88,7 @@ function AppContent({ user, loading, ready }) {
       if (!event.touches || event.touches.length !== 1) return;
       pullStartYRef.current = event.touches[0].clientY;
       pullActiveRef.current = true;
+      pullReadyRef.current = false;
       setDistanceSafely(0);
     };
 
@@ -88,13 +98,23 @@ function AppContent({ user, loading, ready }) {
       const currentY = event.touches?.[0]?.clientY ?? pullStartYRef.current;
       const rawDelta = currentY - pullStartYRef.current;
       const clamped = Math.max(0, Math.min(MAX_PULL_DISTANCE, rawDelta));
+      const isReady = clamped >= PULL_THRESHOLD;
+
+      if (isReady !== pullReadyRef.current) {
+        pullReadyRef.current = isReady;
+        if (isReady) {
+          void triggerMediumHaptic();
+        }
+      }
+
       setDistanceSafely(clamped);
     };
 
-    const onTouchEnd = async () => {
+    const onTouchEnd = () => {
       if (!pullActiveRef.current) return;
       const shouldRefresh = pullDistanceRef.current >= PULL_THRESHOLD;
       pullActiveRef.current = false;
+      pullReadyRef.current = false;
       setDistanceSafely(0);
 
       if (!shouldRefresh) return;
@@ -104,12 +124,9 @@ function AppContent({ user, loading, ready }) {
       lastPullRefreshAtRef.current = now;
       sessionStorage.setItem('nightlink_last_pull_refresh', String(now));
 
-      try {
-        await Haptics.impact({ style: ImpactStyle.Medium });
-      } catch {
-        // Ignore haptic failures and still refresh.
-      }
-      window.location.reload();
+      requestAnimationFrame(() => {
+        window.location.reload();
+      });
     };
 
     window.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -126,9 +143,15 @@ function AppContent({ user, loading, ready }) {
   useEffect(() => {
     const settings = activity?.viewerProfile?.settings || {};
     const enabled = Boolean(settings.notificationsEnabled && settings.notifyDreamReminders);
-    syncDailyDreamReminder(enabled).catch((error) => {
-      console.error('Dream reminder sync failed', error);
-    });
+
+    const delay = startupBusyRef.current ? 900 : 0;
+    const timer = setTimeout(() => {
+      syncDailyDreamReminder(enabled).catch((error) => {
+        console.error('Dream reminder sync failed', error);
+      });
+    }, delay);
+
+    return () => clearTimeout(timer);
   }, [
     activity?.viewerProfile?.settings?.notificationsEnabled,
     activity?.viewerProfile?.settings?.notifyDreamReminders,
@@ -160,12 +183,17 @@ function AppContent({ user, loading, ready }) {
       && !seenActivityNotificationIdsRef.current.has(entry.id)
     ));
 
-    unseenUnread.forEach((entry) => {
-      seenActivityNotificationIdsRef.current.add(entry.id);
-      pushActivityLocalNotification(entry).catch((error) => {
-        console.error('Activity local notification failed', error);
+    const delay = startupBusyRef.current ? 1000 : 0;
+    const timer = setTimeout(() => {
+      unseenUnread.slice(0, 4).forEach((entry) => {
+        seenActivityNotificationIdsRef.current.add(entry.id);
+        pushActivityLocalNotification(entry).catch((error) => {
+          console.error('Activity local notification failed', error);
+        });
       });
-    });
+    }, delay);
+
+    return () => clearTimeout(timer);
   }, [
     activity?.inboxEntries,
     activity?.viewerProfile?.settings?.notificationsEnabled,
@@ -192,10 +220,10 @@ function AppContent({ user, loading, ready }) {
     <div className="app">
       {isNativeIOS && (
         <div
-          className={`pull-refresh-indicator${pullDistance > 0 ? ' is-visible' : ''}${pullDistance >= 96 ? ' is-armed' : ''}`}
-          style={{ '--pull-progress': String(Math.min(1, pullDistance / 96)) }}
+          className={`pull-refresh-indicator${pullDistance > 0 ? ' is-visible' : ''}${pullDistance >= 250 ? ' is-armed' : ''}`}
+          style={{ '--pull-progress': String(Math.min(1, pullDistance / 250)) }}
         >
-          {pullDistance >= 96 ? 'Release to refresh' : 'Pull to refresh'}
+          {pullDistance >= 250 ? 'Release to refresh' : 'Pull to refresh'}
         </div>
       )}
       <OfflineIndicator />

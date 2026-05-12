@@ -306,6 +306,18 @@ button, a, [role="button"] {
   padding: 2rem;
 }
 
+.lazy-route-loading {
+  min-height: calc(100dvh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem calc(2rem + env(safe-area-inset-bottom));
+}
+
+html[data-native-platform='ios'] .lazy-route-loading {
+  padding-top: calc(2rem + env(safe-area-inset-top) + 56px);
+}
+
 .loading-slot {
   display: flex;
   flex-direction: column;

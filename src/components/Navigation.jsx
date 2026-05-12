@@ -5,6 +5,7 @@ import { Link, useLocation } from 'react-router-dom';
 import './Navigation.css';
 import { appUserPropType, activityPreviewPropType } from '../propTypes';
 import { persistFeedSeenTimestamp } from '../services/UserService';
+import { triggerLightHaptic } from '../utils/haptics';
 
 const COMPACT_ENTER = 110;
 const COMPACT_EXIT = 40;
@@ -86,6 +87,13 @@ function Navigation({ user, activityPreview }) {
 
   const isActive = (path) => currentPath === path ? 'active' : '';
 
+  const handleNavTap = useCallback((path, sideEffect) => () => {
+    if (path !== currentPath) {
+      void triggerLightHaptic();
+    }
+    sideEffect?.();
+  }, [currentPath]);
+
   useEffect(() => {
     if (currentPath === '/feed') markFeedSeen();
   }, [currentPath, markFeedSeen]);
@@ -122,13 +130,13 @@ function Navigation({ user, activityPreview }) {
         </Link>
 
         <div className="nav-links">
-          <Link to="/journal" aria-label="Journal" className={isActive('/journal')}>
+          <Link to="/journal" aria-label="Journal" className={isActive('/journal')} onClick={handleNavTap('/journal')}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faBook} className="nav-icon" />
             </span>
             <span className="nav-tab-label">Journal</span>
           </Link>
-          <Link to="/feed" aria-label="Feed" className={isActive('/feed')} onClick={markFeedSeen}>
+          <Link to="/feed" aria-label="Feed" className={isActive('/feed')} onClick={handleNavTap('/feed', markFeedSeen)}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faCompass} className="nav-icon" />
               {hasNewFeed && (
@@ -139,13 +147,13 @@ function Navigation({ user, activityPreview }) {
             </span>
             <span className="nav-tab-label">Feed</span>
           </Link>
-          <Link to="/search" aria-label="Search" className={isActive('/search')}>
+          <Link to="/search" aria-label="Search" className={isActive('/search')} onClick={handleNavTap('/search')}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faSearch} className="nav-icon" />
             </span>
             <span className="nav-tab-label">Search</span>
           </Link>
-          <Link to="/activity" aria-label="Activity" className={isActive('/activity')}>
+          <Link to="/activity" aria-label="Activity" className={isActive('/activity')} onClick={handleNavTap('/activity')}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faBell} className="nav-icon" />
               {hasUnread && (
@@ -156,7 +164,7 @@ function Navigation({ user, activityPreview }) {
             </span>
             <span className="nav-tab-label">Activity</span>
           </Link>
-          <Link to="/profile" aria-label="Profile" className={isActive('/profile')}>
+          <Link to="/profile" aria-label="Profile" className={isActive('/profile')} onClick={handleNavTap('/profile')}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faUser} className="nav-icon" />
             </span>
