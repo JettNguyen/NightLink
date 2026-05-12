@@ -12,7 +12,7 @@ import { logActivityEvents } from '../services/ActivityService';
 import updateDreamReaction, { toggleCommentHeart } from '../services/ReactionService';
 import fetchUserSummaries from '../services/UserService';
 import './DreamDetail.css';
-import { firebaseUserPropType } from '../propTypes';
+import { appUserPropType } from '../propTypes';
 import { COMMON_EMOJI_REACTIONS, filterEmojiInput } from '../constants/emojiOptions';
 
 const PROMPT_TEMPLATES = {
@@ -2339,5 +2339,5 @@ export default function DreamDetail({ user }) {
 }
 
 DreamDetail.propTypes = {
-  user: firebaseUserPropType
+  user: appUserPropType
 };

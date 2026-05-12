@@ -8,7 +8,7 @@ import LoadingIndicator from '../components/LoadingIndicator';
 import { ListSkeleton } from '../components/SkeletonLoader';
 import { buildDreamPath } from '../utils/urlHelpers';
 import './DreamJournal.css';
-import { firebaseUserPropType } from '../propTypes';
+import { appUserPropType } from '../propTypes';
 
 const VISIBILITY_LABELS = {
   private: 'Private',
@@ -551,4 +551,4 @@ export default function DreamJournal({ user }) {
   );
 }
 
-DreamJournal.propTypes = { user: firebaseUserPropType };
+DreamJournal.propTypes = { user: appUserPropType };

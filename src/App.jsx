@@ -1,6 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
-import { useEffect, useMemo, useState, Suspense, lazy } from 'react';
+import { useEffect, useMemo, useRef, useState, Suspense, lazy } from 'react';
 import PropTypes from 'prop-types';
+import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { SplashScreen } from '@capacitor/splash-screen';
 import { supabase } from './supabase';
 import AuthPage from './pages/AuthPage';
 import DreamJournal from './pages/DreamJournal';
@@ -11,7 +14,8 @@ import OfflineIndicator from './components/OfflineIndicator';
 import LoadingIndicator from './components/LoadingIndicator';
 import ErrorBoundary from './components/ErrorBoundary';
 import useActivityPreview from './hooks/useActivityPreview';
-import { firebaseUserPropType } from './propTypes';
+import { pushActivityLocalNotification, syncDailyDreamReminder } from './utils/notificationHelpers';
+import { appUserPropType } from './propTypes';
 
 // Lazy load less critical pages
 const Profile = lazy(() => import('./pages/Profile'));
@@ -43,6 +47,130 @@ function AppContent({ user, loading, ready }) {
   const showNav = user && pathname !== '/login';
   const home = useMemo(() => (user ? '/journal' : '/login'), [user]);
   const activity = useActivityPreview(user?.uid);
+  const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
+  const seenActivityNotificationIdsRef = useRef(new Set());
+  const activityHydratedRef = useRef(false);
+  const lastPullRefreshAtRef = useRef(0);
+  const pullStartYRef = useRef(0);
+  const pullDistanceRef = useRef(0);
+  const pullActiveRef = useRef(false);
+  const [pullDistance, setPullDistance] = useState(0);
+
+  useEffect(() => {
+    if (!isNativeIOS) return undefined;
+
+    const PULL_THRESHOLD = 96;
+    const MAX_PULL_DISTANCE = 140;
+    const REFRESH_COOLDOWN_MS = 2000;
+    const initialLastRefresh = Number(sessionStorage.getItem('nightlink_last_pull_refresh') || '0');
+    if (initialLastRefresh > 0) {
+      lastPullRefreshAtRef.current = initialLastRefresh;
+    }
+
+    const setDistanceSafely = (value) => {
+      pullDistanceRef.current = value;
+      setPullDistance(value);
+    };
+
+    const onTouchStart = (event) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (window.scrollY > 0) return;
+      if (!event.touches || event.touches.length !== 1) return;
+      pullStartYRef.current = event.touches[0].clientY;
+      pullActiveRef.current = true;
+      setDistanceSafely(0);
+    };
+
+    const onTouchMove = (event) => {
+      if (!pullActiveRef.current) return;
+      if (window.scrollY > 0) return;
+      const currentY = event.touches?.[0]?.clientY ?? pullStartYRef.current;
+      const rawDelta = currentY - pullStartYRef.current;
+      const clamped = Math.max(0, Math.min(MAX_PULL_DISTANCE, rawDelta));
+      setDistanceSafely(clamped);
+    };
+
+    const onTouchEnd = async () => {
+      if (!pullActiveRef.current) return;
+      const shouldRefresh = pullDistanceRef.current >= PULL_THRESHOLD;
+      pullActiveRef.current = false;
+      setDistanceSafely(0);
+
+      if (!shouldRefresh) return;
+
+      const now = Date.now();
+      if (now - lastPullRefreshAtRef.current < REFRESH_COOLDOWN_MS) return;
+      lastPullRefreshAtRef.current = now;
+      sessionStorage.setItem('nightlink_last_pull_refresh', String(now));
+
+      try {
+        await Haptics.impact({ style: ImpactStyle.Medium });
+      } catch {
+        // Ignore haptic failures and still refresh.
+      }
+      window.location.reload();
+    };
+
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
+
+  useEffect(() => {
+    const settings = activity?.viewerProfile?.settings || {};
+    const enabled = Boolean(settings.notificationsEnabled && settings.notifyDreamReminders);
+    syncDailyDreamReminder(enabled).catch((error) => {
+      console.error('Dream reminder sync failed', error);
+    });
+  }, [
+    activity?.viewerProfile?.settings?.notificationsEnabled,
+    activity?.viewerProfile?.settings?.notifyDreamReminders,
+  ]);
+
+  useEffect(() => {
+    const entries = activity?.inboxEntries || [];
+    const settings = activity?.viewerProfile?.settings || {};
+    const enabled = Boolean(settings.notificationsEnabled && settings.notifyActivityAlerts);
+
+    if (!activityHydratedRef.current) {
+      entries.forEach((entry) => {
+        if (entry?.id) seenActivityNotificationIdsRef.current.add(entry.id);
+      });
+      activityHydratedRef.current = true;
+      return;
+    }
+
+    if (!enabled) {
+      entries.forEach((entry) => {
+        if (entry?.id) seenActivityNotificationIdsRef.current.add(entry.id);
+      });
+      return;
+    }
+
+    const unseenUnread = entries.filter((entry) => (
+      entry?.id
+      && entry.read === false
+      && !seenActivityNotificationIdsRef.current.has(entry.id)
+    ));
+
+    unseenUnread.forEach((entry) => {
+      seenActivityNotificationIdsRef.current.add(entry.id);
+      pushActivityLocalNotification(entry).catch((error) => {
+        console.error('Activity local notification failed', error);
+      });
+    });
+  }, [
+    activity?.inboxEntries,
+    activity?.viewerProfile?.settings?.notificationsEnabled,
+    activity?.viewerProfile?.settings?.notifyActivityAlerts,
+  ]);
 
   if (loading) {
     return (
@@ -62,6 +190,14 @@ function AppContent({ user, loading, ready }) {
 
   return (
     <div className="app">
+      {isNativeIOS && (
+        <div
+          className={`pull-refresh-indicator${pullDistance > 0 ? ' is-visible' : ''}${pullDistance >= 96 ? ' is-armed' : ''}`}
+          style={{ '--pull-progress': String(Math.min(1, pullDistance / 96)) }}
+        >
+          {pullDistance >= 96 ? 'Release to refresh' : 'Pull to refresh'}
+        </div>
+      )}
       <OfflineIndicator />
       {showNav && <Navigation user={user} activityPreview={activity} />}
     <main style={{ minHeight: '100dvh', paddingBottom: 'env(safe-area-inset-bottom)' }}>
@@ -204,6 +340,11 @@ function App() {
 
   useEffect(() => { document.documentElement.dataset.theme = 'dark'; }, []);
 
+  useEffect(() => {
+    if (!ready || !Capacitor.isNativePlatform()) return;
+    SplashScreen.hide().catch(() => {});
+  }, [ready]);
+
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ErrorBoundary>
@@ -216,12 +357,12 @@ function App() {
 export default App;
 
 ProtectedRoute.propTypes = {
-  user: firebaseUserPropType,
+  user: appUserPropType,
   children: PropTypes.node.isRequired
 };
 
 AppContent.propTypes = {
-  user: firebaseUserPropType,
+  user: appUserPropType,
   loading: PropTypes.bool.isRequired,
   ready: PropTypes.bool.isRequired
 };

@@ -1,57 +1,171 @@
-import { deleteToken, getToken, onMessage } from 'firebase/messaging';
-import { messaging } from '../firebase';
-import { arrayUnion, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { supabase } from '../supabase';
 
-/**
- * Request notification permission and get FCM token
- * @param {string} userId - The authenticated user's ID
- * @returns {Promise<string|null>} - The FCM token or null if permission denied
- */
-export async function requestNotificationPermission(userId) {
-  if (typeof window === 'undefined' || !messaging) {
-    return null;
+const DREAM_REMINDER_ID = 99001;
+
+const isNative = () => Capacitor.isNativePlatform();
+
+const getActivityNotificationCopy = (entry = {}) => {
+  const actor = entry.actorDisplayName || 'Someone';
+  const dreamTitle = entry.dreamTitleSnapshot || 'your dream';
+  switch (entry.type) {
+    case 'follow':
+      return { title: `${actor} followed you`, body: 'Open NightLink to see their profile.' };
+    case 'reply':
+      return { title: `${actor} replied`, body: `On ${dreamTitle}` };
+    case 'comment':
+      return { title: `${actor} commented`, body: `On ${dreamTitle}` };
+    case 'commentReaction':
+      return { title: `${actor} reacted to your comment`, body: entry.emoji ? `Reaction: ${entry.emoji}` : 'Open NightLink to see details.' };
+    case 'reaction':
+      return { title: `${actor} reacted to your dream`, body: entry.emoji ? `Reaction: ${entry.emoji}` : `On ${dreamTitle}` };
+    case 'dreamUpdate':
+      return { title: `${actor} posted an update`, body: `On ${dreamTitle}` };
+    case 'mention':
+    default:
+      return { title: `${actor} mentioned you`, body: `In ${dreamTitle}` };
   }
+};
 
-  try {
-    // Request permission
-    const permission = await Notification.requestPermission();
-    
-    if (permission !== 'granted') {
-      return null;
-    }
+const activityIdToNotificationId = (activityId = '') => {
+  const safe = String(activityId || '0');
+  let hash = 0;
+  for (let i = 0; i < safe.length; i += 1) {
+    hash = ((hash << 5) - hash) + safe.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) % 2000000000;
+};
 
-    // Register service worker
-    let registration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
-    if (!registration) {
-      registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-    }
+const upsertUserPushToken = async (userId, token) => {
+  if (!userId || !token) return;
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('fcm_tokens, settings')
+    .eq('id', userId)
+    .single();
 
-    // Get FCM token
-    const token = await getToken(messaging, {
-      vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
-      serviceWorkerRegistration: registration
+  const existingTokens = Array.isArray(profile?.fcm_tokens) ? profile.fcm_tokens : [];
+  const nextTokens = [...new Set([...existingTokens, token])];
+  const nextSettings = {
+    ...(profile?.settings || {}),
+    notificationsEnabled: true,
+  };
+
+  await supabase
+    .from('profiles')
+    .update({
+      fcm_tokens: nextTokens,
+      settings: nextSettings,
+    })
+    .eq('id', userId);
+};
+
+const removeUserPushToken = async (userId, token) => {
+  if (!userId || !token) return;
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('fcm_tokens')
+    .eq('id', userId)
+    .single();
+  const existingTokens = Array.isArray(profile?.fcm_tokens) ? profile.fcm_tokens : [];
+  const nextTokens = existingTokens.filter((value) => value !== token);
+  await supabase
+    .from('profiles')
+    .update({ fcm_tokens: nextTokens })
+    .eq('id', userId);
+};
+
+const registerNativePushToken = async () => {
+  return new Promise(async (resolve, reject) => {
+    let resolved = false;
+    const registrationListener = await PushNotifications.addListener('registration', (token) => {
+      if (resolved) return;
+      resolved = true;
+      registrationListener.remove();
+      errorListener.remove();
+      resolve(token?.value || null);
     });
 
-    if (token) {
-      // Save token to user's profile in Firestore
-      if (userId) {
-        await updateDoc(doc(db, 'users', userId), {
-          fcmTokens: arrayUnion(token),
-          notificationsEnabled: true,
-          'settings.notificationsEnabled': true,
-          updatedAt: new Date()
-        });
-      }
-      
-      return token;
-    } else {
+    const errorListener = await PushNotifications.addListener('registrationError', (error) => {
+      if (resolved) return;
+      resolved = true;
+      registrationListener.remove();
+      errorListener.remove();
+      reject(error);
+    });
+
+    setTimeout(() => {
+      if (resolved) return;
+      resolved = true;
+      registrationListener.remove();
+      errorListener.remove();
+      resolve(null);
+    }, 7000);
+
+    await PushNotifications.register();
+  });
+};
+
+export async function getNotificationPermissionStatus() {
+  if (isNative()) {
+    const push = await PushNotifications.checkPermissions();
+    if (push.receive === 'granted') return 'granted';
+    if (push.receive === 'denied') return 'denied';
+    return 'default';
+  }
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return 'denied';
+  }
+  return Notification.permission;
+}
+
+/**
+ * Request notification permission and get native push token when available
+ * @param {string} userId - The authenticated user's ID
+ * @returns {Promise<string|null>} - Push token or enabled marker when permission granted
+ */
+export async function requestNotificationPermission(userId) {
+  if (isNative()) {
+    const pushPermission = await PushNotifications.requestPermissions();
+    const localPermission = await LocalNotifications.requestPermissions();
+    if (pushPermission.receive !== 'granted' && localPermission.display !== 'granted') {
       return null;
     }
-  } catch (error) {
-    console.error('Error getting notification permission:', error);
-    return null;
+
+    const token = await registerNativePushToken();
+    if (token) {
+      localStorage.setItem('nightlink_push_token', token);
+      await upsertUserPushToken(userId, token);
+      return token;
+    }
+    return 'enabled-local-only';
   }
+
+  if (typeof window === 'undefined' || !('Notification' in window)) return null;
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') return null;
+
+  if (userId) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('settings')
+      .eq('id', userId)
+      .single();
+    await supabase
+      .from('profiles')
+      .update({
+        settings: {
+          ...(profile?.settings || {}),
+          notificationsEnabled: true,
+        },
+      })
+      .eq('id', userId);
+  }
+
+  return 'enabled-web';
 }
 
 /**
@@ -60,16 +174,33 @@ export async function requestNotificationPermission(userId) {
  */
 export async function disableNotifications(userId) {
   try {
-    if (messaging) {
-      await deleteToken(messaging);
+    if (isNative()) {
+      const token = localStorage.getItem('nightlink_push_token');
+      if (token && userId) {
+        await removeUserPushToken(userId, token);
+      }
+      localStorage.removeItem('nightlink_push_token');
+      await syncDailyDreamReminder(false);
+      return;
     }
 
     if (userId) {
-      await updateDoc(doc(db, 'users', userId), {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('settings')
+        .eq('id', userId)
+        .single();
+      const nextSettings = {
+        ...(profile?.settings || {}),
         notificationsEnabled: false,
-        'settings.notificationsEnabled': false,
-        updatedAt: new Date()
-      });
+      };
+
+      await supabase
+        .from('profiles')
+        .update({
+          settings: nextSettings,
+        })
+        .eq('id', userId);
     }
   } catch (error) {
     console.error('Error disabling notifications:', error);
@@ -82,26 +213,8 @@ export async function disableNotifications(userId) {
  * @param {Function} callback - Function to call when message received
  */
 export function onForegroundMessage(callback) {
-  if (!messaging) {
-    return () => {};
-  }
-
-  return onMessage(messaging, (payload) => {
-    // Show browser notification
-    if (Notification.permission === 'granted') {
-      new Notification(payload.notification?.title || 'New notification', {
-        body: payload.notification?.body || '',
-        icon: payload.notification?.icon || '/favicon.svg',
-        badge: '/favicon.svg',
-        data: payload.data
-      });
-    }
-    
-    // Call custom callback
-    if (callback) {
-      callback(payload);
-    }
-  });
+  void callback;
+  return () => {};
 }
 
 /**
@@ -109,10 +222,9 @@ export function onForegroundMessage(callback) {
  * @returns {boolean}
  */
 export function areNotificationsSupported() {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-    return false;
-  }
-  return 'Notification' in window && 'serviceWorker' in navigator && !!messaging;
+  if (isNative()) return true;
+  if (typeof window === 'undefined') return false;
+  return 'Notification' in window;
 }
 
 /**
@@ -120,8 +232,55 @@ export function areNotificationsSupported() {
  * @returns {'granted' | 'denied' | 'default'}
  */
 export function getNotificationPermission() {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    return 'denied';
-  }
+  if (isNative()) return 'default';
+  if (typeof window === 'undefined' || !('Notification' in window)) return 'denied';
   return Notification.permission;
+}
+
+export async function syncDailyDreamReminder(enabled) {
+  if (!isNative()) return;
+
+  await LocalNotifications.cancel({ notifications: [{ id: DREAM_REMINDER_ID }] });
+  if (!enabled) return;
+
+  const permission = await LocalNotifications.checkPermissions();
+  if (permission.display !== 'granted') {
+    const requested = await LocalNotifications.requestPermissions();
+    if (requested.display !== 'granted') return;
+  }
+
+  await LocalNotifications.schedule({
+    notifications: [{
+      id: DREAM_REMINDER_ID,
+      title: 'Did you have a dream?',
+      body: 'Log it in NightLink before it fades.',
+      schedule: {
+        on: { hour: 9, minute: 0 },
+        repeats: true,
+      },
+      extra: { type: 'dream-reminder' },
+    }],
+  });
+}
+
+export async function pushActivityLocalNotification(entry) {
+  if (!isNative() || !entry?.id) return;
+
+  const permission = await LocalNotifications.checkPermissions();
+  if (permission.display !== 'granted') return;
+
+  const copy = getActivityNotificationCopy(entry);
+  await LocalNotifications.schedule({
+    notifications: [{
+      id: activityIdToNotificationId(entry.id),
+      title: copy.title,
+      body: copy.body,
+      schedule: { at: new Date(Date.now() + 150) },
+      extra: {
+        type: 'activity',
+        activityId: entry.id,
+        dreamId: entry.dreamId || null,
+      },
+    }],
+  });
 }

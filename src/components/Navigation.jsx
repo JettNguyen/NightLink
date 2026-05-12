@@ -3,7 +3,7 @@ import { faBook, faCompass, faSearch, faUser, faBell } from '@fortawesome/free-s
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Link, useLocation } from 'react-router-dom';
 import './Navigation.css';
-import { firebaseUserPropType, activityPreviewPropType } from '../propTypes';
+import { appUserPropType, activityPreviewPropType } from '../propTypes';
 import { persistFeedSeenTimestamp } from '../services/UserService';
 
 const COMPACT_ENTER = 110;
@@ -171,6 +171,6 @@ function Navigation({ user, activityPreview }) {
 export default Navigation;
 
 Navigation.propTypes = {
-  user: firebaseUserPropType,
+  user: appUserPropType,
   activityPreview: activityPreviewPropType
 };

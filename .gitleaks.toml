@@ -1,17 +1,7 @@
-# Gitleaks configuration to prevent false positives on Firebase API keys
-# Firebase API keys for web apps are designed to be public and safe to commit
+# Gitleaks configuration allowlist
 
 [allowlist]
-description = "Allowlist Firebase web API keys - they are designed to be public"
+description = "Allowlist known-safe paths"
 paths = [
-  '''firebase-messaging-sw\.js''',
   '''\.env\.example''',
 ]
-
-[[allowlist.regexes]]
-description = "Firebase API keys are safe to expose in client-side code"
-regex = '''AIzaSy[0-9A-Za-z_-]{33}'''
-
-[[allowlist.regexes]]
-description = "Firebase project IDs and app IDs are public identifiers"
-regex = '''appId.*1:[0-9]+:web:[0-9a-f]+'''

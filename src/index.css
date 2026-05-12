@@ -48,6 +48,43 @@ body {
   overscroll-behavior: contain;
 }
 
+html[data-native-platform='ios'] {
+  overscroll-behavior: auto;
+}
+
+html[data-native-platform='ios'] body {
+  overscroll-behavior: auto;
+}
+
+.pull-refresh-indicator {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 10px);
+  left: 50%;
+  transform: translate(-50%, calc(-18px + (var(--pull-progress, 0) * 18px)));
+  opacity: 0;
+  pointer-events: none;
+  z-index: 260;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(7, 10, 20, 0.86);
+  color: #d7dfed;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: opacity 160ms ease, transform 160ms ease, border-color 160ms ease;
+}
+
+.pull-refresh-indicator.is-visible {
+  opacity: 1;
+}
+
+.pull-refresh-indicator.is-armed {
+  border-color: rgba(90, 188, 234, 0.8);
+  color: #eef5ff;
+}
+
 @keyframes slideInUp {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }

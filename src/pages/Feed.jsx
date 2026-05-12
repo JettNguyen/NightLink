@@ -14,7 +14,7 @@ import { ListSkeleton } from '../components/SkeletonLoader';
 import ReactionInsightsModal from '../components/ReactionInsightsModal';
 import updateDreamReaction from '../services/ReactionService';
 import fetchUserSummaries from '../services/UserService';
-import { firebaseUserPropType } from '../propTypes';
+import { appUserPropType } from '../propTypes';
 import { COMMON_EMOJI_REACTIONS, filterEmojiInput } from '../constants/emojiOptions';
 
 const INITIAL_INSIGHT_STATE = { open: false, emoji: '', title: '', subtitle: '', userIds: [], anchorRect: null };
@@ -459,4 +459,4 @@ export default function Feed({ user }) {
   );
 }
 
-Feed.propTypes = { user: firebaseUserPropType };
+Feed.propTypes = { user: appUserPropType };

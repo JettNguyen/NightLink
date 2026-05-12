@@ -49,7 +49,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          if (/[\\/]node_modules[\\/](firebase|@firebase)/.test(id)) return 'firebase';
           if (/[\\/]node_modules[\\/]date-fns/.test(id)) return 'date-fns';
           if (/[\\/]node_modules[\\/](react|react-dom|react-router)/.test(id)) return 'vendor';
         }

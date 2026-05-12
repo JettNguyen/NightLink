@@ -10,7 +10,7 @@ import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGRO
 import LoadingIndicator from '../components/LoadingIndicator';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Profile.css';
-import { firebaseUserPropType } from '../propTypes';
+import { appUserPropType } from '../propTypes';
 
 export default function Profile({ user }) {
   const { handle: routeHandle } = useParams();
@@ -516,4 +516,4 @@ export default function Profile({ user }) {
   );
 }
 
-Profile.propTypes = { user: firebaseUserPropType };
+Profile.propTypes = { user: appUserPropType };

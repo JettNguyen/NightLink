@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 
-export const firebaseUserPropType = PropTypes.shape({
+export const appUserPropType = PropTypes.shape({
   uid: PropTypes.string,
   displayName: PropTypes.string,
   email: PropTypes.string,

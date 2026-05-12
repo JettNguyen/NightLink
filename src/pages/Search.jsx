@@ -9,7 +9,7 @@ import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } fr
 import LoadingIndicator from '../components/LoadingIndicator';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Search.css';
-import { firebaseUserPropType } from '../propTypes';
+import { appUserPropType } from '../propTypes';
 
 const MIN_CHARS = 2;
 
@@ -127,7 +127,7 @@ export default function Search({ user }) {
         </div>
         <div className="search-input-wrap">
           <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={filter === 'people' ? 'Search names or usernames' : 'Search public dream titles or text'} autoFocus />
+            placeholder={filter === 'people' ? 'Search names or usernames' : 'Search public dream titles or text'} />
           <button className="primary-btn" onClick={runSearch} disabled={loading || searchTerm.trim().length < MIN_CHARS}>
             {loading ? 'Searching…' : 'Search'}
           </button>
@@ -184,4 +184,4 @@ export default function Search({ user }) {
   );
 }
 
-Search.propTypes = { user: firebaseUserPropType };
+Search.propTypes = { user: appUserPropType };
