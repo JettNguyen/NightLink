@@ -442,6 +442,30 @@ html[data-native-platform='ios'].settings-page-active .settings-page .settings-s
   margin-top: 0.9rem;
 }
 
+.rc-restore-btn {
+  display: block;
+  margin-top: 0.75rem;
+  background: none;
+  border: none;
+  padding: 0.25rem 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(255, 255, 255, 0.2);
+  transition: color 0.2s ease, text-decoration-color 0.2s ease;
+}
+
+.rc-restore-btn:hover:not(:disabled) {
+  color: var(--text);
+  text-decoration-color: rgba(255, 255, 255, 0.5);
+}
+
+.rc-restore-btn:disabled {
+  opacity: 0.45;
+  cursor: wait;
+}
+
 .action-buttons {
   display: flex;
   flex-wrap: wrap;

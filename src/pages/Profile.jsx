@@ -315,40 +315,28 @@ export default function Profile({ user }) {
   const renderDreamPreview = (dream) => {
     const title = dream.title || (dream.aiGenerated ? dream.aiTitle?.trim() : '');
     const snippet = dream.content?.length > 180 ? `${dream.content.slice(0, 180)}…` : dream.content;
-    const dateLabel = dream.createdAt ? formatDreamDate(dream.createdAt) : 'Pending sync';
-    const visLabel = dream.visibility === 'anonymous' ? 'Shared anonymously' : dream.visibility === 'public' ? 'Public dream' : dream.visibility === 'following' || dream.visibility === 'followers' ? 'People you follow' : 'Private';
-    const taggedList = Array.isArray(dream.taggedUsers) ? dream.taggedUsers : [];
-    const visibleTagged = taggedList.slice(0, 3);
-    const remainingTagged = Math.max(taggedList.length - visibleTagged.length, 0);
+    const dateLabel = dream.createdAt ? formatDreamDate(dream.createdAt, 'MMM d') : 'Pending';
+    const visLabel = dream.visibility === 'anonymous' ? 'Anon' : dream.visibility === 'public' ? 'Public' : dream.visibility === 'following' || dream.visibility === 'followers' ? 'Followers' : 'Private';
+    const hasAi = Boolean(dream.aiGenerated && dream.aiInsights);
+    const tagCount = dream.tags?.length || 0;
+    const taggedCount = Array.isArray(dream.taggedUsers) ? dream.taggedUsers.length : 0;
     return (
-      <div key={dream.id} className="profile-dream-card" role="button" tabIndex={0}
+      <div key={dream.id} className={`profile-dream-card${hasAi ? ' profile-dream-card--analyzed' : ''}`} role="button" tabIndex={0}
         onClick={() => handleDreamNavigation(dream.id)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleDreamNavigation(dream.id); } }}>
         <div className="profile-dream-top">
           <div className="dream-date-pill">{dateLabel}</div>
-          <div className="dream-visibility-pill">{visLabel}</div>
+          <div className={`profile-vis-pill profile-vis--${dream.visibility || 'private'}`}>{visLabel}</div>
+          {hasAi && <span className="profile-ai-badge" aria-label="AI analyzed">✦</span>}
         </div>
-        {title ? <h3 className="profile-dream-title">{title}</h3> : <p className="pending-title">Title pending</p>}
+        {title ? <h3 className="profile-dream-title">{title}</h3> : <p className="pending-title">Untitled</p>}
         <p className="profile-dream-snippet">{snippet}</p>
-        {dream.aiGenerated && dream.aiInsights && <p className="profile-dream-summary">{dream.aiInsights}</p>}
-        {taggedList.length ? (
-          <div className="profile-tagged-peek">
-            <span className="tagged-label">Tagged</span>
-            <div className="tagged-pill-row">
-              {visibleTagged.map((entry, index) => (
-                <span className="tagged-pill" key={`${dream.id}-tagged-${entry.userId || index}`}>
-                  {entry.username ? `@${entry.username}` : (entry.displayName || 'Dreamer')}
-                </span>
-              ))}
-              {remainingTagged > 0 && <span className="tagged-pill extra">+{remainingTagged} more</span>}
-            </div>
+        {(tagCount > 0 || taggedCount > 0) && (
+          <div className="profile-dream-footer-meta">
+            {tagCount > 0 && <span className="profile-tag-count">{tagCount} {tagCount === 1 ? 'tag' : 'tags'}</span>}
+            {taggedCount > 0 && <span className="profile-tag-count">{taggedCount} tagged</span>}
           </div>
-        ) : null}
-        {dream.tags?.length ? (
-          <div className="profile-dream-tags">
-            {dream.tags.map((tag, index) => <span className="tag" key={`${dream.id}-tag-${index}`}>{tag.value}</span>)}
-          </div>
-        ) : null}
+        )}
       </div>
     );
   };

@@ -3,14 +3,27 @@ import { useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { App as CapacitorApp } from '@capacitor/app';
+import { SignInWithApple } from '@capacitor-community/apple-sign-in';
 import { supabase } from '../supabase';
 import './AuthPage.css';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 const NATIVE_OAUTH_REDIRECT = 'dev.nightlink://auth/callback';
 const NATIVE_OAUTH_SCHEME = 'dev.nightlink://';
+const IS_IOS_NATIVE = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Cryptographic nonce helpers for Apple Sign In
+const generateRawNonce = () => {
+  const arr = new Uint8Array(32);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
+};
+const sha256Hex = async (str) => {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
+};
 
 const friendlyMsg = (e) => {
   const msg = e?.message || '';
@@ -294,6 +307,40 @@ export default function AuthPage() {
     }
   };
 
+  const handleAppleSignIn = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const rawNonce = generateRawNonce();
+      const hashedNonce = await sha256Hex(rawNonce);
+
+      const result = await SignInWithApple.authorize({
+        clientId: 'dev.nightlink',
+        redirectURI: NATIVE_OAUTH_REDIRECT,
+        scopes: 'email name',
+        nonce: hashedNonce,
+      });
+
+      const identityToken = result?.response?.identityToken;
+      if (!identityToken) throw new Error('Apple did not return an identity token.');
+
+      const { error: err } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: identityToken,
+        nonce: rawNonce,
+      });
+      if (err) throw err;
+      // onAuthStateChange in App.jsx fires → ensureProfile provisions the row
+    } catch (err) {
+      // User cancelled the sheet — don't show an error
+      const msg = err?.message || '';
+      if (!msg.includes('cancelled') && !msg.includes('canceled') && !msg.includes('dismiss')) {
+        setError(friendlyMsg(err));
+      }
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="auth-page">
       <div className="auth-container">
@@ -479,6 +526,15 @@ export default function AuthPage() {
               </svg>
               Continue with Google
             </button>
+
+            {IS_IOS_NATIVE && (
+              <button type="button" onClick={handleAppleSignIn} disabled={loading} className="auth-apple-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 814 1000" width="17" height="17" fill="currentColor" aria-hidden="true">
+                  <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 790.7 0 663 0 541.8c0-207.5 135.4-317.3 269-317.3 70.1 0 128.4 46.4 172.5 46.4 39.6 0 113.6-49.8 192.5-49.8zm-154.4-91.5c31.1-36.9 53.1-88.1 53.1-139.3 0-7.1-.6-14.3-1.9-20.1-50.6 1.9-110.8 33.7-147.1 75.8-28.5 32.4-55.1 83.6-55.1 135.5 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 45.4 0 102.5-30.4 135.5-71.3z" />
+                </svg>
+                Continue with Apple
+              </button>
+            )}
           </form>
         )}
       </div>
