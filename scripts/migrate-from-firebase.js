@@ -97,18 +97,20 @@ async function migrateUsers(fbUsers, firestoreUsers) {
   const uidMap = {}; // Firebase UID → Supabase UID
   const takenUsernames = new Set();
 
-  // Seed takenUsernames from any profiles already in Supabase
-  const { data: existingProfiles } = await supabase.from('profiles').select('normalized_username');
-  (existingProfiles || []).forEach((p) => takenUsernames.add(p.normalized_username));
+  // Seed takenUsernames and build email→sbUid map from existing Supabase users
+  const { data: existingProfiles } = await supabase.from('profiles').select('id, normalized_username, email');
+  const emailToSbUid = {};
+  (existingProfiles || []).forEach((p) => {
+    takenUsernames.add(p.normalized_username);
+    if (p.email) emailToSbUid[p.email.toLowerCase()] = p.id;
+  });
 
   for (const fbUser of fbUsers) {
     const fsUser = firestoreUsers[fbUser.uid] || {};
     const email = fbUser.email;
     if (!email) { console.warn(`  Skipping ${fbUser.uid} — no email`); continue; }
 
-    // Check if Supabase auth user already exists by email
-    const { data: { users: existing } } = await supabase.auth.admin.listUsers();
-    const alreadyExists = existing?.find((u) => u.email === email);
+    const alreadyExists = emailToSbUid[email.toLowerCase()] ? { id: emailToSbUid[email.toLowerCase()] } : null;
 
     let sbUid;
     if (alreadyExists) {
@@ -222,7 +224,6 @@ async function migrateDreams(uidMap) {
     }));
 
     const { data: inserted, error } = await supabase.from('dreams').insert({
-      id:                  doc.id, // preserve dream ID so existing share links work
       user_id:             sbUserId,
       title:               d.title || '',
       content:             d.content || '',
