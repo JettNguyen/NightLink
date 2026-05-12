@@ -1,27 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { createUserWithEmailAndPassword, fetchSignInMethodsForEmail, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
-import { deleteDoc, doc, getDoc, runTransaction, serverTimestamp, setDoc } from 'firebase/firestore';
-import { auth, db, googleProvider } from '../firebase';
+import { supabase } from '../supabase';
 import './AuthPage.css';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
-const err = (code) => { const e = new Error(code); e.code = code; return e; };
-
 const friendlyMsg = (e) => {
-  if (!e?.message) return 'Something went wrong.';
-  const map = {
-    'username-taken': 'Username already taken.',
-    'identifier-required': 'Enter your email or username.',
-    'username-not-found': 'No account with that username.',
-    'username-email-missing': 'Try using your email instead.'
-  };
-  if (map[e.code]) return map[e.code];
-  if (e.message.includes('auth/email-already-in-use')) return 'Email already in use.';
-  if (e.message.includes('auth/invalid-email')) return 'Invalid email address.';
-  if (e.message.includes('auth/invalid-credential')) return 'Wrong email or password.';
-  if (e.message.includes('auth/user-not-found')) return 'Account not found.';
-  return e.message;
+  const msg = e?.message || '';
+  if (!msg) return 'Something went wrong.';
+  if (msg.includes('User already registered') || msg.includes('already been registered')) return 'Email already in use.';
+  if (msg.includes('Invalid login credentials') || msg.includes('invalid_credentials')) return 'Wrong email or password.';
+  if (msg.includes('Email not confirmed')) return 'Check your inbox and confirm your email first.';
+  if (msg.includes('username-taken')) return 'Username already taken.';
+  if (msg.includes('identifier-required')) return 'Enter your email or username.';
+  if (msg.includes('username-not-found')) return 'No account with that username.';
+  return msg;
 };
 
 export default function AuthPage() {
@@ -47,46 +39,18 @@ export default function AuthPage() {
     if (ref.current) setHeight(ref.current.scrollHeight);
   }, [isSignUp, username, displayName, email, identifier]);
 
-  const reserveUsername = async (name) => {
-    const ref = doc(db, 'usernames', name);
-    await runTransaction(db, async (tx) => {
-      const snap = await tx.get(ref);
-      if (snap.exists()) throw err('username-taken');
-      tx.set(ref, { normalizedUsername: name, reservedAt: serverTimestamp() });
-    });
-    return ref;
-  };
-
-  const releaseUsername = async (ref) => {
-    if (!ref) return;
-    try {
-      const snap = await getDoc(ref);
-      if (!snap.exists() || snap.data()?.uid) return;
-      await deleteDoc(ref);
-    } catch {
-      // Ignore cleanup failures to avoid masking the primary auth error
-    }
-  };
-
+  // Resolve a login identifier to an email. Supports raw email or username lookup.
   const resolveEmail = async (val) => {
     const v = val.trim();
-    if (!v) throw err('identifier-required');
+    if (!v) throw new Error('identifier-required');
     if (v.includes('@')) return v;
-    const snap = await getDoc(doc(db, 'usernames', v.toLowerCase()));
-    if (!snap.exists()) throw err('username-not-found');
-    if (!snap.data()?.email) throw err('username-email-missing');
-    return snap.data().email;
-  };
-
-  const createProfile = async (user, data) => {
-    await setDoc(doc(db, 'users', user.uid), {
-      ...data,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      allowAnonymousSharing: true,
-      followerIds: [],
-      followingIds: []
-    });
+    const { data, error: qErr } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('normalized_username', v.toLowerCase())
+      .single();
+    if (qErr || !data?.email) throw new Error('username-not-found');
+    return data.email;
   };
 
   const handleSignUp = async (e) => {
@@ -97,48 +61,68 @@ export default function AuthPage() {
     const name = username.trim();
     if (!name) { setError('Choose a username.'); setLoading(false); return; }
     if (!USERNAME_RE.test(name)) {
-      setError('3-20 chars: letters, numbers, underscores.');
+      setError('3–20 chars: letters, numbers, underscores.');
       setLoading(false);
       return;
     }
 
-    let ref = null;
     try {
       const normalized = name.toLowerCase();
-      ref = await reserveUsername(normalized);
-      const { user } = await createUserWithEmailAndPassword(auth, email, password);
-      await createProfile(user, {
-        email,
-        displayName: displayName || name,
-        username: name,
-        normalizedUsername: normalized,
-        isAnonymous: false
+
+      // Check username availability
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('normalized_username', normalized)
+        .single();
+      if (existing) throw new Error('username-taken');
+
+      // Create auth user
+      const { data: authData, error: signUpErr } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            display_name: displayName.trim() || name,
+            username: name,
+          }
+        }
       });
-      await setDoc(ref, {
-        uid: user.uid,
+      if (signUpErr) throw signUpErr;
+
+      const uid = authData.user?.id;
+      if (!uid) throw new Error('Signup failed — no user ID returned.');
+
+      // Create profile row
+      const { error: profileErr } = await supabase.from('profiles').insert({
+        id: uid,
+        email: email.trim(),
+        display_name: displayName.trim() || name,
         username: name,
-        normalizedUsername: normalized,
-        email,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-    } catch (e) {
-      await releaseUsername(ref);
-      setError(friendlyMsg(e));
+        normalized_username: normalized,
+        is_anonymous: false,
+        following_ids: [],
+        follower_ids: [],
+      });
+      if (profileErr) throw profileErr;
+    } catch (err) {
+      setError(friendlyMsg(err));
     }
     setLoading(false);
   };
 
   const handleForgotPassword = async () => {
-    const email = forgotEmail.trim();
-    if (!email) { setError('Enter your email address.'); return; }
+    const addr = forgotEmail.trim();
+    if (!addr) { setError('Enter your email address.'); return; }
     setForgotLoading(true);
     setError('');
     setForgotStatus('');
     try {
-      await sendPasswordResetEmail(auth, email);
+      const { error: err } = await supabase.auth.resetPasswordForEmail(addr);
+      if (err) throw err;
       setForgotStatus('Reset email sent — check your inbox.');
-    } catch (e) {
-      setError(friendlyMsg(e));
+    } catch (err) {
+      setError(friendlyMsg(err));
     }
     setForgotLoading(false);
   };
@@ -147,31 +131,12 @@ export default function AuthPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    let mail = '';
     try {
-      mail = await resolveEmail(identifier);
-      await signInWithEmailAndPassword(auth, mail, password);
-    } catch (e) {
-      const baseMsg = friendlyMsg(e);
-      let msg = baseMsg;
-      let hintNeeded = e?.code === 'auth/invalid-credential' || e?.code === 'auth/wrong-password';
-
-      if (mail) {
-        try {
-          const methods = await fetchSignInMethodsForEmail(auth, mail);
-          if (methods.includes('google.com')) {
-            hintNeeded = true;
-          }
-        } catch {
-          // ignore provider lookup errors; fall back to default message
-        }
-      }
-
-      if (hintNeeded) {
-        msg = `${baseMsg.replace(/\.$/, '')}. If you previously tapped Continue with Google, use that option first, then set a password in Settings → Account access.`;
-      }
-
-      setError(msg);
+      const mail = await resolveEmail(identifier);
+      const { error: err } = await supabase.auth.signInWithPassword({ email: mail, password });
+      if (err) throw err;
+    } catch (err) {
+      setError(friendlyMsg(err));
     }
     setLoading(false);
   };
@@ -180,71 +145,16 @@ export default function AuthPage() {
     setError('');
     setLoading(true);
     try {
-      const { user } = await signInWithPopup(auth, googleProvider);
-      let provisioned = false;
-
-      // Check if user profile exists
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-
-      if (!userDoc.exists()) {
-        // First-time Google sign-in - create profile with auto-generated username
-        const emailPrefix = user.email?.split('@')[0] || 'dreamer';
-        const baseUsername = emailPrefix.replace(/[^a-zA-Z0-9_]/g, '_') || 'dreamer';
-        let username = baseUsername;
-        let counter = 1;
-
-        // Find available username
-        while (true) {
-          const normalized = username.toLowerCase();
-          const usernameDoc = await getDoc(doc(db, 'usernames', normalized));
-          if (!usernameDoc.exists()) {
-            // Claim this username
-            await setDoc(doc(db, 'usernames', normalized), {
-              uid: user.uid,
-              username,
-              normalizedUsername: normalized,
-              email: user.email,
-              updatedAt: serverTimestamp()
-            });
-
-            // Create user profile
-            await createProfile(user, {
-              email: user.email,
-              displayName: user.displayName || username,
-              username,
-              normalizedUsername: username.toLowerCase(),
-              isAnonymous: false,
-              photoURL: user.photoURL || null
-            });
-
-            provisioned = true;
-            break;
-          }
-          username = `${baseUsername}${counter}`;
-          counter++;
-
-          if (counter > 5000) {
-            throw new Error('Unable to allocate username. Please try again.');
-          }
-        }
-      } else {
-        provisioned = true;
-      }
-
-      if (!provisioned) {
-        throw new Error('Unable to finish account setup.');
-      }
-    } catch (e) {
-      if (auth.currentUser) {
-        try {
-          await signOut(auth);
-        } catch {
-          // Ignore sign-out errors and keep original message
-        }
-      }
-      setError(friendlyMsg(e));
+      const { error: err } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin }
+      });
+      if (err) throw err;
+      // After redirect, onAuthStateChange fires and App.jsx provisions the profile if needed
+    } catch (err) {
+      setError(friendlyMsg(err));
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

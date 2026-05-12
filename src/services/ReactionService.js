@@ -1,5 +1,4 @@
-import { doc, runTransaction, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { supabase } from '../supabase';
 import { logActivityEvent } from './ActivityService';
 
 export const updateDreamReaction = async ({
@@ -8,41 +7,15 @@ export const updateDreamReaction = async ({
 }) => {
   if (!dreamId || !userId) throw new Error('Missing dreamId or userId');
 
-  const ref = doc(db, 'dreams', dreamId);
-
-  const result = await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref);
-    if (!snap.exists()) throw new Error('Dream not found');
-
-    const data = snap.data() || {};
-    const reactions = { ...(data.viewerReactions || {}) };
-    const counts = { ...(data.reactionCounts || {}) };
-    const prev = reactions[userId] || null;
-
-    if (!emoji && !prev) return { changed: false, prev, next: null };
-
-    if (prev) {
-      counts[prev] = Math.max((counts[prev] || 1) - 1, 0);
-      delete reactions[userId];
-    }
-
-    let next = null;
-    if (emoji) {
-      reactions[userId] = emoji;
-      counts[emoji] = (counts[emoji] || 0) + 1;
-      next = emoji;
-    }
-
-    tx.update(ref, {
-      viewerReactions: reactions,
-      reactionCounts: counts,
-      updatedAt: serverTimestamp()
-    });
-
-    return { changed: true, prev, next };
+  const { data, error } = await supabase.rpc('toggle_dream_reaction', {
+    p_dream_id: dreamId,
+    p_user_id:  userId,
+    p_emoji:    emoji || null,
   });
+  if (error) throw error;
 
-  if (result?.changed && result.next && dreamOwnerId && dreamOwnerId !== userId) {
+  const result = data || {};
+  if (result.changed && result.next && dreamOwnerId && dreamOwnerId !== userId) {
     await logActivityEvent(dreamOwnerId, {
       type: 'reaction',
       actorId: userId,
@@ -54,7 +27,6 @@ export const updateDreamReaction = async ({
       dreamTitleSnapshot
     });
   }
-
   return result;
 };
 
@@ -69,37 +41,16 @@ export const toggleCommentHeart = async ({
   commentAuthorId,
   dreamTitleSnapshot
 }) => {
-  if (!dreamId || !commentId || !userId) {
-    throw new Error('Missing comment reaction params');
-  }
+  if (!commentId || !userId) throw new Error('Missing comment reaction params');
 
-  const ref = doc(db, 'dreams', dreamId, 'comments', commentId);
-  const result = await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref);
-    if (!snap.exists()) throw new Error('Comment not found');
-    const data = snap.data() || {};
-    const heartUserIds = { ...(data.heartUserIds || {}) };
-    let heartCount = Number(data.heartCount) || 0;
-    const alreadyHearted = Boolean(heartUserIds[userId]);
-
-    if (alreadyHearted) {
-      delete heartUserIds[userId];
-      heartCount = Math.max(heartCount - 1, 0);
-    } else {
-      heartUserIds[userId] = true;
-      heartCount += 1;
-    }
-
-    tx.update(ref, {
-      heartUserIds,
-      heartCount,
-      updatedAt: serverTimestamp()
-    });
-
-    return { added: !alreadyHearted, heartCount };
+  const { data, error } = await supabase.rpc('toggle_comment_heart', {
+    p_comment_id: commentId,
+    p_user_id:    userId,
   });
+  if (error) throw error;
 
-  if (result?.added && commentAuthorId && commentAuthorId !== userId) {
+  const result = data || {};
+  if (result.added && commentAuthorId && commentAuthorId !== userId) {
     await logActivityEvent(commentAuthorId, {
       type: 'commentReaction',
       actorId: userId,
@@ -111,6 +62,5 @@ export const toggleCommentHeart = async ({
       emoji: '💙'
     });
   }
-
   return result;
 };

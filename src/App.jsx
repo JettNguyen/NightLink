@@ -1,8 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useEffect, useMemo, useState, Suspense, lazy } from 'react';
-import { onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth';
-import { auth } from './firebase';
 import PropTypes from 'prop-types';
+import { supabase } from './supabase';
 import AuthPage from './pages/AuthPage';
 import DreamJournal from './pages/DreamJournal';
 import DreamDetail from './pages/DreamDetail';
@@ -118,23 +117,43 @@ function AppContent({ user, loading, ready }) {
   );
 }
 
+// Build a normalized user object with the same shape the rest of the app expects.
+const buildNormalizedUser = (session) => {
+  if (!session) return null;
+  const { user, access_token } = session;
+  return {
+    uid: user.id,
+    email: user.email || '',
+    displayName: user.user_metadata?.display_name || user.user_metadata?.full_name || null,
+    photoURL: user.user_metadata?.avatar_url || null,
+    providerData: (user.identities || []).map((i) => ({ providerId: i.provider })),
+    getIdToken: async () => {
+      const { data } = await supabase.auth.getSession();
+      return data.session?.access_token || access_token || null;
+    }
+  };
+};
+
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    let unsub = () => {};
-    setPersistence(auth, browserLocalPersistence)
-      .catch(() => {})
-      .finally(() => {
-        unsub = onAuthStateChanged(auth, (u) => {
-          setUser(u);
-          setLoading(false);
-          setReady(true);
-        });
-      });
-    return () => unsub();
+    // Hydrate session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(buildNormalizedUser(session));
+      setLoading(false);
+      setReady(true);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(buildNormalizedUser(session));
+      setLoading(false);
+      setReady(true);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => { document.documentElement.dataset.theme = 'dark'; }, []);

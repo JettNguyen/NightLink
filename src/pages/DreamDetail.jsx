@@ -3,9 +3,9 @@ import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHeart, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { doc, onSnapshot, updateDoc, deleteDoc, serverTimestamp, collection, query, where, limit, getDocs, getDoc, addDoc, orderBy } from 'firebase/firestore';
 import { format, formatDistanceToNow } from 'date-fns';
-import { db } from '../firebase';
+import { supabase } from '../supabase';
+import { mapDream, mapProfile, mapComment } from '../utils/mappers';
 import LoadingIndicator from '../components/LoadingIndicator';
 import ReactionInsightsModal from '../components/ReactionInsightsModal';
 import { logActivityEvents } from '../services/ActivityService';
@@ -125,6 +125,7 @@ export default function DreamDetail({ user }) {
   const [newTag, setNewTag] = useState('');
   const [applyingAiTitle, setApplyingAiTitle] = useState(false);
   const [reanalyzing, setReanalyzing] = useState(false);
+  const [aiQuota, setAiQuota] = useState(null);
   const [promptSelectorOpen, setPromptSelectorOpen] = useState(false);
   const [selectedPrompt, setSelectedPrompt] = useState(null);
   const [userSettings, setUserSettings] = useState(null);
@@ -318,7 +319,9 @@ export default function DreamDetail({ user }) {
   }, [dream?.viewerReactions]);
 
   const getCommentHeartUserIds = useCallback((entry) => (
-    Object.keys(entry?.heartUserIds || {}).filter((id) => typeof id === 'string' && id.trim().length)
+    Array.isArray(entry?.heartUserIds)
+      ? entry.heartUserIds.filter((id) => typeof id === 'string' && id.trim().length)
+      : []
   ), []);
 
   const buildDreamReactionPayload = useCallback((emoji) => {
@@ -558,11 +561,22 @@ export default function DreamDetail({ user }) {
     let cancelled = false;
     const loadViewerProfile = async () => {
       try {
-        const viewerSnap = await getDoc(doc(db, 'users', viewerId));
+        const { data: row } = await supabase.from('profiles').select('*').eq('id', viewerId).single();
         if (cancelled) return;
-        const data = viewerSnap.exists() ? { id: viewerSnap.id, ...viewerSnap.data() } : null;
+        const data = row ? mapProfile(row) : null;
         setViewerProfile(data);
         setUserSettings(data?.settings || null);
+        if (data) {
+          const tier = data?.subscription?.tier || 'free';
+          const usage = data?.aiUsage || {};
+          const thisMonth = new Date().toISOString().slice(0, 7);
+          const monthlyCount = (usage.monthYear || '') === thisMonth ? (usage.monthlyCount || 0) : 0;
+          setAiQuota({
+            tier,
+            remainingFree: tier === 'premium' ? null : Math.max(0, 5 - monthlyCount),
+            creditBalance: usage.creditBalance || 0,
+          });
+        }
       } catch {
         if (!cancelled) {
           setViewerProfile(null);
@@ -588,79 +602,57 @@ export default function DreamDetail({ user }) {
     setError('');
     let cancelled = false;
 
-    const ref = doc(db, 'dreams', dreamId);
-    const unsubscribe = onSnapshot(ref, (snapshot) => {
-      (async () => {
-        if (!snapshot.exists()) {
-          if (!cancelled) {
-            setError('Dream not found.');
-            setDream(null);
-            setLoading(false);
-          }
-          return;
-        }
-
-        const data = snapshot.data();
-        const ownerId = data.userId || null;
-        let resolvedAuthorProfile = null;
-
-        if (ownerId) {
-          try {
-            const authorSnap = await getDoc(doc(db, 'users', ownerId));
-            if (authorSnap.exists()) {
-              resolvedAuthorProfile = { id: authorSnap.id, ...authorSnap.data() };
-            }
-          } catch {
-            resolvedAuthorProfile = null;
-          }
-        }
-
-        const hasAccess = canAccess(data, viewerId, resolvedAuthorProfile);
-        if (!hasAccess) {
-          if (!cancelled) {
-            setError('You do not have permission to view this dream.');
-            setDream(null);
-            setAuthorProfile(resolvedAuthorProfile);
-            setIsOwner(false);
-            setLoading(false);
-          }
-          return;
-        }
-
-        if (cancelled) return;
-
-        const createdAtDate = data.createdAt?.toDate?.() ?? data.createdAt ?? null;
-
-        setDream({
-          id: snapshot.id,
-          ...data,
-          visibility: data.visibility || 'private',
-          createdAt: createdAtDate
-        });
-        setAuthorProfile(resolvedAuthorProfile);
-        setIsOwner(Boolean(ownerId && viewerId && ownerId === viewerId));
-        setTitleInput(data.title || '');
-        setDateInput(createdAtDate ? format(createdAtDate, 'yyyy-MM-dd') : '');
-        setContentInput(data.content || '');
-        setEditableTags(Array.isArray(data.tags) ? data.tags : []);
-        setExcludedViewerIds(Array.isArray(data.excludedViewerIds) ? data.excludedViewerIds : []);
-        setTaggedPeople(Array.isArray(data.taggedUsers) ? data.taggedUsers : []);
-        setTaggingStatus('');
-        setTagHandle('');
-        setStatusMessage('');
-        setLoading(false);
-      })();
-    }, () => {
-      if (!cancelled) {
-        setError('Failed to load this dream.');
-        setDream(null);
-        setLoading(false);
+    const applyDreamData = async (dreamRow) => {
+      if (!dreamRow) {
+        if (!cancelled) { setError('Dream not found.'); setDream(null); setLoading(false); }
+        return;
       }
-    });
+      const dreamData = mapDream(dreamRow);
+      const ownerId = dreamData.userId || null;
+      let resolvedAuthorProfile = null;
+      if (ownerId) {
+        try {
+          const { data: authorRow } = await supabase.from('profiles').select('*').eq('id', ownerId).single();
+          resolvedAuthorProfile = authorRow ? mapProfile(authorRow) : null;
+        } catch { resolvedAuthorProfile = null; }
+      }
+      const hasAccess = canAccess(dreamData, viewerId, resolvedAuthorProfile);
+      if (!hasAccess) {
+        if (!cancelled) {
+          setError('You do not have permission to view this dream.');
+          setDream(null); setAuthorProfile(resolvedAuthorProfile); setIsOwner(false); setLoading(false);
+        }
+        return;
+      }
+      if (cancelled) return;
+      setDream(dreamData);
+      setAuthorProfile(resolvedAuthorProfile);
+      setIsOwner(Boolean(ownerId && viewerId && ownerId === viewerId));
+      setTitleInput(dreamData.title || '');
+      setDateInput(dreamData.createdAt ? format(dreamData.createdAt, 'yyyy-MM-dd') : '');
+      setContentInput(dreamData.content || '');
+      setEditableTags(Array.isArray(dreamData.tags) ? dreamData.tags : []);
+      setExcludedViewerIds(Array.isArray(dreamData.excludedViewerIds) ? dreamData.excludedViewerIds : []);
+      setTaggedPeople(Array.isArray(dreamData.taggedUsers) ? dreamData.taggedUsers : []);
+      setTaggingStatus(''); setTagHandle(''); setStatusMessage(''); setLoading(false);
+    };
+
+    supabase.from('dreams').select('*').eq('id', dreamId).single()
+      .then(({ data: dreamRow, error: fetchErr }) => {
+        if (cancelled) return;
+        if (fetchErr) { setError('Failed to load this dream.'); setDream(null); setLoading(false); return; }
+        applyDreamData(dreamRow);
+      });
+
+    const channel = supabase
+      .channel(`dream:${dreamId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dreams', filter: `id=eq.${dreamId}` },
+        (payload) => { if (!cancelled) applyDreamData(payload.new || null); })
+      .subscribe();
 
     return () => {
       cancelled = true;
-      unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, [dreamId, viewerId]);
 
@@ -673,33 +665,32 @@ export default function DreamDetail({ user }) {
 
     setCommentsLoading(true);
     setCommentError('');
-    const commentsRef = collection(db, 'dreams', dreamId, 'comments');
-    const commentsQuery = query(commentsRef, orderBy('createdAt', 'asc'));
-    const unsubscribe = onSnapshot(commentsQuery, (snapshot) => {
-      const nextComments = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data() || {};
-        const createdAt = data.createdAt?.toDate?.() ?? null;
-        const heartUserIds = (data.heartUserIds && typeof data.heartUserIds === 'object') ? data.heartUserIds : {};
-        const heartCount = typeof data.heartCount === 'number'
-          ? data.heartCount
-          : Object.keys(heartUserIds).length;
-        return {
-          id: docSnap.id,
-          ...data,
-          heartUserIds,
-          heartCount,
-          createdAt
-        };
-      });
-      setComments(nextComments);
-      setCommentsLoading(false);
-    }, () => {
-      setCommentError('Could not load comments.');
-      setComments([]);
-      setCommentsLoading(false);
-    });
+    let cancelled = false;
 
-    return () => unsubscribe();
+    const fetchComments = async () => {
+      const { data, error } = await supabase
+        .from('comments')
+        .select('*')
+        .eq('dream_id', dreamId)
+        .order('created_at', { ascending: true });
+      if (cancelled) return;
+      if (error) { setCommentError('Could not load comments.'); setComments([]); }
+      else { setComments((data || []).map(mapComment)); }
+      setCommentsLoading(false);
+    };
+
+    fetchComments();
+
+    const channel = supabase
+      .channel(`comments:${dreamId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `dream_id=eq.${dreamId}` },
+        () => fetchComments())
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
   }, [dreamId]);
 
   useEffect(() => {
@@ -789,34 +780,21 @@ export default function DreamDetail({ user }) {
 
     const loadFollowing = async () => {
       try {
-        const viewerSnap = await getDoc(doc(db, 'users', user.uid));
-        const viewerData = viewerSnap.data() || {};
-        const followingIds = Array.isArray(viewerData.followingIds) ? viewerData.followingIds : [];
+        const { data: profileRow } = await supabase.from('profiles').select('following_ids').eq('id', user.uid).single();
+        const followingIds = profileRow?.following_ids || [];
         const connectionIds = followingIds.filter((id) => id && id !== user.uid);
         if (!connectionIds.length) {
           if (!cancelled) setAudienceOptions([]);
           return;
         }
-
-        const profiles = await Promise.all(
-          connectionIds.map(async (id) => {
-            try {
-              const profileSnap = await getDoc(doc(db, 'users', id));
-              if (!profileSnap.exists()) return null;
-              const profileData = profileSnap.data();
-              return {
-                id,
-                displayName: profileData.displayName || 'Dreamer',
-                username: profileData.username || '',
-              };
-            } catch {
-              return null;
-            }
-          })
-        );
-
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, display_name, username')
+          .in('id', connectionIds);
         if (!cancelled) {
-          setAudienceOptions(profiles.filter(Boolean));
+          setAudienceOptions((profilesData || []).map((r) => ({
+            id: r.id, displayName: r.display_name || 'Dreamer', username: r.username || '',
+          })));
         }
       } catch {
         if (!cancelled) setAudienceOptions([]);
@@ -835,10 +813,8 @@ export default function DreamDetail({ user }) {
     if (!dream || !isOwner || dream.visibility === value) return;
     setUpdatingVisibility(true);
     try {
-      await updateDoc(doc(db, 'dreams', dream.id), {
-        visibility: value,
-        updatedAt: serverTimestamp()
-      });
+      const { error } = await supabase.from('dreams').update({ visibility: value }).eq('id', dream.id);
+      if (error) throw error;
     } catch {
       setError('Could not update visibility.');
     } finally {
@@ -849,10 +825,8 @@ export default function DreamDetail({ user }) {
   const handleSaveTitle = async () => {
     if (!dream || !isOwner) return;
     try {
-      await updateDoc(doc(db, 'dreams', dream.id), {
-        title: titleInput.trim(),
-        updatedAt: serverTimestamp()
-      });
+      const { error } = await supabase.from('dreams').update({ title: titleInput.trim() }).eq('id', dream.id);
+      if (error) throw error;
       setEditingTitle(false);
     } catch {
       setError('Could not update title.');
@@ -862,10 +836,8 @@ export default function DreamDetail({ user }) {
   const handleSaveDate = async () => {
     if (!dream || !isOwner || !dateInput) return;
     try {
-      await updateDoc(doc(db, 'dreams', dream.id), {
-        createdAt: new Date(dateInput),
-        updatedAt: serverTimestamp()
-      });
+      const { error } = await supabase.from('dreams').update({ created_at: new Date(dateInput).toISOString() }).eq('id', dream.id);
+      if (error) throw error;
       setEditingDate(false);
     } catch {
       setError('Could not update date.');
@@ -882,11 +854,8 @@ export default function DreamDetail({ user }) {
   const handleSaveContent = async () => {
     if (!dream || !isOwner || !contentInput.trim()) return;
     try {
-      await updateDoc(doc(db, 'dreams', dream.id), {
-        content: contentInput.trim(),
-        tags: editableTags,
-        updatedAt: serverTimestamp()
-      });
+      const { error } = await supabase.from('dreams').update({ content: contentInput.trim(), tags: editableTags }).eq('id', dream.id);
+      if (error) throw error;
       setEditingContent(false);
       setNewTag('');
     } catch {
@@ -909,10 +878,8 @@ export default function DreamDetail({ user }) {
     if (!dream || !isOwner) return;
     setAudienceBusy(true);
     try {
-      await updateDoc(doc(db, 'dreams', dream.id), {
-        excludedViewerIds: nextIds,
-        updatedAt: serverTimestamp()
-      });
+      const { error } = await supabase.from('dreams').update({ excluded_viewer_ids: nextIds }).eq('id', dream.id);
+      if (error) throw error;
       setExcludedViewerIds(nextIds);
     } catch {
       setError('Could not update audience overrides.');
@@ -947,34 +914,16 @@ export default function DreamDetail({ user }) {
 
   const resolveMentionTargets = async (text = '') => {
     const handles = extractMentionHandles(text);
-    if (!handles.length) {
-      return { ids: [], handles: [] };
-    }
-
-    const idSet = new Set();
-    const usersRef = collection(db, 'users');
-    const chunkSize = 10;
-    const queries = [];
-    for (let i = 0; i < handles.length; i += chunkSize) {
-      const slice = handles.slice(i, i + chunkSize);
-      queries.push(getDocs(query(usersRef, where('normalizedUsername', 'in', slice))));
-    }
-
+    if (!handles.length) return { ids: [], handles: [] };
     try {
-      const snapshots = await Promise.all(queries);
-      snapshots.forEach((snapshot) => {
-        snapshot.forEach((docSnap) => {
-          idSet.add(docSnap.id);
-        });
-      });
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .in('normalized_username', handles);
+      return { ids: (data || []).map((r) => r.id), handles };
     } catch {
       return { ids: [], handles };
     }
-
-    return {
-      ids: Array.from(idSet),
-      handles
-    };
   };
 
   const tagSuggestions = useMemo(() => {
@@ -1015,16 +964,14 @@ export default function DreamDetail({ user }) {
     setTaggingBusy(true);
     setTaggingStatus('');
     try {
-      await updateDoc(doc(db, 'dreams', dream.id), {
-        taggedUsers: nextList,
-        taggedUserIds: nextList.map((entry) => entry.userId),
-        updatedAt: serverTimestamp()
-      });
+      const { error } = await supabase.from('dreams').update({
+        tagged_users: nextList,
+        tagged_user_ids: nextList.map((entry) => entry.userId),
+      }).eq('id', dream.id);
+      if (error) throw error;
       setTaggedPeople(nextList);
       setTagHandle('');
-      if (successMessage) {
-        setTaggingStatus(successMessage);
-      }
+      if (successMessage) setTaggingStatus(successMessage);
     } catch {
       setTaggingStatus('Could not update tagged dreamers.');
     } finally {
@@ -1069,33 +1016,15 @@ export default function DreamDetail({ user }) {
     }
 
     try {
-      const usersRef = collection(db, 'users');
-      const matches = await getDocs(query(usersRef, where('normalizedUsername', '==', normalizedHandle), limit(1)));
-      if (matches.empty) {
-        setTaggingStatus('No user found for that handle.');
-        return;
-      }
-
-      const match = matches.docs[0];
-      if (match.id === user.uid) {
-        setTaggingStatus('You are already the author.');
-        return;
-      }
-
-      if (taggedPeople.some((entry) => entry.userId === match.id)) {
-        setTaggingStatus('Already tagged.');
-        return;
-      }
-
-      const data = match.data();
-      const next = [
-        ...taggedPeople,
-        {
-          userId: match.id,
-          username: data.username || normalizedHandle,
-          displayName: data.displayName || 'Dreamer'
-        }
-      ];
+      const { data: matchRow } = await supabase
+        .from('profiles')
+        .select('id, username, display_name')
+        .eq('normalized_username', normalizedHandle)
+        .single();
+      if (!matchRow) { setTaggingStatus('No user found for that handle.'); return; }
+      if (matchRow.id === user.uid) { setTaggingStatus('You are already the author.'); return; }
+      if (taggedPeople.some((entry) => entry.userId === matchRow.id)) { setTaggingStatus('Already tagged.'); return; }
+      const next = [...taggedPeople, { userId: matchRow.id, username: matchRow.username || normalizedHandle, displayName: matchRow.display_name || 'Dreamer' }];
       await persistTaggedPeople(next, 'Tagged successfully.');
     } catch {
       setTaggingStatus('Could not tag that user.');
@@ -1125,26 +1054,25 @@ export default function DreamDetail({ user }) {
       const snapshotTitle = dream?.title?.trim()
         || (dream?.aiGenerated ? dream?.aiTitle : '')
         || 'Untitled dream';
-      const commentsRef = collection(db, 'dreams', activeDreamId, 'comments');
-      const commentDocRef = await addDoc(commentsRef, {
-        content: trimmed,
-        userId: viewerId,
-        authorDisplayName: viewerProfile?.displayName || user?.displayName || 'Dreamer',
-        authorUsername: viewerProfile?.username || user?.username || '',
-        dreamId: activeDreamId,
-        dreamOwnerId: dream?.userId || null,
-        dreamOwnerUsername: authorProfile?.username || '',
-        dreamTitleSnapshot: snapshotTitle,
-        mentions: mentionTargets.ids,
-        mentionHandles: mentionTargets.handles,
-        parentCommentId: currentReplyTarget?.id || null,
-        parentCommentUserId: currentReplyTarget?.userId || null,
-        activityTargetIds,
-        heartUserIds: {},
-        heartCount: 0,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
+      const { data: commentRow, error: insertErr } = await supabase.from('comments').insert({
+        content:                trimmed,
+        user_id:                viewerId,
+        author_display_name:    viewerProfile?.displayName || user?.displayName || 'Dreamer',
+        author_username:        viewerProfile?.username || user?.username || '',
+        dream_id:               activeDreamId,
+        dream_owner_id:         dream?.userId || null,
+        dream_owner_username:   authorProfile?.username || '',
+        dream_title_snapshot:   snapshotTitle,
+        mentions:               mentionTargets.ids,
+        mention_handles:        mentionTargets.handles,
+        parent_comment_id:      currentReplyTarget?.id || null,
+        parent_comment_user_id: currentReplyTarget?.userId || null,
+        activity_target_ids:    activityTargetIds,
+        heart_user_ids:         [],
+        heart_count:            0,
+      }).select('id').single();
+      if (insertErr) throw insertErr;
+      const commentDocRef = commentRow;
       const actorDisplayName = viewerProfile?.displayName || user?.displayName || 'Dreamer';
       const actorUsername = viewerProfile?.username || user?.username || '';
       const targetEventMap = new Map();
@@ -1219,7 +1147,8 @@ export default function DreamDetail({ user }) {
     setRemovingCommentId(commentId);
     setCommentStatus('');
     try {
-      await deleteDoc(doc(db, 'dreams', dream.id, 'comments', commentId));
+      const { error } = await supabase.from('comments').delete().eq('id', commentId);
+      if (error) throw error;
     } catch {
       setCommentStatus('Could not remove that comment.');
     } finally {
@@ -1272,19 +1201,11 @@ export default function DreamDetail({ user }) {
     setComments((prev) => prev.map((comment) => {
       if (comment.id !== entry.id) return comment;
       previousEntry = comment;
-      const viewerHearted = Boolean(comment.heartUserIds?.[viewerId]);
-      const nextMap = { ...(comment.heartUserIds || {}) };
-      if (viewerHearted) {
-        delete nextMap[viewerId];
-      } else {
-        nextMap[viewerId] = true;
-      }
+      const hearts = Array.isArray(comment.heartUserIds) ? comment.heartUserIds : [];
+      const viewerHearted = hearts.includes(viewerId);
+      const nextHearts = viewerHearted ? hearts.filter((id) => id !== viewerId) : [...hearts, viewerId];
       const nextCount = Math.max((comment.heartCount || 0) + (viewerHearted ? -1 : 1), 0);
-      return {
-        ...comment,
-        heartUserIds: nextMap,
-        heartCount: nextCount
-      };
+      return { ...comment, heartUserIds: nextHearts, heartCount: nextCount };
     }));
 
     try {
@@ -1335,7 +1256,8 @@ export default function DreamDetail({ user }) {
 
       const requestBody = {
         dreamText: trimmedContent,
-        idToken
+        idToken,
+        dreamId: dream.id,
       };
 
       const promptToUse = customPrompt || resolvePromptFromSettings();
@@ -1359,7 +1281,20 @@ export default function DreamDetail({ user }) {
       }
 
       if (!response.ok) {
+        if (response.status === 429 && payload?.code === 'quota_exceeded') {
+          setAiQuota(prev => ({ ...prev, remainingFree: 0, creditBalance: payload.creditBalance ?? 0 }));
+          setStatusMessage('Monthly limit reached. Buy 10 more analyses for $0.99 (coming soon).');
+          return;
+        }
         throw new Error(payload?.error || `Summary service error (HTTP ${response.status})`);
+      }
+
+      if (payload?.remainingFree !== undefined || payload?.creditBalance !== undefined) {
+        setAiQuota({
+          tier: payload.tier || 'free',
+          remainingFree: payload.remainingFree ?? null,
+          creditBalance: payload.creditBalance ?? 0,
+        });
       }
 
       const generatedTitle = payload?.title?.trim() || '';
@@ -1381,10 +1316,14 @@ export default function DreamDetail({ user }) {
         throw new Error('AI response was incomplete.');
       }
 
-      await updateDoc(doc(db, 'dreams', dream.id), {
-        ...updates,
-        updatedAt: serverTimestamp()
-      });
+      const dbUpdates = {};
+      if (updates.aiGenerated !== undefined) dbUpdates.ai_generated = updates.aiGenerated;
+      if (updates.aiTitle !== undefined)     dbUpdates.ai_title = updates.aiTitle;
+      if (updates.aiInsights !== undefined)  dbUpdates.ai_insights = updates.aiInsights;
+      if (updates.title !== undefined)       dbUpdates.title = updates.title;
+
+      const { error: saveErr } = await supabase.from('dreams').update(dbUpdates).eq('id', dream.id);
+      if (saveErr) throw saveErr;
 
       setStatusMessage('Title and summary updated.');
     } catch (err) {
@@ -1425,12 +1364,9 @@ export default function DreamDetail({ user }) {
     if (!dream?.aiTitle || !isOwner) return;
     setApplyingAiTitle(true);
     setStatusMessage('');
-
     try {
-      await updateDoc(doc(db, 'dreams', dream.id), {
-        title: dream.aiTitle,
-        updatedAt: serverTimestamp()
-      });
+      const { error } = await supabase.from('dreams').update({ title: dream.aiTitle }).eq('id', dream.id);
+      if (error) throw error;
       setStatusMessage('Title updated from AI suggestion.');
     } catch {
       setStatusMessage('Could not apply AI title.');
@@ -1444,7 +1380,8 @@ export default function DreamDetail({ user }) {
     if (!window.confirm('Delete this dream? This cannot be undone.')) return;
     setDeleting(true);
     try {
-      await deleteDoc(doc(db, 'dreams', dream.id));
+      const { error } = await supabase.from('dreams').delete().eq('id', dream.id);
+      if (error) throw error;
       navigate('/journal');
     } catch {
       setError('Failed to delete this dream.');
@@ -1868,12 +1805,23 @@ export default function DreamDetail({ user }) {
                 <p className="detail-insight muted">No summary yet.</p>
               )}
             </div>
+            {isOwner && aiQuota && (
+              <p className="ai-quota-badge">
+                {aiQuota.tier === 'premium'
+                  ? 'Premium · unlimited analyses'
+                  : aiQuota.remainingFree > 0
+                    ? `${aiQuota.remainingFree} of 5 free analyses left`
+                    : aiQuota.creditBalance > 0
+                      ? `${aiQuota.creditBalance} AI credit${aiQuota.creditBalance === 1 ? '' : 's'} remaining`
+                      : 'Monthly limit reached'}
+              </p>
+            )}
             {isOwner && !dream.aiGenerated ? (
               <button
                 type="button"
                 className="primary-btn"
                 onClick={() => handleAnalyzeDream()}
-                disabled={analyzing}
+                disabled={analyzing || (aiQuota?.tier === 'free' && aiQuota?.remainingFree === 0 && aiQuota?.creditBalance === 0)}
               >
                 {analyzing ? 'Generating title & summary…' : 'Generate title & summary'}
               </button>
@@ -1884,7 +1832,7 @@ export default function DreamDetail({ user }) {
                   type="button"
                   className="ghost-btn"
                   onClick={() => setPromptSelectorOpen(!promptSelectorOpen)}
-                  disabled={reanalyzing || analyzing}
+                  disabled={reanalyzing || analyzing || (aiQuota?.tier === 'free' && aiQuota?.remainingFree === 0 && aiQuota?.creditBalance === 0)}
                 >
                   {reanalyzing ? 'Regenerating…' : 'Regenerate with different prompt'}
                 </button>
