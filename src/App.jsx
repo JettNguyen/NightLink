@@ -134,6 +134,46 @@ const buildNormalizedUser = (session) => {
   };
 };
 
+// Ensure a profile row exists for OAuth (Google) sign-ins.
+// Email/password sign-ups create the profile explicitly in AuthPage.jsx.
+const ensureProfile = async (session) => {
+  if (!session) return;
+  const { user } = session;
+  const { data: existing } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', user.id)
+    .single();
+  if (existing) return; // profile already exists
+
+  // Auto-generate a username from the email prefix
+  const emailPrefix = user.email?.split('@')[0] || 'dreamer';
+  const base = emailPrefix.replace(/[^a-zA-Z0-9_]/g, '_') || 'dreamer';
+  let username = base;
+  let counter = 1;
+  while (counter <= 5000) {
+    const { data: taken } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('normalized_username', username.toLowerCase())
+      .single();
+    if (!taken) break;
+    username = `${base}${counter}`;
+    counter++;
+  }
+
+  await supabase.from('profiles').insert({
+    id:                 user.id,
+    email:              user.email,
+    display_name:       user.user_metadata?.full_name || user.user_metadata?.display_name || username,
+    username,
+    normalized_username: username.toLowerCase(),
+    is_anonymous:       false,
+    following_ids:      [],
+    follower_ids:       [],
+  });
+};
+
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -142,12 +182,14 @@ function App() {
   useEffect(() => {
     // Hydrate session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) ensureProfile(session).catch(console.error);
       setUser(buildNormalizedUser(session));
       setLoading(false);
       setReady(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) ensureProfile(session).catch(console.error);
       setUser(buildNormalizedUser(session));
       setLoading(false);
       setReady(true);
