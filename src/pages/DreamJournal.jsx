@@ -26,7 +26,13 @@ const VISIBILITY_OPTIONS = [
 ];
 
 const CONTENT_PREVIEW_LIMIT = 240;
-const INSIGHT_PREVIEW_LIMIT = 180;
+
+const CARD_VISIBILITY_LABELS = {
+  private:   'Private',
+  public:    'Public',
+  following: 'Followers',
+  anonymous: 'Anon',
+};
 
 export default function DreamJournal({ user }) {
   const [dreams, setDreams] = useState([]);
@@ -325,12 +331,14 @@ export default function DreamJournal({ user }) {
   };
 
   const renderDreamCard = (dream) => {
-    const dateLabel = dream.createdAt ? formatDreamDate(dream.createdAt) : 'Undated';
-    const visibilityLabel = VISIBILITY_LABELS[dream.visibility] || VISIBILITY_LABELS.private;
+    const dateLabel = dream.createdAt ? formatDreamDate(dream.createdAt, 'MMM d') : 'Undated';
+    const visLabel = CARD_VISIBILITY_LABELS[dream.visibility] || CARD_VISIBILITY_LABELS.private;
+    const tagCount = dream.tags?.length || 0;
+    const hasAi = Boolean(dream.aiGenerated && dream.aiInsights);
     return (
       <div
         key={dream.id}
-        className={`dream-card ${dream.id.startsWith('local-') ? 'dream-card--pending' : ''}`}
+        className={`dream-card${dream.id.startsWith('local-') ? ' dream-card--pending' : ''}`}
         onClick={() => handleCardNavigate(dream.id)}
         role="button"
         tabIndex={0}
@@ -341,26 +349,20 @@ export default function DreamJournal({ user }) {
         }}
       >
         <div className="dream-header">
-          <div>
+          <div className="dream-meta">
             <span className="dream-date">{dateLabel}</span>
-            <span className="dream-visibility-pill">{visibilityLabel}</span>
+            <span className={`dream-vis-pill dream-vis--${dream.visibility || 'private'}`}>{visLabel}</span>
+            {hasAi && <span className="dream-ai-badge" aria-label="AI analyzed">✦</span>}
           </div>
           <span className="dream-chevron" aria-hidden="true">→</span>
         </div>
         <p className="dream-title">{dream.title || (dream.aiGenerated && dream.aiTitle) || 'Untitled dream'}</p>
         <p className="dream-content">{truncate(dream.content, CONTENT_PREVIEW_LIMIT)}</p>
-        {dream.aiGenerated && dream.aiInsights ? (
-          <div className="dream-footer">
-            <p className="dream-summary">{truncate(dream.aiInsights, INSIGHT_PREVIEW_LIMIT)}</p>
+        {tagCount > 0 && (
+          <div className="dream-footer-meta">
+            <span className="dream-tag-count">{tagCount} {tagCount === 1 ? 'tag' : 'tags'}</span>
           </div>
-        ) : null}
-        {dream.tags?.length ? (
-          <div className="dream-tags">
-            {dream.tags.slice(0, 3).map((tag, index) => (
-              <span className="tag" key={`${dream.id}-tag-${index}`}>{tag.value}</span>
-            ))}
-          </div>
-        ) : null}
+        )}
       </div>
     );
   };
