@@ -1503,6 +1503,7 @@ export default function DreamDetail({ user }) {
       const { error: saveErr } = await supabase.from('dreams').update(dbUpdates).eq('id', dream.id);
       if (saveErr) throw saveErr;
 
+      setDream(prev => ({ ...prev, ...updates }));
       setStatusMessage('Title and summary updated.');
     } catch (err) {
       setStatusMessage(err.message || 'Summary generation failed.');
@@ -1555,6 +1556,8 @@ export default function DreamDetail({ user }) {
     try {
       const { error } = await supabase.from('dreams').update({ title: dream.aiTitle }).eq('id', dream.id);
       if (error) throw error;
+      setDream(prev => ({ ...prev, title: dream.aiTitle }));
+      setTitleInput(dream.aiTitle);
       setStatusMessage('Title updated from AI suggestion.');
     } catch {
       setStatusMessage('Could not apply AI title.');
