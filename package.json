@@ -9,9 +9,18 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "npm run lint",
-    "dev:api": "node dev-server.js"
+    "dev:api": "node dev-server.js",
+    "cap:copy:ios": "npm run build && npx cap copy ios",
+    "cap:sync:ios": "npm run build && npx cap sync ios",
+    "cap:open:ios": "npx cap open ios"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/browser": "^8.0.3",
+    "@capacitor/cli": "^8.3.3",
+    "@capacitor/core": "^8.3.3",
+    "@capacitor/ios": "^8.3.3",
+    "@capacitor/splash-screen": "^8.0.1",
     "@fortawesome/fontawesome-svg-core": "^7.2.0",
     "@fortawesome/free-solid-svg-icons": "^7.2.0",
     "@fortawesome/react-fontawesome": "^3.3.1",

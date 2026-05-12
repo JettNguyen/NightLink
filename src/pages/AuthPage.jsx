@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
+import { App as CapacitorApp } from '@capacitor/app';
 import { supabase } from '../supabase';
 import './AuthPage.css';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
+const NATIVE_OAUTH_REDIRECT = 'dev.nightlink://auth/callback';
+const NATIVE_OAUTH_SCHEME = 'dev.nightlink://';
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const friendlyMsg = (e) => {
   const msg = e?.message || '';
@@ -32,6 +40,7 @@ export default function AuthPage() {
   const signupRef = useRef(null);
   const signinRef = useRef(null);
   const [height, setHeight] = useState(null);
+  const navigate = useNavigate();
   const isSignUp = mode === 'signup';
 
   useEffect(() => {
@@ -145,6 +154,105 @@ export default function AuthPage() {
     setError('');
     setLoading(true);
     try {
+      if (Capacitor.isNativePlatform()) {
+        const { data, error: err } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: NATIVE_OAUTH_REDIRECT,
+            skipBrowserRedirect: true,
+          }
+        });
+        if (err) throw err;
+        if (!data?.url) throw new Error('Could not start Google sign in.');
+
+        let finished = false;
+        let appUrlListener;
+        let browserFinishedListener;
+        let authStateSubscription;
+
+        const cleanup = async () => {
+          if (appUrlListener) await appUrlListener.remove();
+          if (browserFinishedListener) await browserFinishedListener.remove();
+          if (authStateSubscription) authStateSubscription.unsubscribe();
+        };
+
+        const completeNativeOAuth = async (source) => {
+          if (finished) return;
+          finished = true;
+          setLoading(false);
+          navigate('/journal', { replace: true });
+
+          Browser.close()
+            .then(() => {})
+            .catch((closeErr) => {
+              const closeMessage = closeErr?.message || closeErr?.errorMessage || String(closeErr);
+              if ((closeMessage || '').includes('No active window to close')) {
+                return;
+              }
+            });
+
+          await cleanup();
+        };
+
+        const { data: authListenerData } = supabase.auth.onAuthStateChange(async (event) => {
+          if (event !== 'SIGNED_IN') return;
+          try {
+            await completeNativeOAuth('SIGNED_IN listener');
+          } catch {
+            setLoading(false);
+          }
+        });
+        authStateSubscription = authListenerData.subscription;
+
+        appUrlListener = await CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
+          if (finished || !url?.startsWith(NATIVE_OAUTH_SCHEME)) return;
+          try {
+            const parsed = new URL(url);
+            const code = parsed.searchParams.get('code');
+
+            if (code) {
+              const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+              if (exchangeError) throw exchangeError;
+            } else {
+              const hashParams = new URLSearchParams((parsed.hash || '').replace(/^#/, ''));
+              const accessToken = hashParams.get('access_token');
+              const refreshToken = hashParams.get('refresh_token');
+              if (!accessToken || !refreshToken) {
+                throw new Error('Missing auth session data from Google callback.');
+              }
+              const { error: setSessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              });
+              if (setSessionError) throw setSessionError;
+            }
+
+            await completeNativeOAuth('appUrlOpen callback');
+          } catch (exchangeErr) {
+            setError(friendlyMsg(exchangeErr));
+            setLoading(false);
+          } finally {
+            if (!finished) await cleanup();
+          }
+        });
+
+        browserFinishedListener = await Browser.addListener('browserFinished', async () => {
+          // If the browser closes naturally, keep listeners active a little longer
+          // because callback handoff can be delayed on iOS.
+          if (finished) return;
+          await wait(1200);
+          if (finished) return;
+          await cleanup();
+          setLoading(false);
+        });
+
+        await Browser.open({
+          url: data.url,
+          presentationStyle: 'fullscreen',
+        });
+        return;
+      }
+
       const { error: err } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: window.location.origin }
