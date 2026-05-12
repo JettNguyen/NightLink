@@ -7,6 +7,20 @@ import { appUserPropType } from '../propTypes';
 import { Capacitor } from '@capacitor/core';
 import { areNotificationsSupported, disableNotifications, getNotificationPermission, getNotificationPermissionStatus, requestNotificationPermission } from '../utils/notificationHelpers';
 import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
+import {
+  IS_RC_SUPPORTED,
+  CREDITS_OFFERING_ID,
+  PAYWALL_RESULT,
+  getCustomerInfo,
+  getOfferings,
+  purchasePackage,
+  restorePurchases as rcRestorePurchases,
+  presentPaywallIfNeeded,
+  presentCustomerCenter,
+  isProFromCustomerInfo,
+  syncCustomerInfoToSupabase,
+  addCreditsToSupabase,
+} from '../utils/purchases';
 import './Settings.css';
 
 const DEFAULT_SETTINGS = {
@@ -152,10 +166,18 @@ export default function Settings({ user }) {
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [billingStatus, setBillingStatus] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [rcCustomerInfo, setRcCustomerInfo] = useState(null);
+  const [rcLoading, setRcLoading] = useState(false);
   const savedRef = useRef(JSON.stringify(DEFAULT_SETTINGS));
   const uid = user?.uid || null;
   const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
-  const tier = profile?.subscription?.tier === 'premium' ? 'premium' : 'free';
+
+  // Merge Supabase tier with live RC state — RC is authoritative on iOS.
+  // Using the most-permissive value means UI unlocks immediately after a
+  // purchase without waiting for the Supabase real-time event to arrive.
+  const supabaseTier = profile?.subscription?.tier === 'premium' ? 'premium' : 'free';
+  const rcIsPro = isProFromCustomerInfo(rcCustomerInfo);
+  const tier = supabaseTier === 'premium' || (IS_RC_SUPPORTED && rcIsPro) ? 'premium' : 'free';
   const creditBalance = Number(profile?.aiUsage?.creditBalance || 0);
   const currentMonthYear = useMemo(() => new Date().toISOString().slice(0, 7), []);
   const monthlyCount = Number(
@@ -337,6 +359,18 @@ export default function Settings({ user }) {
       setBillingStatus('Checkout cancelled. No charge was made.');
     }
   }, []);
+
+  // Load RC customer info when Settings opens on iOS.
+  // App.jsx handles the background listener; this gives the billing section
+  // an up-to-date snapshot as soon as the user navigates here.
+  useEffect(() => {
+    if (!IS_RC_SUPPORTED || !uid) return;
+    setRcLoading(true);
+    getCustomerInfo()
+      .then((info) => setRcCustomerInfo(info))
+      .catch((err) => console.error('RC customer info fetch failed:', err?.message || err))
+      .finally(() => setRcLoading(false));
+  }, [uid]);
 
   const hasChanges = useMemo(() => JSON.stringify(settings) !== savedRef.current, [settings]);
   const update = useCallback((key, value) => setSettings((prev) => ({ ...prev, [key]: value })), []);
@@ -567,6 +601,97 @@ export default function Settings({ user }) {
     }
   };
 
+  // ─── RevenueCat billing handlers (iOS native only) ──────────────────────────
+
+  const handlePresentPaywall = async () => {
+    if (!uid || checkoutBusy) return;
+    setCheckoutBusy(true);
+    setBillingStatus('');
+    try {
+      const { result } = await presentPaywallIfNeeded();
+      if (result === PAYWALL_RESULT.PURCHASED || result === PAYWALL_RESULT.RESTORED) {
+        const info = await getCustomerInfo();
+        setRcCustomerInfo(info);
+        await syncCustomerInfoToSupabase(uid, info);
+        setBillingStatus(
+          result === PAYWALL_RESULT.RESTORED
+            ? 'Subscription restored! Welcome back to Pro.'
+            : 'Welcome to Pro! All styles and full quota are now unlocked.',
+        );
+      }
+    } catch (err) {
+      const msg = err?.message || '';
+      if (!msg.toLowerCase().includes('cancel') && !msg.toLowerCase().includes('dismiss')) {
+        setBillingStatus(msg || 'Purchase failed. Please try again.');
+      }
+    } finally {
+      setCheckoutBusy(false);
+    }
+  };
+
+  const handleBuyCredits = async () => {
+    if (!uid || checkoutBusy) return;
+    setCheckoutBusy(true);
+    setBillingStatus('');
+    try {
+      const offerings = await getOfferings();
+      const creditsOffering = offerings.all?.[CREDITS_OFFERING_ID];
+      if (!creditsOffering?.availablePackages?.length) {
+        setBillingStatus('Credits pack is not available right now. Try again later.');
+        return;
+      }
+      const creditPackage = creditsOffering.availablePackages[0];
+      const customerInfo = await purchasePackage(creditPackage);
+      await addCreditsToSupabase(uid);
+      await syncCustomerInfoToSupabase(uid, customerInfo);
+      setRcCustomerInfo(customerInfo);
+      setBillingStatus('10 AI credits added to your account!');
+    } catch (err) {
+      const msg = err?.message || '';
+      if (!msg.toLowerCase().includes('cancel') && !msg.toLowerCase().includes('dismiss')) {
+        setBillingStatus(msg || 'Purchase failed. Please try again.');
+      }
+    } finally {
+      setCheckoutBusy(false);
+    }
+  };
+
+  const handleRestorePurchases = async () => {
+    if (!uid || checkoutBusy) return;
+    setCheckoutBusy(true);
+    setBillingStatus('');
+    try {
+      const customerInfo = await rcRestorePurchases();
+      setRcCustomerInfo(customerInfo);
+      await syncCustomerInfoToSupabase(uid, customerInfo);
+      const nowPro = isProFromCustomerInfo(customerInfo);
+      setBillingStatus(
+        nowPro
+          ? 'Pro subscription restored!'
+          : 'No previous purchases found for this Apple ID.',
+      );
+    } catch (err) {
+      setBillingStatus(err?.message || 'Restore failed. Please try again.');
+    } finally {
+      setCheckoutBusy(false);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    if (checkoutBusy) return;
+    try {
+      await presentCustomerCenter();
+      // Refresh after the sheet closes in case user cancelled or got a refund
+      const info = await getCustomerInfo();
+      setRcCustomerInfo(info);
+      await syncCustomerInfoToSupabase(uid, info);
+    } catch (err) {
+      console.error('Customer center error:', err?.message || err);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const handleDeleteAccount = async () => {
     if (!uid || deletingAccount) return;
     const confirmPhrase = 'DELETE';
@@ -651,38 +776,98 @@ export default function Settings({ user }) {
               <h2>Billing</h2>
               <p>Upgrade to Pro for all AI styles plus 30 AI analyses per monthly billing cycle, or buy extra credits anytime.</p>
             </div>
-            <div className="settings-section-body">
-              <div className="notification-support">
-                <span className={`notification-chip${tier === 'premium' ? ' success' : ''}`}>
-                  Plan: {tier === 'premium' ? 'Pro' : 'Free'}
-                </span>
-                {tier === 'premium' ? (
-                  <span className="notification-chip success">Pro credits this cycle left: {proRemaining}</span>
-                ) : (
-                  <span className="notification-chip">Free this month left: {freeRemaining}</span>
-                )}
-                <span className="notification-chip">Paid credits: {creditBalance}</span>
-              </div>
-              <div className="action-buttons">
+
+            {isNativeIOS ? (
+              /* ── RevenueCat / App Store billing (iOS) ── */
+              <div className="settings-section-body">
+                <div className="notification-support">
+                  <span className={`notification-chip${tier === 'premium' ? ' success' : ''}`}>
+                    {rcLoading ? 'Checking plan…' : `Plan: ${tier === 'premium' ? 'Pro' : 'Free'}`}
+                  </span>
+                  {tier === 'premium' ? (
+                    <span className="notification-chip success">Analyses left: {proRemaining}</span>
+                  ) : (
+                    <span className="notification-chip">Free this month: {freeRemaining}</span>
+                  )}
+                  <span className="notification-chip">Paid credits: {creditBalance}</span>
+                </div>
+
+                <div className="action-buttons">
+                  {tier !== 'premium' ? (
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      onClick={handlePresentPaywall}
+                      disabled={checkoutBusy || rcLoading}
+                    >
+                      {checkoutBusy ? 'Opening…' : 'Upgrade to Pro'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="ghost-btn"
+                      onClick={handleManageSubscription}
+                      disabled={checkoutBusy}
+                    >
+                      Manage Subscription
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    onClick={handleBuyCredits}
+                    disabled={checkoutBusy || rcLoading}
+                  >
+                    {checkoutBusy ? 'Opening…' : 'Buy 10 AI Credits'}
+                  </button>
+                </div>
+
                 <button
                   type="button"
-                  className="primary-btn"
-                  onClick={() => handleStartCheckout('subscription', PREMIUM_PRICE_ID, PREMIUM_PAYMENT_LINK)}
-                  disabled={checkoutBusy || tier === 'premium'}
-                >
-                  {tier === 'premium' ? 'Pro active' : (checkoutBusy ? 'Opening checkout...' : 'Subscribe to Pro')}
-                </button>
-                <button
-                  type="button"
-                  className="ghost-btn"
-                  onClick={() => handleStartCheckout('payment', CREDIT_PRICE_ID, CREDIT_PAYMENT_LINK)}
+                  className="rc-restore-btn"
+                  onClick={handleRestorePurchases}
                   disabled={checkoutBusy}
                 >
-                  {checkoutBusy ? 'Opening checkout...' : 'Buy 10 AI credits'}
+                  Restore purchases
                 </button>
+
+                {billingStatus && <p className="notification-alert">{billingStatus}</p>}
               </div>
-              {billingStatus && <p className="notification-alert">{billingStatus}</p>}
-            </div>
+            ) : (
+              /* ── Stripe billing (web) ── */
+              <div className="settings-section-body">
+                <div className="notification-support">
+                  <span className={`notification-chip${tier === 'premium' ? ' success' : ''}`}>
+                    Plan: {tier === 'premium' ? 'Pro' : 'Free'}
+                  </span>
+                  {tier === 'premium' ? (
+                    <span className="notification-chip success">Pro credits this cycle left: {proRemaining}</span>
+                  ) : (
+                    <span className="notification-chip">Free this month left: {freeRemaining}</span>
+                  )}
+                  <span className="notification-chip">Paid credits: {creditBalance}</span>
+                </div>
+                <div className="action-buttons">
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => handleStartCheckout('subscription', PREMIUM_PRICE_ID, PREMIUM_PAYMENT_LINK)}
+                    disabled={checkoutBusy || tier === 'premium'}
+                  >
+                    {tier === 'premium' ? 'Pro active' : (checkoutBusy ? 'Opening checkout...' : 'Subscribe to Pro')}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    onClick={() => handleStartCheckout('payment', CREDIT_PRICE_ID, CREDIT_PAYMENT_LINK)}
+                    disabled={checkoutBusy}
+                  >
+                    {checkoutBusy ? 'Opening checkout...' : 'Buy 10 AI credits'}
+                  </button>
+                </div>
+                {billingStatus && <p className="notification-alert">{billingStatus}</p>}
+              </div>
+            )}
           </section>
 
           <section className="settings-section">

@@ -16,6 +16,14 @@ import useActivityPreview from './hooks/useActivityPreview';
 import { pushActivityLocalNotification, syncDailyDreamReminder } from './utils/notificationHelpers';
 import { triggerMediumHaptic } from './utils/haptics';
 import { appUserPropType } from './propTypes';
+import {
+  IS_RC_SUPPORTED,
+  configurePurchases,
+  getCustomerInfo,
+  addCustomerInfoUpdateListener,
+  removeCustomerInfoUpdateListener,
+  syncCustomerInfoToSupabase,
+} from './utils/purchases';
 
 // Lazy load less critical pages
 const Profile = lazy(() => import('./pages/Profile'));
@@ -346,6 +354,48 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
+  const rcListenerIdRef = useRef(null);
+
+  // Initialize RevenueCat once the user is known (iOS native only).
+  // The listener keeps Supabase in sync with any background subscription
+  // changes (renewals, cancellations, grace periods, etc.).
+  useEffect(() => {
+    if (!IS_RC_SUPPORTED || !user?.uid) return;
+
+    let cancelled = false;
+
+    const setup = async () => {
+      try {
+        await configurePurchases(user.uid);
+        const customerInfo = await getCustomerInfo();
+        if (!cancelled) {
+          syncCustomerInfoToSupabase(user.uid, customerInfo).catch(console.error);
+        }
+        const callbackId = await addCustomerInfoUpdateListener((info) => {
+          if (!cancelled) {
+            syncCustomerInfoToSupabase(user.uid, info).catch(console.error);
+          }
+        });
+        if (!cancelled) {
+          rcListenerIdRef.current = callbackId;
+        } else {
+          removeCustomerInfoUpdateListener(callbackId).catch(() => {});
+        }
+      } catch (err) {
+        console.error('RevenueCat setup failed:', err?.message || err);
+      }
+    };
+
+    setup();
+
+    return () => {
+      cancelled = true;
+      if (rcListenerIdRef.current) {
+        removeCustomerInfoUpdateListener(rcListenerIdRef.current).catch(() => {});
+        rcListenerIdRef.current = null;
+      }
+    };
+  }, [user?.uid]);
 
   useEffect(() => {
     // Hydrate session on mount

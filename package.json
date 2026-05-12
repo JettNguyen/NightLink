@@ -28,7 +28,7 @@
     "@fortawesome/fontawesome-svg-core": "^7.2.0",
     "@fortawesome/free-solid-svg-icons": "^7.2.0",
     "@fortawesome/react-fontawesome": "^3.3.1",
-    "@revenuecat/purchases-capacitor": "^13.1.0",
+    "@revenuecat/purchases-capacitor": "^10.4.0",
     "@revenuecat/purchases-capacitor-ui": "^13.1.0",
     "@supabase/supabase-js": "^2.105.4",
     "date-fns": "^4.1.0",
