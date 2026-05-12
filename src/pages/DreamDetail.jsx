@@ -581,9 +581,10 @@ export default function DreamDetail({ user }) {
           const usage = data?.aiUsage || {};
           const thisMonth = new Date().toISOString().slice(0, 7);
           const monthlyCount = (usage.monthYear || '') === thisMonth ? (usage.monthlyCount || 0) : 0;
+          const tierLimit = tier === 'premium' ? 30 : 1;
           setAiQuota({
             tier,
-            remainingFree: tier === 'premium' ? null : Math.max(0, 1 - monthlyCount),
+            remainingFree: Math.max(0, tierLimit - monthlyCount),
             creditBalance: usage.creditBalance || 0,
           });
         }
@@ -1571,7 +1572,7 @@ export default function DreamDetail({ user }) {
   const hasAudienceQuery = audienceQuery.trim().length > 0;
   const commentCountLabel = comments.length ? ` (${comments.length})` : '';
   const visibilitySummary = visibilityLabel(dream.visibility);
-  const aiLockedByQuota = aiQuota?.tier === 'free' && aiQuota?.remainingFree === 0 && aiQuota?.creditBalance === 0;
+  const aiLockedByQuota = aiQuota?.remainingFree === 0 && aiQuota?.creditBalance === 0;
   const promptOptionKeys = Object.keys(PROMPT_TEMPLATES).filter((key) => key !== 'custom');
 
   return (
@@ -1843,11 +1844,15 @@ export default function DreamDetail({ user }) {
             {isOwner && aiQuota && (
               <p className="ai-quota-badge">
                 {aiQuota.tier === 'premium'
-                  ? 'Premium · unlimited analyses'
+                  ? aiQuota.remainingFree > 0
+                    ? `${aiQuota.remainingFree} of 30 Pro analyses left this cycle`
+                    : aiQuota.creditBalance > 0
+                      ? `${aiQuota.creditBalance} paid AI credit${aiQuota.creditBalance === 1 ? '' : 's'} remaining`
+                      : 'Pro monthly limit reached'
                   : aiQuota.remainingFree > 0
                     ? `${aiQuota.remainingFree} of 1 free analysis left`
                     : aiQuota.creditBalance > 0
-                      ? `${aiQuota.creditBalance} AI credit${aiQuota.creditBalance === 1 ? '' : 's'} remaining`
+                      ? `${aiQuota.creditBalance} paid AI credit${aiQuota.creditBalance === 1 ? '' : 's'} remaining`
                       : 'Monthly limit reached'}
               </p>
             )}

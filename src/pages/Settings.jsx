@@ -160,7 +160,8 @@ export default function Settings({ user }) {
       ? (profile?.aiUsage?.monthlyCount || 0)
       : 0
   );
-  const freeRemaining = tier === 'premium' ? null : Math.max(0, 1 - monthlyCount);
+  const freeRemaining = Math.max(0, 1 - monthlyCount);
+  const proRemaining = Math.max(0, 30 - monthlyCount);
 
   useEffect(() => {
     if (!uid) {
@@ -628,7 +629,7 @@ export default function Settings({ user }) {
           <section className="settings-section">
             <div className="settings-section-head">
               <h2>Billing</h2>
-              <p>Upgrade to Pro for all AI styles and cross-dream pattern context, or buy extra credits anytime.</p>
+              <p>Upgrade to Pro for all AI styles plus 30 AI analyses per monthly billing cycle, or buy extra credits anytime.</p>
             </div>
             <div className="settings-section-body">
               <div className="notification-support">
@@ -636,7 +637,7 @@ export default function Settings({ user }) {
                   Plan: {tier === 'premium' ? 'Pro' : 'Free'}
                 </span>
                 {tier === 'premium' ? (
-                  <span className="notification-chip success">Unlimited monthly AI</span>
+                  <span className="notification-chip success">Pro credits this cycle left: {proRemaining}</span>
                 ) : (
                   <span className="notification-chip">Free this month left: {freeRemaining}</span>
                 )}

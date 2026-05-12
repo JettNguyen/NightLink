@@ -263,7 +263,8 @@ $$;
 create or replace function check_and_increment_ai_quota(
   p_user_id    uuid,
   p_month_year text,
-  p_free_limit int default 1
+  p_free_limit int default 1,
+  p_premium_limit int default 30
 )
 returns jsonb
 language plpgsql
@@ -276,6 +277,7 @@ declare
   v_monthly_count int;
   v_credits       int;
   v_is_new_month  boolean;
+  v_premium_limit int;
 begin
   select ai_usage, coalesce(subscription->>'tier', 'free')
   into   v_usage, v_tier
@@ -293,15 +295,33 @@ begin
   v_monthly_count:= case when v_is_new_month then 0
                          else coalesce((v_usage->>'monthlyCount')::int, 0) end;
   v_credits      := coalesce((v_usage->>'creditBalance')::int, 0);
+  v_premium_limit:= greatest(0, coalesce(p_premium_limit, 30));
 
   if v_tier = 'premium' then
+    if v_monthly_count >= v_premium_limit then
+      if v_credits <= 0 then
+        return jsonb_build_object('allowed', false, 'tier', 'premium',
+                                  'remainingFree', 0, 'creditBalance', 0);
+      end if;
+      update public.profiles
+      set    ai_usage = v_usage
+                     || jsonb_build_object('monthYear', p_month_year,
+                                           'monthlyCount', v_monthly_count,
+                                           'creditBalance', v_credits - 1)
+      where  id = p_user_id;
+      return jsonb_build_object('allowed', true, 'usedCredit', true, 'tier', 'premium',
+                                'remainingFree', 0, 'creditBalance', v_credits - 1);
+    end if;
+
     update public.profiles
     set    ai_usage = v_usage
                    || jsonb_build_object('monthYear', p_month_year,
-                                         'monthlyCount', v_monthly_count + 1)
+                                         'monthlyCount', v_monthly_count + 1,
+                                         'creditBalance', v_credits)
     where  id = p_user_id;
     return jsonb_build_object('allowed', true, 'tier', 'premium',
-                              'remainingFree', null, 'creditBalance', v_credits);
+                              'remainingFree', v_premium_limit - v_monthly_count - 1,
+                              'creditBalance', v_credits);
   end if;
 
   -- Free tier
