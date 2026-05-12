@@ -12,7 +12,8 @@
     "dev:api": "node dev-server.js",
     "cap:copy:ios": "npm run build && npx cap copy ios",
     "cap:sync:ios": "npm run build && npx cap sync ios",
-    "cap:open:ios": "npx cap open ios"
+    "cap:open:ios": "npx cap open ios",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@capacitor-community/apple-sign-in": "^7.1.0",
@@ -46,6 +47,7 @@
     "eslint": "^9.39.4",
     "eslint-plugin-react": "^7.37.5",
     "globals": "^17.6.0",
+    "patch-package": "^8.0.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.0",
