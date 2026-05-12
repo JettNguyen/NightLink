@@ -16,6 +16,7 @@ export const mapProfile = (row) => {
     settings: row.settings || {},
     subscription: row.subscription || { tier: 'free' },
     aiUsage: row.ai_usage || {},
+    premiumEmails: row.premium_emails || [],
     feedSeenAtMs: row.feed_seen_at_ms || null,
     fcmTokens: row.fcm_tokens || [],
     followingIds: row.following_ids || [],

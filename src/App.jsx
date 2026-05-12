@@ -18,6 +18,8 @@ const Profile = lazy(() => import('./pages/Profile'));
 const Search = lazy(() => import('./pages/Search'));
 const Activity = lazy(() => import('./pages/Activity'));
 const Settings = lazy(() => import('./pages/Settings'));
+const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 
 function ProtectedRoute({ user, children }) {
   return user ? children : <Navigate to="/login" replace />;
@@ -66,6 +68,8 @@ function AppContent({ user, loading, ready }) {
         <Routes>
           <Route path="/" element={<Navigate to={home} replace />} />
           <Route path="/login" element={user ? <Navigate to="/journal" replace /> : <AuthPage />} />
+          <Route path="/terms" element={<Suspense fallback={<LazyRouteLoader />}><TermsOfUse /></Suspense>} />
+          <Route path="/privacy" element={<Suspense fallback={<LazyRouteLoader />}><PrivacyPolicy /></Suspense>} />
           <Route path="/journal" element={wrap(DreamJournal)} />
           <Route path="/profile/:handle/dream/:dreamId" element={wrap(DreamDetail)} />
           <Route path="/dream/:dreamId" element={wrap(DreamDetail)} />

@@ -9,7 +9,7 @@ create extension if not exists "pgcrypto";
 -- ============================================================
 -- PROFILES (mirrors auth.users, one row per user)
 -- ============================================================
-create table public.profiles (
+create table if not exists public.profiles (
   id                   uuid primary key references auth.users on delete cascade,
   email                text,
   display_name         text not null default 'Dreamer',
@@ -28,6 +28,7 @@ create table public.profiles (
   following_ids        uuid[] not null default '{}',
   follower_ids         uuid[] not null default '{}',
   allow_anonymous_sharing boolean not null default true,
+  premium_emails       text[] not null default '{}',
   created_at           timestamptz not null default now(),
   updated_at           timestamptz not null default now()
 );
@@ -35,7 +36,7 @@ create table public.profiles (
 -- ============================================================
 -- DREAMS
 -- ============================================================
-create table public.dreams (
+create table if not exists public.dreams (
   id                   uuid primary key default gen_random_uuid(),
   user_id              uuid not null references public.profiles(id) on delete cascade,
   title                text not null default '',
@@ -56,13 +57,13 @@ create table public.dreams (
   updated_at           timestamptz not null default now()
 );
 
-create index dreams_user_id_created_at_idx on public.dreams (user_id, created_at desc);
-create index dreams_visibility_created_at_idx on public.dreams (visibility, created_at desc);
+create index if not exists dreams_user_id_created_at_idx on public.dreams (user_id, created_at desc);
+create index if not exists dreams_visibility_created_at_idx on public.dreams (visibility, created_at desc);
 
 -- ============================================================
 -- COMMENTS
 -- ============================================================
-create table public.comments (
+create table if not exists public.comments (
   id                     uuid primary key default gen_random_uuid(),
   dream_id               uuid not null references public.dreams(id) on delete cascade,
   dream_owner_id         uuid references public.profiles(id),
@@ -83,12 +84,12 @@ create table public.comments (
   updated_at             timestamptz not null default now()
 );
 
-create index comments_dream_id_created_at_idx on public.comments (dream_id, created_at asc);
+create index if not exists comments_dream_id_created_at_idx on public.comments (dream_id, created_at asc);
 
 -- ============================================================
 -- ACTIVITY (inbox per user)
 -- ============================================================
-create table public.activity (
+create table if not exists public.activity (
   id                   uuid primary key default gen_random_uuid(),
   target_user_id       uuid not null references public.profiles(id) on delete cascade,
   actor_id             uuid references public.profiles(id),
@@ -106,7 +107,7 @@ create table public.activity (
   created_at           timestamptz not null default now()
 );
 
-create index activity_target_user_id_created_at_idx on public.activity (target_user_id, created_at desc);
+create index if not exists activity_target_user_id_created_at_idx on public.activity (target_user_id, created_at desc);
 
 -- ============================================================
 -- ROW LEVEL SECURITY
@@ -117,21 +118,33 @@ alter table public.comments  enable row level security;
 alter table public.activity  enable row level security;
 
 -- profiles: anyone can read (needed for usernames, search); only owner can update
+drop policy if exists "profiles_read" on public.profiles;
+drop policy if exists "profiles_insert" on public.profiles;
+drop policy if exists "profiles_update" on public.profiles;
 create policy "profiles_read"   on public.profiles for select using (true);
 create policy "profiles_insert" on public.profiles for insert with check (auth.uid() = id);
 create policy "profiles_update" on public.profiles for update using (auth.uid() = id);
 
 -- dreams: owner can do anything; others can read non-private (app enforces fine-grained access)
+drop policy if exists "dreams_owner" on public.dreams;
+drop policy if exists "dreams_read" on public.dreams;
 create policy "dreams_owner"    on public.dreams for all    using (auth.uid() = user_id);
 create policy "dreams_read"     on public.dreams for select using (visibility != 'private');
 
 -- comments: owner or dream-owner can delete; anyone authed can read/insert
+drop policy if exists "comments_read" on public.comments;
+drop policy if exists "comments_insert" on public.comments;
+drop policy if exists "comments_delete" on public.comments;
 create policy "comments_read"   on public.comments for select using (auth.uid() is not null);
 create policy "comments_insert" on public.comments for insert with check (auth.uid() = user_id);
 create policy "comments_delete" on public.comments for delete
   using (auth.uid() = user_id or auth.uid() = dream_owner_id);
 
 -- activity: only target user can read; anyone authed can insert (push-style)
+drop policy if exists "activity_read" on public.activity;
+drop policy if exists "activity_insert" on public.activity;
+drop policy if exists "activity_update" on public.activity;
+drop policy if exists "activity_delete" on public.activity;
 create policy "activity_read"   on public.activity for select using (auth.uid() = target_user_id);
 create policy "activity_insert" on public.activity for insert with check (auth.uid() is not null);
 create policy "activity_update" on public.activity for update using (auth.uid() = target_user_id);
@@ -250,7 +263,7 @@ $$;
 create or replace function check_and_increment_ai_quota(
   p_user_id    uuid,
   p_month_year text,
-  p_free_limit int default 5
+  p_free_limit int default 1
 )
 returns jsonb
 language plpgsql

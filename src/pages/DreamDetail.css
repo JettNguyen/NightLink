@@ -908,6 +908,11 @@
   cursor: wait;
 }
 
+.prompt-option-btn.locked {
+  border-style: dashed;
+  opacity: 0.65;
+}
+
 .prompt-option-btn.current-prompt {
   border-color: var(--primary);
   background: rgba(56, 189, 248, 0.1);
@@ -922,6 +927,27 @@
 .prompt-option-btn.current-prompt span {
   font-size: 0.85rem;
   color: var(--text-secondary);
+}
+
+.ai-upgrade-cta {
+  margin-top: 0.5rem;
+  border: 1px dashed rgba(251, 191, 36, 0.45);
+  border-radius: 10px;
+  padding: 0.75rem;
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.ai-upgrade-cta p {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+}
+
+.ai-upgrade-cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
 }
 
 .detail-actions {

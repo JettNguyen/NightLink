@@ -41,6 +41,8 @@ const PROMPT_ID_ALIASES = {
   investigator: 'director'
 };
 
+const FREE_ALLOWED_PROMPT_KEYS = new Set(['balanced', 'coach', 'therapist']);
+
 const VISIBILITY_OPTIONS = [
   { value: 'private', label: 'Private', helper: 'Only you can see this.' },
   { value: 'public', label: 'Public', helper: 'Visible on your profile and feed.' },
@@ -59,6 +61,11 @@ const INITIAL_INSIGHT_STATE = {
   userIds: [],
   anchorRect: null
 };
+
+const normalizePromptKey = (key) => PROMPT_ID_ALIASES[key] || key || 'balanced';
+const isPromptLockedForTier = (tier, key) => (
+  tier !== 'premium' && !FREE_ALLOWED_PROMPT_KEYS.has(normalizePromptKey(key))
+);
 
 const normalizeAnchorRect = (rect) => {
   if (!rect) return null;
@@ -170,13 +177,16 @@ export default function DreamDetail({ user }) {
   const suppressNextClickRef = useRef(false);
   const resolvePromptFromSettings = useCallback(() => {
     const raw = (userSettings?.aiPromptPreset || '').trim() || 'balanced';
-    const preset = PROMPT_ID_ALIASES[raw] || raw;
+    const preset = normalizePromptKey(raw);
+    if (isPromptLockedForTier(aiQuota?.tier || 'free', preset)) {
+      return PROMPT_TEMPLATES.balanced;
+    }
     if (preset === 'custom') {
       const custom = (userSettings?.aiPromptCustom || '').trim();
       return custom || PROMPT_TEMPLATES.balanced;
     }
     return PROMPT_TEMPLATES[preset] || PROMPT_TEMPLATES.balanced;
-  }, [userSettings]);
+  }, [userSettings, aiQuota?.tier]);
   const commentLookup = useMemo(() => (
     comments.reduce((acc, entry) => {
       if (entry?.id) {
@@ -573,7 +583,7 @@ export default function DreamDetail({ user }) {
           const monthlyCount = (usage.monthYear || '') === thisMonth ? (usage.monthlyCount || 0) : 0;
           setAiQuota({
             tier,
-            remainingFree: tier === 'premium' ? null : Math.max(0, 5 - monthlyCount),
+            remainingFree: tier === 'premium' ? null : Math.max(0, 1 - monthlyCount),
             creditBalance: usage.creditBalance || 0,
           });
         }
@@ -1234,7 +1244,7 @@ export default function DreamDetail({ user }) {
     }
   };
 
-  const handleAnalyzeDream = async (customPrompt = null) => {
+  const handleAnalyzeDream = async ({ customPrompt = null, promptKey = null } = {}) => {
     if (!dream || !isOwner || dream.id.startsWith('local-')) return;
 
     const trimmedContent = (dream.content || '').trim();
@@ -1260,10 +1270,19 @@ export default function DreamDetail({ user }) {
         dreamId: dream.id,
       };
 
+      let selectedPromptKey = promptKey;
+      if (!selectedPromptKey) {
+        selectedPromptKey = normalizePromptKey((userSettings?.aiPromptPreset || '').trim() || 'balanced');
+      }
+      if (isPromptLockedForTier(aiQuota?.tier || 'free', selectedPromptKey)) {
+        selectedPromptKey = 'balanced';
+      }
+
       const promptToUse = customPrompt || resolvePromptFromSettings();
       if (promptToUse) {
         requestBody.customPrompt = promptToUse;
       }
+      requestBody.promptStyle = selectedPromptKey;
 
       const response = await fetch(AI_URL, {
         method: 'POST',
@@ -1281,9 +1300,13 @@ export default function DreamDetail({ user }) {
       }
 
       if (!response.ok) {
+        if (response.status === 403 && payload?.code === 'style_locked') {
+          setStatusMessage('That insight style is locked. Upgrade to Pro in Settings to unlock all styles and custom prompts.');
+          return;
+        }
         if (response.status === 429 && payload?.code === 'quota_exceeded') {
           setAiQuota(prev => ({ ...prev, remainingFree: 0, creditBalance: payload.creditBalance ?? 0 }));
-          setStatusMessage('Monthly limit reached. Buy 10 more analyses for $0.99 (coming soon).');
+          setStatusMessage('Monthly limit reached. Upgrade or buy credits in Settings to keep analyzing.');
           return;
         }
         throw new Error(payload?.error || `Summary service error (HTTP ${response.status})`);
@@ -1342,19 +1365,29 @@ export default function DreamDetail({ user }) {
 
     try {
       let customPrompt = null;
+      let selectedPromptKey = normalizePromptKey(promptKey || 'balanced');
 
       if (promptKey === 'current') {
+        const settingsKey = normalizePromptKey((userSettings?.aiPromptPreset || '').trim() || 'balanced');
+        selectedPromptKey = settingsKey;
         customPrompt = resolvePromptFromSettings();
       } else if (promptKey === 'custom') {
+        selectedPromptKey = 'custom';
         customPrompt = userSettings?.aiPromptCustom || PROMPT_TEMPLATES.balanced;
       } else if (promptKey) {
-        const normalizedKey = PROMPT_ID_ALIASES[promptKey] || promptKey;
+        const normalizedKey = normalizePromptKey(promptKey);
         if (PROMPT_TEMPLATES[normalizedKey]) {
           customPrompt = PROMPT_TEMPLATES[normalizedKey];
+          selectedPromptKey = normalizedKey;
         }
       }
 
-      await handleAnalyzeDream(customPrompt);
+      if (isPromptLockedForTier(aiQuota?.tier || 'free', selectedPromptKey)) {
+        setStatusMessage('That style is locked on the free plan. Upgrade in Settings to unlock it.');
+        return;
+      }
+
+      await handleAnalyzeDream({ customPrompt, promptKey: selectedPromptKey });
     } finally {
       setReanalyzing(false);
     }
@@ -1538,6 +1571,8 @@ export default function DreamDetail({ user }) {
   const hasAudienceQuery = audienceQuery.trim().length > 0;
   const commentCountLabel = comments.length ? ` (${comments.length})` : '';
   const visibilitySummary = visibilityLabel(dream.visibility);
+  const aiLockedByQuota = aiQuota?.tier === 'free' && aiQuota?.remainingFree === 0 && aiQuota?.creditBalance === 0;
+  const promptOptionKeys = Object.keys(PROMPT_TEMPLATES).filter((key) => key !== 'custom');
 
   return (
     <div className={containerClass}>
@@ -1810,7 +1845,7 @@ export default function DreamDetail({ user }) {
                 {aiQuota.tier === 'premium'
                   ? 'Premium · unlimited analyses'
                   : aiQuota.remainingFree > 0
-                    ? `${aiQuota.remainingFree} of 5 free analyses left`
+                    ? `${aiQuota.remainingFree} of 1 free analysis left`
                     : aiQuota.creditBalance > 0
                       ? `${aiQuota.creditBalance} AI credit${aiQuota.creditBalance === 1 ? '' : 's'} remaining`
                       : 'Monthly limit reached'}
@@ -1821,7 +1856,7 @@ export default function DreamDetail({ user }) {
                 type="button"
                 className="primary-btn"
                 onClick={() => handleAnalyzeDream()}
-                disabled={analyzing || (aiQuota?.tier === 'free' && aiQuota?.remainingFree === 0 && aiQuota?.creditBalance === 0)}
+                disabled={analyzing || aiLockedByQuota}
               >
                 {analyzing ? 'Generating title & summary…' : 'Generate title & summary'}
               </button>
@@ -1832,7 +1867,7 @@ export default function DreamDetail({ user }) {
                   type="button"
                   className="ghost-btn"
                   onClick={() => setPromptSelectorOpen(!promptSelectorOpen)}
-                  disabled={reanalyzing || analyzing || (aiQuota?.tier === 'free' && aiQuota?.remainingFree === 0 && aiQuota?.creditBalance === 0)}
+                  disabled={reanalyzing || analyzing || aiLockedByQuota}
                 >
                   {reanalyzing ? 'Regenerating…' : 'Regenerate with different prompt'}
                 </button>
@@ -1848,28 +1883,33 @@ export default function DreamDetail({ user }) {
                       <strong>Use my settings</strong>
                       <span>({userSettings?.aiPromptPreset === 'custom'
                         ? 'Custom prompt'
-                        : (PROMPT_LABELS[PROMPT_ID_ALIASES[userSettings?.aiPromptPreset] || userSettings?.aiPromptPreset] || 'Balanced guide')})</span>
+                        : (PROMPT_LABELS[normalizePromptKey(userSettings?.aiPromptPreset)] || 'Balanced guide')})</span>
                     </button>
                     <div className="prompt-options-grid">
-                      {Object.keys(PROMPT_TEMPLATES).map((key) => (
-                        <button
-                          key={key}
-                          type="button"
-                          className="prompt-option-btn"
-                          onClick={() => handleReanalyze(key)}
-                          disabled={reanalyzing}
-                        >
-                          {PROMPT_LABELS[key]}
-                        </button>
-                      ))}
+                      {promptOptionKeys.map((key) => {
+                        const locked = isPromptLockedForTier(aiQuota?.tier || 'free', key);
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            className={`prompt-option-btn${locked ? ' locked' : ''}`}
+                            onClick={() => handleReanalyze(key)}
+                            disabled={reanalyzing || locked}
+                            title={locked ? 'Upgrade to Pro to unlock this style' : undefined}
+                          >
+                            {PROMPT_LABELS[key]}
+                            {locked ? ' (Pro)' : ''}
+                          </button>
+                        );
+                      })}
                       {userSettings?.aiPromptPreset === 'custom' && userSettings?.aiPromptCustom && (
                         <button
                           type="button"
-                          className="prompt-option-btn custom-prompt-option"
+                          className={`prompt-option-btn custom-prompt-option${aiQuota?.tier !== 'premium' ? ' locked' : ''}`}
                           onClick={() => handleReanalyze('custom')}
-                          disabled={reanalyzing}
+                          disabled={reanalyzing || aiQuota?.tier !== 'premium'}
                         >
-                          My custom prompt
+                          {aiQuota?.tier === 'premium' ? 'My custom prompt' : 'My custom prompt (Pro)'}
                         </button>
                       )}
                     </div>
@@ -1885,6 +1925,15 @@ export default function DreamDetail({ user }) {
                 )}
               </div>
             ) : null}
+            {isOwner && aiQuota?.tier !== 'premium' && (
+              <div className="ai-upgrade-cta">
+                <p>Unlock all insight styles, custom instructions, and cross-dream pattern analysis with Pro.</p>
+                <div className="ai-upgrade-cta-actions">
+                  <button type="button" className="ghost-btn" onClick={() => navigate('/settings')}>Subscribe to Pro</button>
+                  <button type="button" className="ghost-btn" onClick={() => navigate('/settings')}>Buy AI credits</button>
+                </div>
+              </div>
+            )}
           </div>
 
         {isOwner && dream.aiGenerated && dream.aiTitle && dream.aiTitle !== (dream.title || '').trim() ? (
