@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHeart, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { format, formatDistanceToNow } from 'date-fns';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '../supabase';
 import { mapDream, mapProfile, mapComment } from '../utils/mappers';
 import LoadingIndicator from '../components/LoadingIndicator';
@@ -11,8 +12,9 @@ import ReactionInsightsModal from '../components/ReactionInsightsModal';
 import { logActivityEvents } from '../services/ActivityService';
 import updateDreamReaction, { toggleCommentHeart } from '../services/ReactionService';
 import fetchUserSummaries from '../services/UserService';
+import { formatDateInputValue, formatDreamDate, parseDateInputValue } from '../utils/dates';
 import './DreamDetail.css';
-import { firebaseUserPropType } from '../propTypes';
+import { appUserPropType } from '../propTypes';
 import { COMMON_EMOJI_REACTIONS, filterEmojiInput } from '../constants/emojiOptions';
 
 const PROMPT_TEMPLATES = {
@@ -50,7 +52,31 @@ const VISIBILITY_OPTIONS = [
   { value: 'anonymous', label: 'Anonymous', helper: 'Shared without your identity.' }
 ];
 
-const AI_URL = import.meta.env.VITE_AI_ENDPOINT || '/api/ai';
+const DEFAULT_API_ORIGIN = 'https://www.nightlink.dev';
+
+const normalizeNativeAiEndpoint = (endpoint) => {
+  if (!endpoint) return endpoint;
+  if (!Capacitor.isNativePlatform()) return endpoint;
+  return endpoint.replace(/^https:\/\/nightlink\.dev(?=\/|$)/i, 'https://www.nightlink.dev');
+};
+
+const resolveAiEndpoint = () => {
+  const configuredAiEndpoint = (import.meta.env.VITE_AI_ENDPOINT || '').trim();
+  if (configuredAiEndpoint) return normalizeNativeAiEndpoint(configuredAiEndpoint);
+
+  const configuredApiBase = (import.meta.env.VITE_API_BASE_URL || '').trim();
+  if (configuredApiBase) {
+    return normalizeNativeAiEndpoint(`${configuredApiBase.replace(/\/$/, '')}/api/ai`);
+  }
+
+  if (Capacitor.isNativePlatform()) {
+    return `${DEFAULT_API_ORIGIN}/api/ai`;
+  }
+
+  return '/api/ai';
+};
+
+const AI_URL = resolveAiEndpoint();
 const DEFAULT_EMOJI = '💙';
 const ACTIVITY_PRIORITY = { mention: 2, reply: 1, comment: 0 };
 const INITIAL_INSIGHT_STATE = {
@@ -640,7 +666,7 @@ export default function DreamDetail({ user }) {
       setAuthorProfile(resolvedAuthorProfile);
       setIsOwner(Boolean(ownerId && viewerId && ownerId === viewerId));
       setTitleInput(dreamData.title || '');
-      setDateInput(dreamData.createdAt ? format(dreamData.createdAt, 'yyyy-MM-dd') : '');
+      setDateInput(formatDateInputValue(dreamData.createdAt));
       setContentInput(dreamData.content || '');
       setEditableTags(Array.isArray(dreamData.tags) ? dreamData.tags : []);
       setExcludedViewerIds(Array.isArray(dreamData.excludedViewerIds) ? dreamData.excludedViewerIds : []);
@@ -773,7 +799,7 @@ export default function DreamDetail({ user }) {
   const formattedDate = useMemo(() => {
     if (!dream?.createdAt) return '';
     try {
-      return format(dream.createdAt, 'MMMM d, yyyy');
+      return formatDreamDate(dream.createdAt, 'MMMM d, yyyy');
     } catch {
       return '';
     }
@@ -905,7 +931,12 @@ export default function DreamDetail({ user }) {
   const handleSaveDate = async () => {
     if (!dream || !isOwner || !dateInput) return;
     try {
-      const { error } = await supabase.from('dreams').update({ created_at: new Date(dateInput).toISOString() }).eq('id', dream.id);
+      const nextDate = parseDateInputValue(dateInput);
+      if (!nextDate) {
+        setError('Choose a valid dream date.');
+        return;
+      }
+      const { error } = await supabase.from('dreams').update({ created_at: nextDate.toISOString() }).eq('id', dream.id);
       if (error) throw error;
       const targetIds = new Set([
         ...(Array.isArray(taggedPeople) ? taggedPeople.map((entry) => entry?.userId).filter(Boolean) : []),
@@ -1408,6 +1439,13 @@ export default function DreamDetail({ user }) {
       });
 
       const raw = await response.text();
+      const contentType = response.headers.get('content-type') || '';
+      const looksLikeHtml = contentType.includes('text/html') || raw.trimStart().startsWith('<!DOCTYPE html');
+
+      if (looksLikeHtml) {
+        throw new Error('AI service endpoint is misconfigured for this build. Set VITE_AI_ENDPOINT to your deployed API URL.');
+      }
+
       let payload = null;
       try {
         payload = raw ? JSON.parse(raw) : null;
@@ -2339,5 +2377,5 @@ export default function DreamDetail({ user }) {
 }
 
 DreamDetail.propTypes = {
-  user: firebaseUserPropType
+  user: appUserPropType
 };

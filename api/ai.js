@@ -56,8 +56,79 @@ const checkAndIncrementQuota = async (uid) => {
     p_month_year: currentMonthYear(),
     p_free_limit: 1
   });
-  if (error) throw new Error(`Quota check failed: ${error.message}`);
+  if (error) throw error;
   return data;
+};
+
+const checkAndIncrementQuotaFallback = async (uid, tier) => {
+  const admin = getSupabaseAdmin();
+  const { data: profile, error } = await admin
+    .from('profiles')
+    .select('ai_usage')
+    .eq('id', uid)
+    .single();
+
+  // If the column doesn't exist or profile is missing, treat as a fresh user
+  // rather than hard-failing. A schema gap shouldn't block all AI usage.
+  if (error) {
+    console.error('Fallback quota load failed (treating as new user):', error.message);
+  }
+
+  const usage = (error ? null : profile?.ai_usage) || {};
+  const monthYear = currentMonthYear();
+  const storedMonth = typeof usage.monthYear === 'string' ? usage.monthYear : '';
+  const isNewMonth = storedMonth !== monthYear;
+  const monthlyCount = isNewMonth ? 0 : Number(usage.monthlyCount || 0);
+  const creditBalance = Number(usage.creditBalance || 0);
+  const limit = tier === 'premium' ? 30 : 1;
+
+  let allowed = false;
+  let usedCredit = false;
+  let nextMonthlyCount = monthlyCount;
+  let nextCreditBalance = creditBalance;
+
+  if (monthlyCount < limit) {
+    allowed = true;
+    nextMonthlyCount = monthlyCount + 1;
+  } else if (creditBalance > 0) {
+    allowed = true;
+    usedCredit = true;
+    nextCreditBalance = creditBalance - 1;
+  }
+
+  if (!allowed) {
+    return {
+      allowed: false,
+      tier,
+      remainingFree: 0,
+      creditBalance: Math.max(0, creditBalance)
+    };
+  }
+
+  const nextUsage = {
+    ...usage,
+    monthYear,
+    monthlyCount: nextMonthlyCount,
+    creditBalance: Math.max(0, nextCreditBalance)
+  };
+
+  const { error: updateError } = await admin
+    .from('profiles')
+    .update({ ai_usage: nextUsage })
+    .eq('id', uid);
+
+  if (updateError) {
+    // Log but don't hard-fail — if ai_usage column is missing the request still goes through
+    console.error('Fallback quota update failed:', updateError.message);
+  }
+
+  return {
+    allowed: true,
+    usedCredit,
+    tier,
+    remainingFree: Math.max(0, limit - nextMonthlyCount),
+    creditBalance: Math.max(0, nextCreditBalance)
+  };
 };
 
 const getUserTier = async (uid) => {
@@ -211,8 +282,14 @@ module.exports = async function handler(req, res) {
   let quota;
   try { quota = await checkAndIncrementQuota(uid); }
   catch (e) {
-    console.error('Quota check failed:', e.message);
-    return res.status(500).json({ error: 'Could not verify usage quota.' });
+    console.error('Quota check RPC failed, using fallback:', e?.message || e, '| code:', e?.code);
+    try {
+      quota = await checkAndIncrementQuotaFallback(uid, tier);
+    } catch (fallbackError) {
+      const detail = fallbackError?.message || String(fallbackError);
+      console.error('Quota fallback failed:', detail);
+      return res.status(500).json({ error: `Could not verify usage quota: ${detail}` });
+    }
   }
 
   if (!quota.allowed) {

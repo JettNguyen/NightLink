@@ -9,7 +9,9 @@
   border-bottom: 1px solid var(--border);
   z-index: 100;
   height: calc(88px + env(safe-area-inset-top));
-  transition: background-color 0.35s ease, border-color 0.35s ease, height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.2s ease, border-color 0.2s ease, height 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateZ(0);
+  will-change: background-color;
 }
 
 .navigation-compact {
@@ -25,6 +27,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  transform: translateZ(0);
 }
 
 .nav-logo {
@@ -35,14 +38,22 @@
   font-weight: bold;
   color: var(--text);
   letter-spacing: -0.02em;
-  transition: color 0.2s ease, font-size 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color 0.2s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateZ(0) scale(1);
+  transform-origin: left center;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .nav-logo-icon {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), height 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.4s ease;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), border-radius 0.3s ease;
+  transform: translateZ(0) scale(1);
+  transform-origin: center;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .nav-logo:hover {
@@ -57,12 +68,14 @@
   padding-bottom: 12px;
   margin-top: 15px;
   overflow: visible;
+  transform: translateZ(0);
+  transition: margin-top 0.3s cubic-bezier(0.22, 1, 0.36, 1), padding-bottom 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .nav-links a {
   color: var(--text-secondary);
   font-weight: 600;
-  transition: color 0.2s ease, gap 0.35s ease;
+  transition: color 0.18s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
   padding: 0.35rem 0;
   min-height: 44px;
   display: flex;
@@ -70,6 +83,9 @@
   align-items: center;
   gap: 0.25rem;
   position: relative;
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .nav-links a:hover,
@@ -91,16 +107,20 @@
   font-size: 1.25rem;
   color: currentColor;
   opacity: 1;
-  max-height: 1.5em;
-  overflow: hidden;
-  transition: opacity 0.4s ease, max-height 0.4s ease;
+  transition: opacity 0.24s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateZ(0) scale(1);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 .nav-tab-label {
   display: inline-flex;
   align-items: center;
   line-height: 1;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.22s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateZ(0) translateY(0);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 .nav-activity-indicator {
@@ -137,12 +157,11 @@
 }
 
 .navigation-compact .nav-logo {
-  font-size: 1.35rem;
+  transform: translateZ(0) scale(0.84);
 }
 
 .navigation-compact .nav-logo-icon {
-  width: 26px;
-  height: 26px;
+  transform: translateZ(0) scale(0.72);
   border-radius: 6px;
 }
 
@@ -153,22 +172,26 @@
 }
 
 .navigation-compact .nav-links a {
-  flex-direction: row;
-  gap: 0.4rem;
+  flex-direction: column;
+  gap: 0.12rem;
   align-items: center;
 }
 
 .navigation-compact .nav-icon {
-  opacity: 0;
-  max-height: 0;
+  opacity: 0.18;
+  transform: translateZ(0) translateY(-2px) scale(0.88);
   pointer-events: none;
+}
+
+.navigation-compact .nav-tab-label {
+  transform: translateZ(0) translateY(-2px);
 }
 
 @media (max-width: 768px) {
   /* Keep icons visible on mobile even when compact */
   .navigation-compact .nav-icon {
     opacity: 1;
-    max-height: 1.5em;
+    transform: translateZ(0) scale(1);
     pointer-events: auto;
   }
   .navigation {
@@ -195,21 +218,19 @@
   }
 
   .navigation:not(.navigation-compact) .nav-logo {
-    font-size: 1.35rem;
+    transform: translateZ(0) scale(1);
   }
 
   .navigation.navigation-compact .nav-logo {
-    font-size: 1rem;
+    transform: translateZ(0) scale(0.74);
   }
 
   .navigation:not(.navigation-compact) .nav-logo-icon {
-    width: 28px;
-    height: 28px;
+    transform: translateZ(0) scale(0.78);
   }
 
   .navigation.navigation-compact .nav-logo-icon {
-    width: 18px;
-    height: 18px;
+    transform: translateZ(0) scale(0.5);
   }
 
   .nav-links {
@@ -322,7 +343,7 @@
 
   .navigation-compact .nav-icon {
     opacity: 1;
-    max-height: 1.1em;
+    transform: translateZ(0) scale(0.92);
     pointer-events: auto;
     font-size: 1rem;
   }

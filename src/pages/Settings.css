@@ -22,20 +22,35 @@
 }
 
 .settings-save-bar {
+  position: -webkit-sticky;
   position: sticky;
-  top: calc(88px + env(safe-area-inset-top));
+  top: calc(74px + env(safe-area-inset-top));
   z-index: 10;
   background: rgba(6, 8, 17, 0.88);
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 0.75rem 1rem;
-  margin-bottom: 0rem;
+  margin-bottom: 0.75rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
+}
+
+html[data-native-platform='ios'].settings-page-active .settings-page .settings-save-bar {
+  position: fixed;
+  top: calc(72px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(920px, calc(100vw - 2.5rem));
+  z-index: 110;
+}
+
+html[data-native-platform='ios'].settings-page-active .settings-page .settings-sections {
+  padding-top: 5rem;
 }
 
 .settings-save-bar p {

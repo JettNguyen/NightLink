@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { Capacitor } from '@capacitor/core';
 import App from './App';
 import './index.css';
 
@@ -11,6 +12,17 @@ window.addEventListener('vite:preloadError', () => {
     window.location.reload();
   }
 });
+
+if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios') {
+  document.documentElement.dataset.nativePlatform = 'ios';
+
+  // Native app shell should not be controlled by a web service worker.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations()
+      .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+      .catch(() => {});
+  }
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

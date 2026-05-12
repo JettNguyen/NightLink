@@ -13,8 +13,6 @@
 *.css text eol=lf
 *.html text eol=lf
 .gitignore text eol=lf
-.firebaserc text eol=lf
-firestore.rules text eol=lf
 
 # Binary files
 *.png binary

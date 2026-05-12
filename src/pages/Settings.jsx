@@ -3,8 +3,10 @@ import PropTypes from 'prop-types';
 import { supabase } from '../supabase';
 import { mapProfile } from '../utils/mappers';
 import LoadingIndicator from '../components/LoadingIndicator';
-import { firebaseUserPropType } from '../propTypes';
-import { areNotificationsSupported, disableNotifications, getNotificationPermission, requestNotificationPermission } from '../utils/notificationHelpers';
+import { appUserPropType } from '../propTypes';
+import { Capacitor } from '@capacitor/core';
+import { areNotificationsSupported, disableNotifications, getNotificationPermission, getNotificationPermissionStatus, requestNotificationPermission } from '../utils/notificationHelpers';
+import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
 import './Settings.css';
 
 const DEFAULT_SETTINGS = {
@@ -152,6 +154,7 @@ export default function Settings({ user }) {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const savedRef = useRef(JSON.stringify(DEFAULT_SETTINGS));
   const uid = user?.uid || null;
+  const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
   const tier = profile?.subscription?.tier === 'premium' ? 'premium' : 'free';
   const creditBalance = Number(profile?.aiUsage?.creditBalance || 0);
   const currentMonthYear = useMemo(() => new Date().toISOString().slice(0, 7), []);
@@ -190,7 +193,7 @@ export default function Settings({ user }) {
         ...DEFAULT_SETTINGS,
         ...incoming,
         aiPromptPreset: normalizedPreset,
-        aiPromptCustom: normalizedPreset === 'custom' ? (incoming.aiPromptCustom ?? '') : ''
+        aiPromptCustom: incoming.aiPromptCustom ?? ''
       };
       if (incoming.notifyReactions !== undefined && incoming.notifyActivityAlerts === undefined) {
         merged.notifyActivityAlerts = incoming.notifyReactions;
@@ -217,7 +220,7 @@ export default function Settings({ user }) {
             ...DEFAULT_SETTINGS,
             ...incoming,
             aiPromptPreset: normalizedPreset,
-            aiPromptCustom: normalizedPreset === 'custom' ? (incoming.aiPromptCustom ?? '') : ''
+            aiPromptCustom: incoming.aiPromptCustom ?? ''
           };
           savedRef.current = JSON.stringify(merged);
           setSettings(merged);
@@ -226,6 +229,15 @@ export default function Settings({ user }) {
 
     return () => supabase.removeChannel(channel);
   }, [uid]);
+
+  useEffect(() => {
+    if (!isNativeIOS) return undefined;
+    const root = document.documentElement;
+    root.classList.add('settings-page-active');
+    return () => {
+      root.classList.remove('settings-page-active');
+    };
+  }, [isNativeIOS]);
 
   useEffect(() => {
     if (!uid || !user?.getIdToken) return;
@@ -269,7 +281,9 @@ export default function Settings({ user }) {
 
   useEffect(() => {
     setNotificationsSupported(areNotificationsSupported());
-    setNotificationPermission(getNotificationPermission());
+    getNotificationPermissionStatus()
+      .then((permission) => setNotificationPermission(permission))
+      .catch(() => setNotificationPermission(getNotificationPermission()));
   }, []);
 
   useEffect(() => {
@@ -326,13 +340,19 @@ export default function Settings({ user }) {
 
   const hasChanges = useMemo(() => JSON.stringify(settings) !== savedRef.current, [settings]);
   const update = useCallback((key, value) => setSettings((prev) => ({ ...prev, [key]: value })), []);
-  const toggle = (key) => update(key, !settings[key]);
+  const toggle = (key) => {
+    void triggerLightHaptic();
+    update(key, !settings[key]);
+  };
 
   const selectPreset = (id) => {
     const normalized = normalizePresetId(id);
     if (isPresetLocked(tier, normalized)) {
       setBillingStatus('That style is part of Pro. Upgrade to unlock it.');
       return;
+    }
+    if (settings.aiPromptPreset !== normalized) {
+      void triggerLightHaptic();
     }
     update('aiPromptPreset', normalized);
   };
@@ -359,7 +379,7 @@ export default function Settings({ user }) {
     try {
       if (!settings.notificationsEnabled) {
         const token = await requestNotificationPermission(uid);
-        const permission = getNotificationPermission();
+        const permission = await getNotificationPermissionStatus();
         setNotificationPermission(permission);
         if (token) {
           update('notificationsEnabled', true);
@@ -372,7 +392,7 @@ export default function Settings({ user }) {
       } else {
         await disableNotifications(uid);
         update('notificationsEnabled', false);
-        setNotificationPermission(getNotificationPermission());
+        setNotificationPermission(await getNotificationPermissionStatus());
         setNotificationMessage('Notifications disabled for this device.');
       }
     } catch (error) {
@@ -472,12 +492,11 @@ export default function Settings({ user }) {
     const presetId = normalizePresetId(settings.aiPromptPreset);
     const lockedForTier = isPresetLocked(tier, presetId);
     const effectivePreset = lockedForTier ? 'balanced' : presetId;
-    const usingCustom = effectivePreset === 'custom';
     const sanitizedCustom = sanitizePrompt(settings.aiPromptCustom);
     const savedSettings = {
       ...settings,
       aiPromptPreset: effectivePreset,
-      aiPromptCustom: usingCustom ? sanitizedCustom : ''
+      aiPromptCustom: sanitizedCustom
     };
 
     try {
@@ -485,6 +504,7 @@ export default function Settings({ user }) {
       if (error) throw error;
       savedRef.current = JSON.stringify(savedSettings);
       setStatus('saved');
+      void triggerMediumHaptic();
     } catch (err) {
       console.error('Settings save failed', err);
       setStatus('error');
@@ -815,5 +835,5 @@ export default function Settings({ user }) {
 }
 
 Settings.propTypes = {
-  user: firebaseUserPropType
+  user: appUserPropType
 };

@@ -8,7 +8,7 @@ import LoadingIndicator from '../components/LoadingIndicator';
 import { buildDreamPath, buildProfilePath } from '../utils/urlHelpers';
 import { markActivityEntryRead, removeActivityEntry } from '../services/ActivityService';
 import './Activity.css';
-import { firebaseUserPropType, activityPreviewPropType } from '../propTypes';
+import { appUserPropType, activityPreviewPropType } from '../propTypes';
 
 export default function Activity({ user, activityPreview }) {
   const viewerId = user?.uid || null;
@@ -208,6 +208,6 @@ export default function Activity({ user, activityPreview }) {
 }
 
 Activity.propTypes = {
-  user: firebaseUserPropType,
+  user: appUserPropType,
   activityPreview: activityPreviewPropType
 };

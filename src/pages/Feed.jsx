@@ -7,6 +7,7 @@ import { faHeart, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../supabase';
 import { mapDream, mapProfile } from '../utils/mappers';
 import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
+import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Feed.css';
 import LoadingIndicator from '../components/LoadingIndicator';
@@ -14,7 +15,7 @@ import { ListSkeleton } from '../components/SkeletonLoader';
 import ReactionInsightsModal from '../components/ReactionInsightsModal';
 import updateDreamReaction from '../services/ReactionService';
 import fetchUserSummaries from '../services/UserService';
-import { firebaseUserPropType } from '../propTypes';
+import { appUserPropType } from '../propTypes';
 import { COMMON_EMOJI_REACTIONS, filterEmojiInput } from '../constants/emojiOptions';
 
 const INITIAL_INSIGHT_STATE = { open: false, emoji: '', title: '', subtitle: '', userIds: [], anchorRect: null };
@@ -361,7 +362,7 @@ export default function Feed({ user }) {
             const avatarIcon = getAvatarIconById(isAnonymous ? 'ghost' : profile?.avatarIcon);
             const avatarBackground = profile?.avatarBackground || DEFAULT_AVATAR_BACKGROUND;
             const avatarColor = profile?.avatarColor || DEFAULT_AVATAR_COLOR;
-            const dateLabel = dream.createdAt ? format(dream.createdAt, 'MMM d, yyyy') : 'Just now';
+            const dateLabel = dream.createdAt ? formatDreamDate(dream.createdAt) : 'Just now';
             const snippet = dream.content ? (dream.content.length > 240 ? `${dream.content.slice(0, 240)}…` : dream.content) : 'No entry text yet.';
             const visibilityLabel = dream.visibility === 'anonymous' ? 'Anonymous dream' : dream.visibility === 'following' || dream.visibility === 'followers' ? 'Shared with people they follow' : 'Public dream';
             const showProfileLink = !isAnonymous && Boolean(dream.userId);
@@ -459,4 +460,4 @@ export default function Feed({ user }) {
   );
 }
 
-Feed.propTypes = { user: firebaseUserPropType };
+Feed.propTypes = { user: appUserPropType };

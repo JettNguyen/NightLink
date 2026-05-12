@@ -1,14 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import { mapDream, mapProfile } from '../utils/mappers';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { ListSkeleton } from '../components/SkeletonLoader';
+import { formatDreamDate, getTodayDateInputValue, parseDateInputValue } from '../utils/dates';
 import { buildDreamPath } from '../utils/urlHelpers';
+import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
 import './DreamJournal.css';
-import { firebaseUserPropType } from '../propTypes';
+import { appUserPropType } from '../propTypes';
 
 const VISIBILITY_LABELS = {
   private: 'Private',
@@ -32,7 +33,7 @@ export default function DreamJournal({ user }) {
   const [showNewDream, setShowNewDream] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [dreamDate, setDreamDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  const [dreamDate, setDreamDate] = useState(() => getTodayDateInputValue());
   const [visibility, setVisibility] = useState('private');
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -175,6 +176,7 @@ export default function DreamJournal({ user }) {
 
   const toggleExcludedViewer = (id) => {
     if (!id) return;
+    void triggerLightHaptic();
     setExcludedViewerIds((prev) => prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]);
   };
 
@@ -191,6 +193,7 @@ export default function DreamJournal({ user }) {
     setTaggedUsers((prev) => [...prev, { userId: profile.id, username: profile.username || '', displayName: profile.displayName || 'Dreamer' }]);
     setTagHandle('');
     setTaggingStatus('Tagged successfully.');
+    void triggerLightHaptic();
   };
 
   const handleAddTaggedPerson = async () => {
@@ -217,6 +220,7 @@ export default function DreamJournal({ user }) {
       setTaggedUsers((prev) => [...prev, { userId: data.id, username: data.username || normalizedHandle, displayName: data.display_name || 'Dreamer' }]);
       setTagHandle('');
       setTaggingStatus('Tagged successfully.');
+      void triggerLightHaptic();
     } catch {
       setTaggingStatus('Could not tag that user.');
     } finally {
@@ -225,7 +229,7 @@ export default function DreamJournal({ user }) {
   };
 
   const resetForm = () => {
-    setTitle(''); setContent(''); setDreamDate(format(new Date(), 'yyyy-MM-dd'));
+    setTitle(''); setContent(''); setDreamDate(getTodayDateInputValue());
     setVisibility('private'); setSaveError(''); setExcludedViewerIds([]);
     setTaggedUsers([]); setTagHandle(''); setTaggingStatus('');
   };
@@ -244,6 +248,13 @@ export default function DreamJournal({ user }) {
       userId: entry.userId, username: entry.username || '', displayName: entry.displayName || ''
     }));
     const resolvedTitle = title.trim() || 'Untitled dream';
+    const selectedDreamDate = parseDateInputValue(dreamDate);
+
+    if (!selectedDreamDate) {
+      setSaveError('Choose a valid dream date.');
+      setLoading(false);
+      return;
+    }
 
     const optimistic = {
       id: `local-${Date.now()}`,
@@ -253,7 +264,7 @@ export default function DreamJournal({ user }) {
       visibility,
       aiGenerated: false,
       authorUsername: viewerProfile?.username || null,
-      createdAt: new Date(dreamDate),
+      createdAt: selectedDreamDate,
       excludedViewerIds,
       taggedUsers: taggedMeta,
       taggedUserIds: taggedMeta.map((e) => e.userId),
@@ -265,7 +276,7 @@ export default function DreamJournal({ user }) {
     setDreams((prev) => [optimistic, ...prev]);
 
     try {
-      const { error } = await supabase.from('dreams').insert({
+      const { data: insertedDream, error } = await supabase.from('dreams').insert({
         user_id:             user.uid,
         title:               resolvedTitle,
         content:             content.trim(),
@@ -275,12 +286,18 @@ export default function DreamJournal({ user }) {
         excluded_viewer_ids: excludedViewerIds,
         tagged_users:        taggedMeta,
         tagged_user_ids:     taggedMeta.map((e) => e.userId),
-        created_at:          new Date(dreamDate).toISOString(),
-      });
+        created_at:          selectedDreamDate.toISOString(),
+      }).select('*').single();
       if (error) throw error;
-      setDreams((prev) => prev.filter((d) => d.id !== optimistic.id));
+      if (insertedDream) {
+        const mappedInsertedDream = mapDream(insertedDream);
+        setDreams((prev) => prev.map((dream) => (
+          dream.id === optimistic.id ? mappedInsertedDream : dream
+        )));
+      }
       setShowNewDream(false);
       resetForm();
+      void triggerMediumHaptic();
     } catch {
       setDreams((prev) => prev.filter((d) => d.id !== optimistic.id));
       setSaveError('Could not save your dream. Try again in a moment.');
@@ -291,11 +308,24 @@ export default function DreamJournal({ user }) {
 
   const handleCardNavigate = (dreamId) => {
     if (!dreamId || dreamId.startsWith('local-')) return;
+    void triggerLightHaptic();
     navigate(buildDreamPath(viewerProfile?.username || null, user?.uid, dreamId), { state: { fromNav: '/journal' } });
   };
 
+  const openNewDream = () => {
+    void triggerLightHaptic();
+    setShowNewDream(true);
+  };
+
+  const handleVisibilitySelect = (nextVisibility) => {
+    if (nextVisibility !== visibility) {
+      void triggerLightHaptic();
+    }
+    setVisibility(nextVisibility);
+  };
+
   const renderDreamCard = (dream) => {
-    const dateLabel = dream.createdAt ? format(dream.createdAt, 'MMM d, yyyy') : 'Undated';
+    const dateLabel = dream.createdAt ? formatDreamDate(dream.createdAt) : 'Undated';
     const visibilityLabel = VISIBILITY_LABELS[dream.visibility] || VISIBILITY_LABELS.private;
     return (
       <div
@@ -343,7 +373,7 @@ export default function DreamJournal({ user }) {
           <p className="page-subtitle">Your own personal dream archive.</p>
         </div>
         <div className="action-group">
-          <button type="button" onClick={() => setShowNewDream(true)} className="primary-btn">
+          <button type="button" onClick={openNewDream} className="primary-btn">
             + New Dream
           </button>
         </div>
@@ -411,7 +441,7 @@ export default function DreamJournal({ user }) {
                       key={option.value}
                       type="button"
                       className={visibility === option.value ? 'visibility-chip active' : 'visibility-chip'}
-                      onClick={() => setVisibility(option.value)}
+                      onClick={() => handleVisibilitySelect(option.value)}
                       aria-pressed={visibility === option.value}
                       disabled={loading}
                     >
@@ -551,4 +581,4 @@ export default function DreamJournal({ user }) {
   );
 }
 
-DreamJournal.propTypes = { user: firebaseUserPropType };
+DreamJournal.propTypes = { user: appUserPropType };
