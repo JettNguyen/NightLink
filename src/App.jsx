@@ -15,6 +15,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import useActivityPreview from './hooks/useActivityPreview';
 import { pushActivityLocalNotification, syncDailyDreamReminder } from './utils/notificationHelpers';
 import { triggerMediumHaptic } from './utils/haptics';
+import { initIosTapFix } from './utils/iosTapFix';
 import { appUserPropType } from './propTypes';
 import {
   IS_RC_SUPPORTED,
@@ -417,6 +418,8 @@ function App() {
   }, []);
 
   useEffect(() => { document.documentElement.dataset.theme = 'dark'; }, []);
+
+  useEffect(() => initIosTapFix(), []);
 
   useEffect(() => {
     if (!ready || !Capacitor.isNativePlatform()) return;

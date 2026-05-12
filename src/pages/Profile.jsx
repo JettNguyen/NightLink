@@ -127,7 +127,7 @@ export default function Profile({ user }) {
   // Load dreams for target user
   useEffect(() => {
     if (!targetUserId) return;
-    let q = supabase.from('dreams').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false }).limit(12);
+    let q = supabase.from('dreams').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false });
     if (!viewingOwnProfile) q = q.in('visibility', ['public', 'anonymous', 'following', 'followers']);
     q.then(({ data }) => {
       setDreams((data || []).map(mapDream));
@@ -140,7 +140,7 @@ export default function Profile({ user }) {
     if (!targetUserId) { setTaggedDreams([]); setTaggedDreamsLoading(false); return; }
     setTaggedDreamsLoading(true);
     supabase.from('dreams').select('*').contains('tagged_user_ids', [targetUserId])
-      .order('created_at', { ascending: false }).limit(12)
+      .order('created_at', { ascending: false })
       .then(async ({ data }) => {
         const baseList = (data || []).map(mapDream);
         const authorIds = [...new Set(baseList.map((d) => d.userId).filter((id) => id && id !== targetUserId))];

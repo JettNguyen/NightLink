@@ -37,7 +37,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 html[data-native-platform='ios'].settings-page-active .settings-page .settings-save-bar {
@@ -47,6 +47,11 @@ html[data-native-platform='ios'].settings-page-active .settings-page .settings-s
   transform: translateX(-50%);
   width: min(920px, calc(100vw - 2.5rem));
   z-index: 110;
+  transition: top 0.2s ease;
+}
+
+html[data-native-platform='ios'].settings-page-active.settings-at-top .settings-page .settings-save-bar {
+  top: calc(166px + env(safe-area-inset-top));
 }
 
 html[data-native-platform='ios'].settings-page-active .settings-page .settings-sections {
@@ -57,12 +62,19 @@ html[data-native-platform='ios'].settings-page-active .settings-page .settings-s
   margin: 0;
   color: var(--text-secondary);
   font-size: 0.9rem;
+  min-width: 0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .settings-save-bar .btn-group {
   display: flex;
   gap: 0.6rem;
   align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .settings-status {
@@ -552,5 +564,15 @@ html[data-native-platform='ios'].settings-page-active .settings-page .settings-s
 
   .toggle-switch {
     align-self: flex-end;
+  }
+
+  html[data-native-platform='ios'].settings-page-active .settings-page .settings-save-bar {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  html[data-native-platform='ios'].settings-page-active .settings-page .settings-save-bar .btn-group {
+    justify-content: flex-end;
   }
 }

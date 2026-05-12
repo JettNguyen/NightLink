@@ -617,3 +617,59 @@ html[data-native-platform='ios'] .lazy-route-loading {
     scroll-behavior: auto !important;
   }
 }
+
+/* ── iOS native: suppress active/hover highlights while scrolling ─────────────
+ * `is-scrolling` is added to <html> by src/utils/iosTapFix.js as soon as a
+ * touch moves more than 4 px. Removed on touchend so intentional taps still
+ * receive full visual feedback. Scoped to data-native-platform='ios' so web
+ * is completely unaffected.
+ *
+ * Strategy:
+ *   1. Kill all transitions so mid-flight hover animations can't linger.
+ *   2. Strip only the visual "highlight" properties (filter, transform,
+ *      box-shadow) that change on hover/active. Intentionally leave
+ *      background-color and color alone — resetting those causes cards to
+ *      flash transparent which looks worse.
+ *   3. Restore semantic .active states (selected chips, pills) which are
+ *      driven by JS state, not pointer events.
+ * --------------------------------------------------------------------------- */
+
+/* 1. Kill transitions on everything during scroll so no highlights linger */
+html[data-native-platform='ios'].is-scrolling * {
+  transition: none !important;
+}
+
+/* 2. Strip pointer-driven visual changes */
+html[data-native-platform='ios'].is-scrolling *:active,
+html[data-native-platform='ios'].is-scrolling *:hover {
+  filter: none !important;
+  transform: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  border-color: var(--border) !important;
+  text-decoration-color: inherit !important;
+}
+
+/* 3. Restore semantic selected states (driven by JS, not pointer) */
+html[data-native-platform='ios'].is-scrolling .reaction-chip.active,
+html[data-native-platform='ios'].is-scrolling .reaction-chip.active:hover,
+html[data-native-platform='ios'].is-scrolling .reaction-chip.active:active {
+  border-color: var(--primary) !important;
+  background-color: rgba(90, 200, 250, 0.12) !important;
+  box-shadow: var(--glow-primary) !important;
+}
+
+html[data-native-platform='ios'].is-scrolling .audience-result.active,
+html[data-native-platform='ios'].is-scrolling .audience-result.active:hover,
+html[data-native-platform='ios'].is-scrolling .audience-result.active:active {
+  border-color: var(--primary) !important;
+  background-color: rgba(90, 200, 250, 0.1) !important;
+}
+
+html[data-native-platform='ios'].is-scrolling .pill-active,
+html[data-native-platform='ios'].is-scrolling .pill-active:hover,
+html[data-native-platform='ios'].is-scrolling .pill-active:active {
+  border-color: var(--primary) !important;
+  background-color: rgba(90, 200, 250, 0.1) !important;
+  box-shadow: var(--glow-primary) !important;
+}
