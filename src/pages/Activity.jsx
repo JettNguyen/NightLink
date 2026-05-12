@@ -105,6 +105,9 @@ export default function Activity({ user, activityPreview }) {
     if (entryType === 'reply') {
       pillLabel = 'Reply';
       headline = `${actorName} replied to your comment in “${dreamTitle}”`;
+    } else if (entryType === 'dreamUpdate') {
+      pillLabel = 'Update';
+      headline = `${actorName} updated “${dreamTitle}”`;
     } else if (entryType === 'comment') {
       pillLabel = 'Comment';
       headline = `${actorName} commented on “${dreamTitle}”`;

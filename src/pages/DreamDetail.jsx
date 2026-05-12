@@ -726,7 +726,9 @@ export default function DreamDetail({ user }) {
 
   useEffect(() => {
     if (!comments.length) return;
-    const ids = comments.flatMap((entry) => Object.keys(entry.heartUserIds || {}));
+    const ids = comments.flatMap((entry) => (
+      Array.isArray(entry.heartUserIds) ? entry.heartUserIds : []
+    ));
     ensureUserSummaries(ids);
   }, [comments, ensureUserSummaries]);
 
@@ -826,6 +828,35 @@ export default function DreamDetail({ user }) {
     try {
       const { error } = await supabase.from('dreams').update({ visibility: value }).eq('id', dream.id);
       if (error) throw error;
+      const targetIds = new Set([
+        ...(Array.isArray(taggedPeople) ? taggedPeople.map((entry) => entry?.userId).filter(Boolean) : []),
+        ...comments.map((entry) => entry?.userId).filter(Boolean)
+      ]);
+      targetIds.delete(viewerId);
+      if (targetIds.size) {
+        const snapshotTitle = dream?.title?.trim()
+          || (dream?.aiGenerated ? dream?.aiTitle : '')
+          || 'Untitled dream';
+        const actorDisplayName = viewerProfile?.displayName || user?.displayName || 'Dreamer';
+        const actorUsername = viewerProfile?.username || user?.username || '';
+        const events = Array.from(targetIds).map((targetUserId) => ({
+          targetUserId,
+          payload: {
+            actorId: viewerId,
+            actorDisplayName,
+            actorUsername,
+            type: 'dreamUpdate',
+            dreamId: dream.id,
+            dreamOwnerId: dream.userId || null,
+            dreamOwnerUsername: authorProfile?.username || '',
+            dreamTitleSnapshot: snapshotTitle,
+            content: 'Visibility was updated.'
+          }
+        }));
+        if (events.length) {
+          await logActivityEvents(events);
+        }
+      }
     } catch {
       setError('Could not update visibility.');
     } finally {
@@ -838,6 +869,33 @@ export default function DreamDetail({ user }) {
     try {
       const { error } = await supabase.from('dreams').update({ title: titleInput.trim() }).eq('id', dream.id);
       if (error) throw error;
+      const targetIds = new Set([
+        ...(Array.isArray(taggedPeople) ? taggedPeople.map((entry) => entry?.userId).filter(Boolean) : []),
+        ...comments.map((entry) => entry?.userId).filter(Boolean)
+      ]);
+      targetIds.delete(viewerId);
+      if (targetIds.size) {
+        const snapshotTitle = titleInput.trim() || 'Untitled dream';
+        const actorDisplayName = viewerProfile?.displayName || user?.displayName || 'Dreamer';
+        const actorUsername = viewerProfile?.username || user?.username || '';
+        const events = Array.from(targetIds).map((targetUserId) => ({
+          targetUserId,
+          payload: {
+            actorId: viewerId,
+            actorDisplayName,
+            actorUsername,
+            type: 'dreamUpdate',
+            dreamId: dream.id,
+            dreamOwnerId: dream.userId || null,
+            dreamOwnerUsername: authorProfile?.username || '',
+            dreamTitleSnapshot: snapshotTitle,
+            content: 'Title was updated.'
+          }
+        }));
+        if (events.length) {
+          await logActivityEvents(events);
+        }
+      }
       setEditingTitle(false);
     } catch {
       setError('Could not update title.');
@@ -849,6 +907,35 @@ export default function DreamDetail({ user }) {
     try {
       const { error } = await supabase.from('dreams').update({ created_at: new Date(dateInput).toISOString() }).eq('id', dream.id);
       if (error) throw error;
+      const targetIds = new Set([
+        ...(Array.isArray(taggedPeople) ? taggedPeople.map((entry) => entry?.userId).filter(Boolean) : []),
+        ...comments.map((entry) => entry?.userId).filter(Boolean)
+      ]);
+      targetIds.delete(viewerId);
+      if (targetIds.size) {
+        const snapshotTitle = dream?.title?.trim()
+          || (dream?.aiGenerated ? dream?.aiTitle : '')
+          || 'Untitled dream';
+        const actorDisplayName = viewerProfile?.displayName || user?.displayName || 'Dreamer';
+        const actorUsername = viewerProfile?.username || user?.username || '';
+        const events = Array.from(targetIds).map((targetUserId) => ({
+          targetUserId,
+          payload: {
+            actorId: viewerId,
+            actorDisplayName,
+            actorUsername,
+            type: 'dreamUpdate',
+            dreamId: dream.id,
+            dreamOwnerId: dream.userId || null,
+            dreamOwnerUsername: authorProfile?.username || '',
+            dreamTitleSnapshot: snapshotTitle,
+            content: 'Date was updated.'
+          }
+        }));
+        if (events.length) {
+          await logActivityEvents(events);
+        }
+      }
       setEditingDate(false);
     } catch {
       setError('Could not update date.');
@@ -867,6 +954,35 @@ export default function DreamDetail({ user }) {
     try {
       const { error } = await supabase.from('dreams').update({ content: contentInput.trim(), tags: editableTags }).eq('id', dream.id);
       if (error) throw error;
+      const targetIds = new Set([
+        ...(Array.isArray(taggedPeople) ? taggedPeople.map((entry) => entry?.userId).filter(Boolean) : []),
+        ...comments.map((entry) => entry?.userId).filter(Boolean)
+      ]);
+      targetIds.delete(viewerId);
+      if (targetIds.size) {
+        const snapshotTitle = dream?.title?.trim()
+          || (dream?.aiGenerated ? dream?.aiTitle : '')
+          || 'Untitled dream';
+        const actorDisplayName = viewerProfile?.displayName || user?.displayName || 'Dreamer';
+        const actorUsername = viewerProfile?.username || user?.username || '';
+        const events = Array.from(targetIds).map((targetUserId) => ({
+          targetUserId,
+          payload: {
+            actorId: viewerId,
+            actorDisplayName,
+            actorUsername,
+            type: 'dreamUpdate',
+            dreamId: dream.id,
+            dreamOwnerId: dream.userId || null,
+            dreamOwnerUsername: authorProfile?.username || '',
+            dreamTitleSnapshot: snapshotTitle,
+            content: 'Dream content was updated.'
+          }
+        }));
+        if (events.length) {
+          await logActivityEvents(events);
+        }
+      }
       setEditingContent(false);
       setNewTag('');
     } catch {

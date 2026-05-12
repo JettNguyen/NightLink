@@ -1,6 +1,6 @@
 import { supabase } from '../supabase';
 
-const PUSHABLE_ACTIVITY_TYPES = new Set(['reaction', 'commentReaction']);
+const PUSHABLE_ACTIVITY_TYPES = new Set(['reaction', 'commentReaction', 'mention', 'reply', 'comment', 'dreamUpdate']);
 
 export const logActivityEvent = async (targetId, payload = {}) => {
   if (!targetId || !payload.actorId || targetId === payload.actorId) return null;

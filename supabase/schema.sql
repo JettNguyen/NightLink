@@ -96,7 +96,7 @@ create table if not exists public.activity (
   actor_display_name   text,
   actor_username       text,
   type                 text not null
-                         check (type in ('reaction','commentReaction','mention','reply','comment')),
+                         check (type in ('reaction','commentReaction','mention','reply','comment','dreamUpdate')),
   emoji                text,
   dream_id             uuid references public.dreams(id),
   dream_owner_id       uuid references public.profiles(id),
@@ -108,6 +108,12 @@ create table if not exists public.activity (
 );
 
 create index if not exists activity_target_user_id_created_at_idx on public.activity (target_user_id, created_at desc);
+
+-- keep activity type constraint in sync on existing databases
+alter table public.activity drop constraint if exists activity_type_check;
+alter table public.activity
+  add constraint activity_type_check
+  check (type in ('reaction','commentReaction','mention','reply','comment','dreamUpdate'));
 
 -- ============================================================
 -- ROW LEVEL SECURITY
