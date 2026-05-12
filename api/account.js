@@ -25,6 +25,16 @@ const verifyCaller = async (req, expectedUid) => {
   return admin;
 };
 
+const resolveEffectiveTier = (profileEmail, envPremiumEmails) => {
+  const premiumEmails = (envPremiumEmails || '')
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  const email = (profileEmail || '').trim().toLowerCase();
+  if (!email) return 'free';
+  return premiumEmails.includes(email) ? 'premium' : 'free';
+};
+
 module.exports = async function handler(req, res) {
   setCors(res, req.headers?.origin);
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -48,6 +58,40 @@ module.exports = async function handler(req, res) {
     admin = await verifyCaller(req, uid);
   } catch (error) {
     return res.status(401).json({ error: error.message || 'Unauthorized.' });
+  }
+
+  if (action === 'sync_subscription_tier') {
+    try {
+      const { data: profile, error: profileError } = await admin
+        .from('profiles')
+        .select('email, subscription')
+        .eq('id', uid)
+        .single();
+      if (profileError) throw profileError;
+
+      const currentTier = profile?.subscription?.tier === 'premium' ? 'premium' : 'free';
+      const effectiveTier = resolveEffectiveTier(profile?.email, process.env.PREMIUM_EMAILS || '');
+
+      if (effectiveTier !== currentTier) {
+        const nextSubscription = {
+          ...(profile?.subscription || {}),
+          tier: effectiveTier
+        };
+        const { error: updateError } = await admin
+          .from('profiles')
+          .update({ subscription: nextSubscription })
+          .eq('id', uid);
+        if (updateError) throw updateError;
+      }
+
+      return res.status(200).json({
+        success: true,
+        tier: effectiveTier
+      });
+    } catch (error) {
+      console.error('sync_subscription_tier failed', error);
+      return res.status(500).json({ error: error.message || 'Failed to sync subscription tier.' });
+    }
   }
 
   // Handle delete_account action

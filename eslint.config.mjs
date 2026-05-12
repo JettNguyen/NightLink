@@ -41,6 +41,7 @@ export default defineConfig([
       "vite.config.{js,ts,mjs,cjs}",
       "eslint.config.{js,ts,mjs,cjs}",
       "api/**/*.{js,ts,mjs,cjs}",
+      "scripts/**/*.{js,ts,mjs,cjs}",
     ],
     languageOptions: {
       globals: {

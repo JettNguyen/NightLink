@@ -154,6 +154,13 @@ export default function Settings({ user }) {
   const uid = user?.uid || null;
   const tier = profile?.subscription?.tier === 'premium' ? 'premium' : 'free';
   const creditBalance = Number(profile?.aiUsage?.creditBalance || 0);
+  const currentMonthYear = useMemo(() => new Date().toISOString().slice(0, 7), []);
+  const monthlyCount = Number(
+    profile?.aiUsage?.monthYear === currentMonthYear
+      ? (profile?.aiUsage?.monthlyCount || 0)
+      : 0
+  );
+  const freeRemaining = tier === 'premium' ? null : Math.max(0, 1 - monthlyCount);
 
   useEffect(() => {
     if (!uid) {
@@ -220,13 +227,67 @@ export default function Settings({ user }) {
   }, [uid]);
 
   useEffect(() => {
+    if (!uid || !user?.getIdToken) return;
+
+    const syncEffectiveTier = async () => {
+      try {
+        const idToken = await user.getIdToken();
+        if (!idToken) return;
+        const response = await fetch('/api/account', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`
+          },
+          body: JSON.stringify({
+            action: 'sync_subscription_tier',
+            uid
+          })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload?.success) return;
+        if (!payload?.tier) return;
+        setProfile((prev) => {
+          if (!prev) return prev;
+          if (prev?.subscription?.tier === payload.tier) return prev;
+          return {
+            ...prev,
+            subscription: {
+              ...(prev.subscription || {}),
+              tier: payload.tier
+            }
+          };
+        });
+      } catch (error) {
+        console.error('Tier sync failed', error);
+      }
+    };
+
+    syncEffectiveTier();
+  }, [uid, user]);
+
+  useEffect(() => {
     setNotificationsSupported(areNotificationsSupported());
     setNotificationPermission(getNotificationPermission());
   }, []);
 
   useEffect(() => {
-    setHasPasswordLogin(user?.providerData?.some((p) => p.providerId === 'email') ?? false);
-  }, [user]);
+    const hasEmail = user?.providerData?.some((p) => p.providerId === 'email') ?? false;
+    const persistedPasswordLogin = Boolean(profile?.settings?.hasPasswordLogin);
+    setHasPasswordLogin(hasEmail || persistedPasswordLogin);
+  }, [user?.providerData?.length, user?.uid, profile?.settings?.hasPasswordLogin]);
+
+  useEffect(() => {
+    // Check Supabase identities directly in case password changes don't trigger parent update
+    if (!uid) return;
+    const checkSupabaseIdentities = async () => {
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      if (supabaseUser?.identities?.some((i) => i.provider === 'email')) {
+        setHasPasswordLogin(true);
+      }
+    };
+    checkSupabaseIdentities().catch(console.error);
+  }, [uid]);
 
   useEffect(() => {
     if (!status) return;
@@ -351,6 +412,24 @@ export default function Settings({ user }) {
         const { error } = await supabase.auth.updateUser({ password: next });
         if (error) throw error;
         setHasPasswordLogin(true);
+        // Persist this for refreshes, especially for OAuth users who add a password later.
+        const persistedSettings = { ...(profile?.settings || {}), hasPasswordLogin: true };
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ settings: persistedSettings })
+          .eq('id', uid);
+        if (profileError) {
+          console.error('Failed to persist hasPasswordLogin flag', profileError);
+        } else {
+          setProfile((prev) => (prev ? { ...prev, settings: persistedSettings } : prev));
+        }
+        // Refresh auth state to reflect new provider
+        await supabase.auth.refreshSession();
+        // Fetch updated session to ensure parent component sees new identity
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.identities?.some((i) => i.provider === 'email')) {
+          setHasPasswordLogin(true);
+        }
         setPasswordStatus('Password saved. You can now sign in with your email or username again.');
         setPasswordForm({ newPassword: '', confirmPassword: '' });
       }
@@ -359,7 +438,7 @@ export default function Settings({ user }) {
     } finally {
       setPasswordBusy(false);
     }
-  }, [passwordForm, hasPasswordLogin, user?.email]);
+  }, [passwordForm, hasPasswordLogin, user?.email, profile?.settings, uid]);
 
   const notificationPermissionLabel = useMemo(() => {
     if (notificationPermission === 'granted') return 'Permission granted';
@@ -556,7 +635,12 @@ export default function Settings({ user }) {
                 <span className={`notification-chip${tier === 'premium' ? ' success' : ''}`}>
                   Plan: {tier === 'premium' ? 'Pro' : 'Free'}
                 </span>
-                <span className="notification-chip">Credits: {creditBalance}</span>
+                {tier === 'premium' ? (
+                  <span className="notification-chip success">Unlimited monthly AI</span>
+                ) : (
+                  <span className="notification-chip">Free this month left: {freeRemaining}</span>
+                )}
+                <span className="notification-chip">Paid credits: {creditBalance}</span>
               </div>
               <div className="action-buttons">
                 <button

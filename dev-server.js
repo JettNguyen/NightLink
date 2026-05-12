@@ -22,7 +22,10 @@ try {
 }
 
 const express = require('express');
-const handler = require('./api/ai');
+const aiHandler = require('./api/ai');
+const accountHandler = require('./api/account');
+const stripeHandler = require('./api/stripe');
+const notifyHandler = require('./api/notify');
 
 // debug: show whether key is present (never print the key)
 try { console.log('[dev] dev-server OPENAI_API_KEY present:', !!process.env.OPENAI_API_KEY); } catch (e) { void e; }
@@ -30,17 +33,24 @@ try { console.log('[dev] dev-server OPENAI_API_KEY present:', !!process.env.OPEN
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
-app.options('/api/ai', (req, res) => res.sendStatus(204));
-
-app.post('/api/ai', async (req, res) => {
+const routeHandler = (label, handler) => async (req, res) => {
   try {
-    // api/ai exports a handler(req, res) compatible function
     await handler(req, res);
   } catch (err) {
-    console.error('Dev API handler error:', err);
+    console.error(`[dev] ${label} handler error:`, err);
     res.status(500).json({ error: 'Internal server error' });
   }
-});
+};
+
+app.options('/api/ai', (req, res) => res.sendStatus(204));
+app.options('/api/account', (req, res) => res.sendStatus(204));
+app.options('/api/stripe', (req, res) => res.sendStatus(204));
+app.options('/api/notify', (req, res) => res.sendStatus(204));
+
+app.post('/api/ai', routeHandler('ai', aiHandler));
+app.post('/api/account', routeHandler('account', accountHandler));
+app.post('/api/stripe', routeHandler('stripe', stripeHandler));
+app.post('/api/notify', routeHandler('notify', notifyHandler));
 
 const port = process.env.PORT || 3001;
 app.listen(port, () => {
