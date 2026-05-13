@@ -720,10 +720,10 @@
   flex-shrink: 0;
 }
 
-.profile-vis--public    { color: var(--primary); border-color: rgba(90, 200, 250, 0.3); }
+.profile-vis--public    { color: #34d399; border-color: rgba(52, 211, 153, 0.3); }
 .profile-vis--following { color: #a78bfa; border-color: rgba(167, 139, 250, 0.3); }
-.profile-vis--anonymous { color: var(--text-secondary); border-color: var(--border); }
-.profile-vis--private   { color: var(--text-secondary); border-color: var(--border); }
+.profile-vis--anonymous { color: #f59e0b; border-color: rgba(245, 158, 11, 0.3); }
+.profile-vis--private   { color: #f87171; border-color: rgba(248, 113, 113, 0.3); }
 
 .profile-ai-badge {
   font-size: 0.7rem;
