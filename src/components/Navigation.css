@@ -45,6 +45,15 @@
   backface-visibility: hidden;
 }
 
+.nav-logo span {
+  transition: opacity 0.22s ease, max-width 0.22s ease, transform 0.22s ease;
+  max-width: 11rem;
+  opacity: 1;
+  transform: translateX(0);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 .nav-logo-icon {
   width: 36px;
   height: 36px;
@@ -157,11 +166,17 @@
 }
 
 .navigation-compact .nav-logo {
-  transform: translateZ(0) scale(0.84);
+  transform: translateZ(0) scale(1.08);
+}
+
+.navigation-compact .nav-logo span {
+  max-width: 0;
+  opacity: 0;
+  transform: translateX(-6px);
 }
 
 .navigation-compact .nav-logo-icon {
-  transform: translateZ(0) scale(0.72);
+  transform: translateZ(0) scale(1);
   border-radius: 6px;
 }
 
@@ -222,7 +237,7 @@
   }
 
   .navigation.navigation-compact .nav-logo {
-    transform: translateZ(0) scale(0.74);
+    transform: translateZ(0) scale(1);
   }
 
   .navigation:not(.navigation-compact) .nav-logo-icon {
@@ -230,7 +245,7 @@
   }
 
   .navigation.navigation-compact .nav-logo-icon {
-    transform: translateZ(0) scale(0.5);
+    transform: translateZ(0) scale(1);
   }
 
   .nav-links {

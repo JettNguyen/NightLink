@@ -79,33 +79,40 @@ const removeUserPushToken = async (userId, token) => {
 };
 
 const registerNativePushToken = async () => {
-  return new Promise(async (resolve, reject) => {
+  return new Promise((resolve, reject) => {
     let resolved = false;
-    const registrationListener = await PushNotifications.addListener('registration', (token) => {
-      if (resolved) return;
-      resolved = true;
-      registrationListener.remove();
-      errorListener.remove();
-      resolve(token?.value || null);
-    });
 
-    const errorListener = await PushNotifications.addListener('registrationError', (error) => {
+    (async () => {
+      const registrationListener = await PushNotifications.addListener('registration', (token) => {
+        if (resolved) return;
+        resolved = true;
+        registrationListener.remove();
+        errorListener.remove();
+        resolve(token?.value || null);
+      });
+
+      const errorListener = await PushNotifications.addListener('registrationError', (error) => {
+        if (resolved) return;
+        resolved = true;
+        registrationListener.remove();
+        errorListener.remove();
+        reject(error);
+      });
+
+      setTimeout(() => {
+        if (resolved) return;
+        resolved = true;
+        registrationListener.remove();
+        errorListener.remove();
+        resolve(null);
+      }, 7000);
+
+      await PushNotifications.register();
+    })().catch((error) => {
       if (resolved) return;
       resolved = true;
-      registrationListener.remove();
-      errorListener.remove();
       reject(error);
     });
-
-    setTimeout(() => {
-      if (resolved) return;
-      resolved = true;
-      registrationListener.remove();
-      errorListener.remove();
-      resolve(null);
-    }, 7000);
-
-    await PushNotifications.register();
   });
 };
 

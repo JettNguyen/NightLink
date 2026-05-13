@@ -115,18 +115,23 @@ export default function AuthPage() {
       const uid = authData.user?.id;
       if (!uid) throw new Error('Signup failed — no user ID returned.');
 
-      // Create profile row
-      const { error: profileErr } = await supabase.from('profiles').insert({
-        id: uid,
-        email: email.trim(),
-        display_name: displayName.trim() || name,
-        username: name,
-        normalized_username: normalized,
-        is_anonymous: false,
-        following_ids: [],
-        follower_ids: [],
-      });
-      if (profileErr) throw profileErr;
+      // Create profile row only when a session is immediately available.
+      // When email confirmation is required, authData.session is null — we
+      // cannot insert without an auth token. In that case App.jsx's
+      // ensureProfile runs automatically after the user confirms and signs in.
+      if (authData.session) {
+        const { error: profileErr } = await supabase.from('profiles').insert({
+          id: uid,
+          email: email.trim(),
+          display_name: displayName.trim() || name,
+          username: name,
+          normalized_username: normalized,
+          is_anonymous: false,
+          following_ids: [],
+          follower_ids: [],
+        });
+        if (profileErr) throw profileErr;
+      }
     } catch (err) {
       setError(friendlyMsg(err));
     }
