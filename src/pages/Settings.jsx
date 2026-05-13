@@ -34,6 +34,23 @@ const DEFAULT_SETTINGS = {
 
 const FREE_ALLOWED_PRESETS = new Set(['balanced', 'coach', 'therapist']);
 const STRIPE_ENDPOINT = import.meta.env.VITE_STRIPE_ENDPOINT || '/api/stripe';
+const DEFAULT_API_ORIGIN = 'https://www.nightlink.dev';
+
+const resolveAccountEndpoint = () => {
+  const configuredEndpoint = (import.meta.env.VITE_ACCOUNT_ENDPOINT || '').trim();
+  if (configuredEndpoint) return configuredEndpoint;
+
+  const configuredApiBase = (import.meta.env.VITE_API_BASE_URL || '').trim();
+  if (configuredApiBase) return `${configuredApiBase.replace(/\/$/, '')}/api/account`;
+
+  if (Capacitor.isNativePlatform()) {
+    return `${DEFAULT_API_ORIGIN}/api/account`;
+  }
+
+  return '/api/account';
+};
+
+const ACCOUNT_ENDPOINT = resolveAccountEndpoint();
 const PREMIUM_PRICE_ID = import.meta.env.VITE_STRIPE_PREMIUM_PRICE_ID || '';
 const CREDIT_PRICE_ID = import.meta.env.VITE_STRIPE_CREDIT_PRICE_ID || '';
 const PREMIUM_PAYMENT_LINK = import.meta.env.VITE_STRIPE_PREMIUM_LINK || '';
@@ -267,7 +284,7 @@ export default function Settings({ user }) {
       try {
         const idToken = await user.getIdToken();
         if (!idToken) return;
-        const response = await fetch('/api/account', {
+        const response = await fetch(ACCOUNT_ENDPOINT, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -703,7 +720,7 @@ export default function Settings({ user }) {
         throw new Error('Please sign in again and retry.');
       }
 
-      const response = await fetch('/api/account', {
+      const response = await fetch(ACCOUNT_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
