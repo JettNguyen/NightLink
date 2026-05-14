@@ -12,9 +12,19 @@ const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SERVICE_ROLE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY')!;
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+    return new Response('Method not allowed', { status: 405, headers: CORS_HEADERS });
   }
 
   // Verify the caller is an authenticated Supabase user.
@@ -22,7 +32,7 @@ Deno.serve(async (req) => {
   const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const { data: { user }, error: authError } = await anonClient.auth.getUser(jwt);
   if (authError || !user) {
-    return new Response('Unauthorized', { status: 401 });
+    return new Response('Unauthorized', { status: 401, headers: CORS_HEADERS });
   }
 
   const { targetUserId, payload } = await req.json() as {
@@ -31,7 +41,7 @@ Deno.serve(async (req) => {
   };
 
   if (!targetUserId || !payload?.type) {
-    return new Response('Bad request', { status: 400 });
+    return new Response('Bad request', { status: 400, headers: CORS_HEADERS });
   }
 
   // Never send a notification to yourself.
@@ -86,6 +96,6 @@ Deno.serve(async (req) => {
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'content-type': 'application/json' },
+    headers: { ...CORS_HEADERS, 'content-type': 'application/json' },
   });
 }

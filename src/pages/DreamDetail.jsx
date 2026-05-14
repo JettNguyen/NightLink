@@ -1230,6 +1230,30 @@ export default function DreamDetail({ user }) {
         heart_count:            0,
       }).select('id').single();
       if (insertErr) throw insertErr;
+
+      // Optimistically append the new comment so it appears immediately.
+      const optimisticComment = {
+        id:                  commentRow.id,
+        dreamId:             activeDreamId,
+        dreamOwnerId:        dream?.userId || null,
+        userId:              viewerId,
+        authorDisplayName:   viewerProfile?.displayName || user?.displayName || 'Dreamer',
+        authorUsername:      viewerProfile?.username || user?.username || '',
+        dreamOwnerUsername:  authorProfile?.username || '',
+        dreamTitleSnapshot:  snapshotTitle,
+        content:             trimmed,
+        parentCommentId:     currentReplyTarget?.id || null,
+        parentCommentUserId: currentReplyTarget?.userId || null,
+        mentions:            mentionTargets.ids,
+        mentionHandles:      mentionTargets.handles,
+        activityTargetIds:   activityTargetIds,
+        heartCount:          0,
+        heartUserIds:        [],
+        createdAt:           new Date(),
+        updatedAt:           null,
+      };
+      setComments((prev) => [...prev, optimisticComment]);
+
       const commentDocRef = commentRow;
       const actorDisplayName = viewerProfile?.displayName || user?.displayName || 'Dreamer';
       const actorUsername = viewerProfile?.username || user?.username || '';
@@ -1307,6 +1331,7 @@ export default function DreamDetail({ user }) {
     try {
       const { error } = await supabase.from('comments').delete().eq('id', commentId);
       if (error) throw error;
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
     } catch {
       setCommentStatus('Could not remove that comment.');
     } finally {

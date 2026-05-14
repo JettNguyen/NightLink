@@ -279,6 +279,29 @@
   box-shadow: var(--shadow-light);
 }
 
+.close-button {
+  display: flex;
+  margin-left: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 10px 25px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.close-button:hover {
+  color: var(--primary);
+}
+
+.close-button:active {
+  color: var(--primary);
+  background-color: var(--surface-hover);
+}
+
 .connection-panel-placeholder {
   color: var(--text-secondary);
   margin: 0.75rem 0 0;
@@ -728,10 +751,16 @@
 .profile-vis--private   { color: #f87171; border-color: rgba(248, 113, 113, 0.3); }
 
 .profile-ai-badge {
-  font-size: 0.7rem;
+  font-size: 1rem;
   color: var(--primary);
   opacity: 0.85;
   flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .profile-ai-badge {
+    font-size: 1.25rem; /* 0.7rem × (16/14) — restores 11px at 14px base */
+  }
 }
 
 .profile-dream-title {

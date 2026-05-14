@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabase';
 import { mapProfile, mapActivity, mapDream } from '../utils/mappers';
+import { markActivityEntriesRead } from '../services/ActivityService';
 
 const DEFAULT_INBOX_LIMIT = 25;
 const MAX_FOLLOWING_RESULTS = 20;
@@ -110,6 +111,9 @@ export default function useActivityPreview(viewerId, options = {}) {
   // Following feed
   useEffect(() => {
     const followingIds = viewerProfile?.followingIds || [];
+    const followingSince = viewerProfile?.followingSince || {};
+    // For follows that pre-date this feature, fall back to 14 days ago.
+    const fallbackCutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
     if (!viewerId || !followingIds.length) {
       setFollowingUpdates([]);
       setFollowingLoading(false);
@@ -135,7 +139,12 @@ export default function useActivityPreview(viewerId, options = {}) {
           const dream = mapDream(row);
           return { dream, ownerProfile };
         })
-        .filter(({ dream, ownerProfile }) => canViewerSeeDream(dream, ownerProfile, viewerId))
+        .filter(({ dream, ownerProfile }) => {
+          if (!canViewerSeeDream(dream, ownerProfile, viewerId)) return false;
+          const cutoff = followingSince[dream.userId] ?? fallbackCutoff;
+          const dreamTime = dream.createdAt?.getTime() ?? 0;
+          return dreamTime >= cutoff;
+        })
         .sort((a, b) => {
           const aTime = (a.dream.updatedAt || a.dream.createdAt)?.getTime?.() || 0;
           const bTime = (b.dream.updatedAt || b.dream.createdAt)?.getTime?.() || 0;
@@ -172,6 +181,13 @@ export default function useActivityPreview(viewerId, options = {}) {
     inboxEntries.filter((entry) => entry?.read === false).length
   ), [inboxEntries]);
 
+  const markAllInboxRead = useCallback(async () => {
+    const unreadIds = inboxEntries.filter((e) => e?.read === false).map((e) => e.id);
+    if (!unreadIds.length) return;
+    setInboxEntries((prev) => prev.map((e) => ({ ...e, read: true })));
+    await markActivityEntriesRead(viewerId, unreadIds);
+  }, [inboxEntries, viewerId]);
+
   const hasActivity = useMemo(() => (
     inboxEntries.length > 0 || followingUpdates.length > 0
   ), [inboxEntries.length, followingUpdates.length]);
@@ -197,5 +213,6 @@ export default function useActivityPreview(viewerId, options = {}) {
     hasUnreadActivity: unreadInboxCount > 0,
     latestFollowingTimestamp,
     feedSeenAt,
+    markAllInboxRead,
   };
 }

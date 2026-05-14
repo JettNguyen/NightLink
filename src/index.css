@@ -318,6 +318,22 @@ html[data-native-platform='ios'] .lazy-route-loading {
   padding-top: calc(2rem + env(safe-area-inset-top) + 56px);
 }
 
+/* On iOS WebKit, transform is unreliable on flex items and the ✦ glyph has a
+   larger bounding box than its visual. Collapsing line-height removes the
+   oversized box so the glyph overflows symmetrically, then position:relative
+   nudges it without triggering the flex+transform bug. */
+html[data-native-platform='ios'] .dream-ai-badge{
+  line-height: 0;
+  position: relative;
+  top: -3px;
+}
+
+html[data-native-platform='ios'] .profile-ai-badge {
+  line-height: 0;
+  position: relative;
+  top: -1px;
+}
+
 .loading-slot {
   display: flex;
   flex-direction: column;
