@@ -451,9 +451,8 @@ export default function Profile({ user }) {
           <div className="connection-panel-head">
             <div>
               <h2>{connectionListType === 'followers' ? (viewingOwnProfile ? 'Your followers' : `Followers of ${connectionHeadingName}`) : (viewingOwnProfile ? 'People you follow' : `People ${connectionHeadingName} follows`)}</h2>
-              <p className="connection-panel-subtitle">Tap anyone to jump into their profile.</p>
             </div>
-            <button type="button" className="ghost-btn" onClick={() => setConnectionListType(null)}>Close</button>
+            <button type="button" className="close-button" onClick={() => setConnectionListType(null)}>Close</button>
           </div>
           {connectionLoading ? (
             <div className="connection-panel-placeholder loading-slot"><LoadingIndicator label="Fetching dreamers…" size="sm" /></div>
