@@ -5,22 +5,27 @@ export default function PrivacyPolicy() {
     <div className="page-container legal-page">
       <article className="legal-card">
         <h1>Privacy Policy</h1>
-        <p className="legal-updated">Last updated: May 12, 2026</p>
+        <p className="legal-updated">Last updated: May 14, 2026</p>
 
         <section>
           <h2>1. Data we collect</h2>
           <ul>
-            <li>Account data: email, profile details, auth identifiers.</li>
-            <li>User content: dreams, comments, reactions, and activity metadata.</li>
-            <li>Device data for notifications where enabled (for example push tokens).</li>
+            <li>Contact info: name (display name) and email address.</li>
+            <li>Identifiers: account and profile identifiers (for example user ID and username).</li>
+            <li>User content: dreams, comments, reactions, and related activity content.</li>
+            <li>Search history: search terms you enter inside NightLink.</li>
+            <li>Device identifiers used for notifications (for example push notification tokens on supported devices).</li>
+            <li>Purchases and subscription status (for example premium entitlement and credit balance).</li>
+            <li>Product interaction data needed to operate app features (for example read state and feed seen state).</li>
           </ul>
         </section>
 
         <section>
           <h2>2. How we use data</h2>
           <ul>
-            <li>Provide core features such as journals, social activity, and AI insights.</li>
-            <li>Process payments and subscription status updates through Stripe.</li>
+            <li>Provide core features such as journaling, social activity, notifications, and AI insights.</li>
+            <li>Authenticate accounts and keep profiles in sync.</li>
+            <li>Process and manage in-app purchases and subscription state.</li>
             <li>Protect the app, prevent abuse, and maintain reliability.</li>
           </ul>
         </section>
@@ -28,21 +33,34 @@ export default function PrivacyPolicy() {
         <section>
           <h2>3. AI processing</h2>
           <p>
-            Dream text submitted for AI insights is sent to external model providers to generate responses.
-            Do not include highly sensitive personal information in prompts.
+            Dream text submitted for AI insights is sent to external AI service providers to generate
+            titles and summaries. Do not include highly sensitive personal information in prompts.
           </p>
         </section>
 
         <section>
-          <h2>4. Data sharing</h2>
+          <h2>4. Service providers and data sharing</h2>
           <p>
-            We share data only with service providers required to operate the app (for example Supabase and Stripe),
-            or when required by law.
+            NightLink uses third-party service providers to operate the app, such as Supabase
+            (auth and database), AI providers (insight generation), and RevenueCat/Apple in-app
+            purchase services (subscription and entitlement processing). We may also use notification
+            delivery providers required to send push notifications.
+          </p>
+          <p>
+            We share data with providers only as needed to run the app or when required by law.
           </p>
         </section>
 
         <section>
-          <h2>5. Retention and deletion</h2>
+          <h2>5. Tracking and advertising</h2>
+          <p>
+            NightLink does not use collected data for third-party advertising or data broker sharing.
+            If this changes in a future version, this policy will be updated before release.
+          </p>
+        </section>
+
+        <section>
+          <h2>6. Retention and deletion</h2>
           <p>
             You can permanently delete your account from Settings. This removes your profile and associated app data
             from the NightLink database.
@@ -50,7 +68,7 @@ export default function PrivacyPolicy() {
         </section>
 
         <section>
-          <h2>6. Your rights</h2>
+          <h2>7. Your rights</h2>
           <p>
             Depending on your region, you may have rights to access, correct, or delete your personal data.
           </p>
