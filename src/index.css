@@ -58,7 +58,7 @@ html[data-native-platform='ios'] body {
 
 .pull-refresh-indicator {
   position: fixed;
-  top: calc(env(safe-area-inset-top) + 10px);
+  top: calc(74px + env(safe-area-inset-top) + 8px);
   left: 50%;
   transform: translate(-50%, calc(-18px + (var(--pull-progress, 0) * 18px)));
   opacity: 0;
@@ -591,6 +591,10 @@ html[data-native-platform='ios'] .lazy-route-loading {
   textarea,
   select {
     font-size: 16px;
+  }
+
+  main {
+    padding-top: calc(74px + env(safe-area-inset-top));
   }
 
   .page-container {

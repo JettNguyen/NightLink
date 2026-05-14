@@ -80,10 +80,7 @@ export const removeCustomerInfoUpdateListener = async (callbackId) =>
 // ─── Offerings & purchases ────────────────────────────────────────────────────
 
 /** Fetch all configured offerings from the RC dashboard. */
-export const getOfferings = async () => {
-  const { offerings } = await Purchases.getOfferings();
-  return offerings;
-};
+export const getOfferings = async () => Purchases.getOfferings();
 
 /** Purchase a specific RC Package object (obtained from getOfferings). */
 export const purchasePackage = async (aPackage) => {
