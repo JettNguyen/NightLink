@@ -1,6 +1,6 @@
 import { supabase } from '../supabase';
 
-const PUSHABLE_ACTIVITY_TYPES = new Set(['reaction', 'commentReaction', 'mention', 'reply', 'comment', 'dreamUpdate']);
+const PUSHABLE_ACTIVITY_TYPES = new Set(['reaction', 'commentReaction', 'mention', 'reply', 'comment', 'dreamUpdate', 'follow']);
 
 export const logActivityEvent = async (targetId, payload = {}) => {
   if (!targetId || !payload.actorId || targetId === payload.actorId) return null;
@@ -69,17 +69,11 @@ export const removeActivityEntry = async (uid, id) => {
 };
 
 const triggerPushNotification = async (targetId, payload = {}) => {
-  if (typeof window === 'undefined' || typeof fetch !== 'function') return;
   if (!PUSHABLE_ACTIVITY_TYPES.has(payload.type)) return;
   if (!targetId || !payload.actorId) return;
   try {
-    const { data } = await supabase.auth.getSession();
-    const idToken = data?.session?.access_token;
-    if (!idToken) return;
-    await fetch('/api/notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-      body: JSON.stringify({ targetUserId: targetId, payload })
+    await supabase.functions.invoke('notify', {
+      body: { targetUserId: targetId, payload },
     });
   } catch (error) {
     console.error('Notification request failed', error);
