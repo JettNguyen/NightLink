@@ -201,16 +201,19 @@ export default function Profile({ user }) {
         supabase.from('profiles').select('following_ids').eq('id', user.uid).single(),
         supabase.from('profiles').select('follower_ids').eq('id', targetUserId).single(),
       ]);
-      await Promise.all([
-        supabase.from('profiles').update({ following_ids: [...new Set([...(v?.following_ids || []), targetUserId])] }).eq('id', user.uid),
-        supabase.from('profiles').update({ follower_ids:  [...new Set([...(t?.follower_ids  || []), user.uid])] }).eq('id', targetUserId),
-      ]);
-      setViewerData((prev) => prev ? { ...prev, followingIds: [...new Set([...(prev.followingIds || []), targetUserId])] } : prev);
-      setUserData((prev) => prev ? { ...prev, followerIds: [...new Set([...(prev.followerIds || []), user.uid])] } : prev);
+      const newFollowingIds = [...new Set([...(v?.following_ids || []), targetUserId])];
+      const newFollowerIds = [...new Set([...(t?.follower_ids || []), user.uid])];
+      const { error: err1 } = await supabase.from('profiles').update({ following_ids: newFollowingIds }).eq('id', user.uid);
+      if (err1) throw err1;
+      const { error: err2 } = await supabase.from('profiles').update({ follower_ids: newFollowerIds }).eq('id', targetUserId);
+      if (err2) throw err2;
+      const { data: verify } = await supabase.from('profiles').select('following_ids').eq('id', user.uid).single();
+      if (verify?.following_ids?.includes(targetUserId)) setViewerData((prev) => prev ? { ...prev, followingIds: verify.following_ids } : prev);
+      setUserData((prev) => prev ? { ...prev, followerIds: newFollowerIds } : prev);
       void triggerLightHaptic();
     } catch { alert('Unable to follow this user.'); }
     finally { setFollowAction({ type: null }); }
-  };
+  }
 
   const handleUnfollow = async () => {
     if (!user?.uid || !targetUserId || viewingOwnProfile || followAction.type) return;
@@ -220,16 +223,19 @@ export default function Profile({ user }) {
         supabase.from('profiles').select('following_ids').eq('id', user.uid).single(),
         supabase.from('profiles').select('follower_ids').eq('id', targetUserId).single(),
       ]);
-      await Promise.all([
-        supabase.from('profiles').update({ following_ids: (v?.following_ids || []).filter((id) => id !== targetUserId) }).eq('id', user.uid),
-        supabase.from('profiles').update({ follower_ids:  (t?.follower_ids  || []).filter((id) => id !== user.uid) }).eq('id', targetUserId),
-      ]);
-      setViewerData((prev) => prev ? { ...prev, followingIds: (prev.followingIds || []).filter((id) => id !== targetUserId) } : prev);
-      setUserData((prev) => prev ? { ...prev, followerIds: (prev.followerIds || []).filter((id) => id !== user.uid) } : prev);
+      const newFollowingIds = (v?.following_ids || []).filter((id) => id !== targetUserId);
+      const newFollowerIds = (t?.follower_ids || []).filter((id) => id !== user.uid);
+      const { error: err1 } = await supabase.from('profiles').update({ following_ids: newFollowingIds }).eq('id', user.uid);
+      if (err1) throw err1;
+      const { error: err2 } = await supabase.from('profiles').update({ follower_ids: newFollowerIds }).eq('id', targetUserId);
+      if (err2) throw err2;
+      const { data: verify } = await supabase.from('profiles').select('following_ids').eq('id', user.uid).single();
+      if (verify && !verify.following_ids?.includes(targetUserId)) setViewerData((prev) => prev ? { ...prev, followingIds: verify.following_ids || [] } : prev);
+      setUserData((prev) => prev ? { ...prev, followerIds: newFollowerIds } : prev);
       void triggerLightHaptic();
     } catch { alert('Unable to unfollow right now.'); }
     finally { setFollowAction({ type: null }); }
-  };
+  }
 
   const handleDreamNavigation = useCallback((dreamId, ownerUsername, ownerId) => {
     if (!dreamId) return;

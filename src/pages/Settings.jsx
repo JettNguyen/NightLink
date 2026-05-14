@@ -371,10 +371,27 @@ export default function Settings({ user }) {
     const payment = params.get('payment');
     if (payment === 'success') {
       setBillingStatus('Payment complete. Your account updates within a few seconds.');
+      // Fetch fresh profile immediately to show updated credits/subscription
+      if (uid) {
+        const fetchFresh = async () => {
+          try {
+            const { data } = await supabase.from('profiles').select('*').eq('id', uid).single();
+            if (data) {
+              const p = mapProfile(data);
+              setProfile(p);
+            }
+          } catch (err) {
+            console.error('Failed to refresh profile after payment:', err);
+          }
+        };
+        // Small delay to ensure server-side processing is complete
+        const timeout = setTimeout(fetchFresh, 500);
+        return () => clearTimeout(timeout);
+      }
     } else if (payment === 'cancelled') {
       setBillingStatus('Checkout cancelled. No charge was made.');
     }
-  }, []);
+  }, [uid]);
 
   // Load RC customer info when Settings opens on iOS.
   // App.jsx handles the background listener; this gives the billing section
@@ -517,11 +534,6 @@ export default function Settings({ user }) {
     return 'Permission pending';
   }, [notificationPermission]);
 
-  const activeCustomPromptPreview = useMemo(() => {
-    if (settings.aiPromptPreset !== 'custom' || tier !== 'premium') return '';
-    return sanitizePrompt(settings.aiPromptCustom);
-  }, [settings.aiPromptPreset, settings.aiPromptCustom, tier]);
-
   const canSave = useMemo(() => {
     if (!hasChanges) return false;
     if (isPresetLocked(tier, settings.aiPromptPreset)) return false;
@@ -623,7 +635,25 @@ export default function Settings({ user }) {
       if (result === PAYWALL_RESULT.PURCHASED || result === PAYWALL_RESULT.RESTORED) {
         const info = await getCustomerInfo();
         setRcCustomerInfo(info);
+        
+        // Optimistically update local profile state immediately for instant UI feedback
+        const isPro = isProFromCustomerInfo(info);
+        setProfile((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            subscription: {
+              ...(prev.subscription || {}),
+              tier: isPro ? 'premium' : 'free',
+              provider: 'revenuecat',
+              updatedAt: new Date().toISOString(),
+            },
+          };
+        });
+        
+        // Sync to Supabase in background
         await syncCustomerInfoToSupabase(uid, info);
+        
         setBillingStatus(
           result === PAYWALL_RESULT.RESTORED
             ? 'Subscription restored! Welcome back to Pro.'
@@ -653,9 +683,26 @@ export default function Settings({ user }) {
       }
       const creditPackage = creditsOffering.availablePackages[0];
       const customerInfo = await purchasePackage(creditPackage);
+      
+      // Optimistically update credit balance immediately for instant feedback
+      const CREDITS_PER_PACK = 10;
+      setProfile((prev) => {
+        if (!prev) return prev;
+        const currentCredits = Number(prev?.aiUsage?.creditBalance || 0);
+        return {
+          ...prev,
+          aiUsage: {
+            ...(prev.aiUsage || {}),
+            creditBalance: currentCredits + CREDITS_PER_PACK,
+          },
+        };
+      });
+      
+      // Sync to Supabase in background
       await addCreditsToSupabase(uid);
       await syncCustomerInfoToSupabase(uid, customerInfo);
       setRcCustomerInfo(customerInfo);
+      
       setBillingStatus('10 AI credits added to your account!');
     } catch (err) {
       const msg = err?.message || '';
@@ -695,6 +742,22 @@ export default function Settings({ user }) {
       // Refresh after the sheet closes in case user cancelled or got a refund
       const info = await getCustomerInfo();
       setRcCustomerInfo(info);
+      
+      // Optimistically update local profile state
+      const isPro = isProFromCustomerInfo(info);
+      setProfile((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          subscription: {
+            ...(prev.subscription || {}),
+            tier: isPro ? 'premium' : 'free',
+            provider: 'revenuecat',
+            updatedAt: new Date().toISOString(),
+          },
+        };
+      });
+      
       await syncCustomerInfoToSupabase(uid, info);
     } catch (err) {
       console.error('Customer center error:', err?.message || err);
@@ -920,12 +983,6 @@ export default function Settings({ user }) {
                   <div className="custom-prompt-footer">
                     {MAX_PROMPT_LENGTH - (settings.aiPromptCustom?.length || 0)} characters remaining
                   </div>
-                </div>
-              )}
-              {activeCustomPromptPreview && (
-                <div className="prompt-preview-box">
-                  <p className="preview-label">Active prompt</p>
-                  <p className="preview-text">{activeCustomPromptPreview}</p>
                 </div>
               )}
             </div>
