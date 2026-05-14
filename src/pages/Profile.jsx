@@ -11,6 +11,7 @@ import LoadingIndicator from '../components/LoadingIndicator';
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
+import { logActivityEvent } from '../services/ActivityService';
 import './Profile.css';
 import { appUserPropType } from '../propTypes';
 
@@ -202,6 +203,12 @@ export default function Profile({ user }) {
       setViewerData((prev) => prev ? { ...prev, followingIds: [...new Set([...(prev.followingIds || []), targetUserId])] } : prev);
       setUserData((prev) => prev ? { ...prev, followerIds: [...new Set([...(prev.followerIds || []), user.uid])] } : prev);
       void triggerLightHaptic();
+      void logActivityEvent(targetUserId, {
+        actorId: user.uid,
+        actorDisplayName: viewerData?.displayName || null,
+        actorUsername: viewerData?.username || null,
+        type: 'follow',
+      });
     } catch { alert('Unable to follow this user.'); }
     finally { setFollowAction({ type: null }); }
   }
@@ -215,6 +222,8 @@ export default function Profile({ user }) {
       setViewerData((prev) => prev ? { ...prev, followingIds: (prev.followingIds || []).filter((id) => id !== targetUserId) } : prev);
       setUserData((prev) => prev ? { ...prev, followerIds: (prev.followerIds || []).filter((id) => id !== user.uid) } : prev);
       void triggerLightHaptic();
+      void supabase.from('activity').delete()
+        .eq('target_user_id', targetUserId).eq('actor_id', user.uid).eq('type', 'follow');
     } catch { alert('Unable to unfollow right now.'); }
     finally { setFollowAction({ type: null }); }
   }

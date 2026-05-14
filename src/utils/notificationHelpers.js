@@ -49,9 +49,16 @@ const upsertUserPushToken = async (userId, token) => {
 
   const existingTokens = Array.isArray(profile?.fcm_tokens) ? profile.fcm_tokens : [];
   const nextTokens = [...new Set([...existingTokens, token])];
+
+  let pushTimezone = profile?.settings?.pushTimezone;
+  if (!pushTimezone) {
+    try { pushTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* ignore */ }
+  }
+
   const nextSettings = {
     ...(profile?.settings || {}),
     notificationsEnabled: true,
+    ...(pushTimezone ? { pushTimezone } : {}),
   };
 
   await supabase
