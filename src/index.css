@@ -144,10 +144,14 @@ a {
   padding: 0 1rem;
 }
 
+.app-main--with-nav {
+  padding-top: calc(88px + env(safe-area-inset-top));
+}
+
 .page-container {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 100px 1.25rem 50px;
+  padding: 24px 1.25rem 50px;
   display: flex;
   flex-direction: column;
   gap: 24px;
