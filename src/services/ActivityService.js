@@ -5,7 +5,7 @@ const PUSHABLE_ACTIVITY_TYPES = new Set(['reaction', 'commentReaction', 'mention
 export const logActivityEvent = async (targetId, payload = {}) => {
   if (!targetId || !payload.actorId || targetId === payload.actorId) return null;
   try {
-    const { data, error } = await supabase.from('activity').insert({
+    const { error } = await supabase.from('activity').insert({
       target_user_id:       targetId,
       actor_id:             payload.actorId,
       actor_display_name:   payload.actorDisplayName || null,
@@ -17,10 +17,10 @@ export const logActivityEvent = async (targetId, payload = {}) => {
       dream_title_snapshot: payload.dreamTitleSnapshot || null,
       comment_id:           payload.commentId || null,
       read:                 false,
-    }).select('id').single();
+    });
     if (error) throw error;
     triggerPushNotification(targetId, payload);
-    return data;
+    return null;
   } catch (e) {
     console.error('Activity log failed', e);
     return null;
