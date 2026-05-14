@@ -72,6 +72,8 @@ function Navigation({ user, activityPreview }) {
     }
   }, [latestTs, viewerId, persistLocalFeedSeenAt]);
 
+  const markAllInboxRead = activityPreview?.markAllInboxRead;
+
   const fromNav = location.state?.fromNav;
 
   const currentPath = useMemo(() => {
@@ -97,6 +99,10 @@ function Navigation({ user, activityPreview }) {
   useEffect(() => {
     if (currentPath === '/feed') markFeedSeen();
   }, [currentPath, markFeedSeen]);
+
+  useEffect(() => {
+    if (currentPath === '/activity') markAllInboxRead?.();
+  }, [currentPath, markAllInboxRead]);
 
   useEffect(() => { compactRef.current = compact; }, [compact]);
 

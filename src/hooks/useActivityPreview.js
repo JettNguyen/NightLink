@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabase';
 import { mapProfile, mapActivity, mapDream } from '../utils/mappers';
+import { markActivityEntriesRead } from '../services/ActivityService';
 
 const DEFAULT_INBOX_LIMIT = 25;
 const MAX_FOLLOWING_RESULTS = 20;
@@ -172,6 +173,13 @@ export default function useActivityPreview(viewerId, options = {}) {
     inboxEntries.filter((entry) => entry?.read === false).length
   ), [inboxEntries]);
 
+  const markAllInboxRead = useCallback(async () => {
+    const unreadIds = inboxEntries.filter((e) => e?.read === false).map((e) => e.id);
+    if (!unreadIds.length) return;
+    setInboxEntries((prev) => prev.map((e) => ({ ...e, read: true })));
+    await markActivityEntriesRead(viewerId, unreadIds);
+  }, [inboxEntries, viewerId]);
+
   const hasActivity = useMemo(() => (
     inboxEntries.length > 0 || followingUpdates.length > 0
   ), [inboxEntries.length, followingUpdates.length]);
@@ -197,5 +205,6 @@ export default function useActivityPreview(viewerId, options = {}) {
     hasUnreadActivity: unreadInboxCount > 0,
     latestFollowingTimestamp,
     feedSeenAt,
+    markAllInboxRead,
   };
 }
