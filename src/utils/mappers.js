@@ -30,6 +30,7 @@ export const mapProfile = (row) => {
 
 export const mapDream = (row) => {
   if (!row) return null;
+  const isAnonymous = row.visibility === 'anonymous';
   return {
     id: row.id,
     userId: row.user_id,
@@ -45,7 +46,7 @@ export const mapDream = (row) => {
     excludedViewerIds: row.excluded_viewer_ids || [],
     taggedUserIds: row.tagged_user_ids || [],
     taggedUsers: row.tagged_users || [],
-    authorUsername: row.author_username || null,
+    authorUsername: isAnonymous ? null : (row.author_username || null),
     createdAt: row.created_at ? new Date(row.created_at) : null,
     updatedAt: row.updated_at ? new Date(row.updated_at) : null,
   };

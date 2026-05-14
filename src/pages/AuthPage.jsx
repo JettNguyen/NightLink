@@ -27,14 +27,12 @@ const sha256Hex = async (str) => {
 
 const friendlyMsg = (e) => {
   const msg = e?.message || '';
-  if (!msg) return 'Something went wrong.';
-  if (msg.includes('User already registered') || msg.includes('already been registered')) return 'Email already in use.';
-  if (msg.includes('Invalid login credentials') || msg.includes('invalid_credentials')) return 'Wrong email or password.';
-  if (msg.includes('Email not confirmed')) return 'Check your inbox and confirm your email first.';
-  if (msg.includes('username-taken')) return 'Username already taken.';
+  if (!msg) return 'Something went wrong. Please try again.';
+  if (msg.includes('username-taken') || msg.includes('already been registered') || msg.includes('User already registered')) return 'That account already exists.';
+  if (msg.includes('Invalid login credentials') || msg.includes('invalid_credentials') || msg.includes('username-not-found')) return 'We could not sign you in. Check your details and try again.';
+  if (msg.includes('Email not confirmed')) return 'Please confirm your email before signing in.';
   if (msg.includes('identifier-required')) return 'Enter your email or username.';
-  if (msg.includes('username-not-found')) return 'No account with that username.';
-  return msg;
+  return 'Something went wrong. Please try again.';
 };
 
 export default function AuthPage() {
@@ -60,6 +58,12 @@ export default function AuthPage() {
     const ref = isSignUp ? signupRef : signinRef;
     if (ref.current) setHeight(ref.current.scrollHeight);
   }, [isSignUp, username, displayName, email, identifier]);
+
+  useEffect(() => {
+    if (!IS_IOS_NATIVE) return;
+    document.documentElement.classList.add('auth-page-active');
+    return () => document.documentElement.classList.remove('auth-page-active');
+  }, []);
 
   // Resolve a login identifier to an email. Supports raw email or username lookup.
   const resolveEmail = async (val) => {
@@ -182,6 +186,7 @@ export default function AuthPage() {
         });
         if (err) throw err;
         if (!data?.url) throw new Error('Could not start Google sign in.');
+        if (!data?.url) throw new Error('Sign in failed. Please try again.');
 
         let finished = false;
         let appUrlListener;
@@ -327,7 +332,7 @@ export default function AuthPage() {
       });
 
       const identityToken = result?.response?.identityToken;
-      if (!identityToken) throw new Error('Apple did not return an identity token.');
+      if (!identityToken) throw new Error('Apple sign in failed. Please try again.');
 
       const { error: err } = await supabase.auth.signInWithIdToken({
         provider: 'apple',

@@ -54,6 +54,7 @@ function LegacyRedirect() {
 function AppContent({ user, loading, ready }) {
   const { pathname } = useLocation();
   const showNav = user && pathname !== '/login';
+  const mainClassName = showNav ? 'app-main app-main--with-nav' : 'app-main app-main--no-nav';
   const home = useMemo(() => (user ? '/journal' : '/login'), [user]);
   const activity = useActivityPreview(user?.uid);
   const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
@@ -74,8 +75,10 @@ function AppContent({ user, loading, ready }) {
     return () => clearTimeout(timer);
   }, []);
 
+  const pullRefreshEnabled = isNativeIOS && !['/login', '/terms', '/privacy'].includes(pathname);
+
   useEffect(() => {
-    if (!isNativeIOS) return undefined;
+    if (!pullRefreshEnabled) return undefined;
 
     const PULL_THRESHOLD = 250;
     const MAX_PULL_DISTANCE = 500;
@@ -227,7 +230,7 @@ function AppContent({ user, loading, ready }) {
 
   return (
     <div className="app">
-      {isNativeIOS && (
+      {pullRefreshEnabled && (
         <div
           className={`pull-refresh-indicator${pullDistance > 0 ? ' is-visible' : ''}${pullDistance >= 250 ? ' is-armed' : ''}`}
           style={{ '--pull-progress': String(Math.min(1, pullDistance / 250)) }}
@@ -237,7 +240,7 @@ function AppContent({ user, loading, ready }) {
       )}
       <OfflineIndicator />
       {showNav && <Navigation user={user} activityPreview={activity} />}
-    <main style={{ minHeight: '100dvh', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    <main className={mainClassName} style={{ minHeight: '100dvh', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <Routes>
           <Route path="/" element={<Navigate to={home} replace />} />
           <Route path="/login" element={user ? <Navigate to="/journal" replace /> : <AuthPage />} />

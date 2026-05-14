@@ -81,7 +81,10 @@ export default function Search({ user }) {
 
   const handleDreamNavigation = (dream) => {
     if (!dream?.id) return;
-    navigate(buildDreamPath(dream.authorUsername, dream.userId, dream.id), { state: { fromNav: '/search' } });
+    const path = dream.visibility === 'anonymous'
+      ? `/dream/${dream.id}`
+      : buildDreamPath(dream.authorUsername, dream.userId, dream.id);
+    navigate(path, { state: { fromNav: '/search' } });
   };
 
   const renderDream = (dream) => {
