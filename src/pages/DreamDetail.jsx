@@ -865,6 +865,7 @@ export default function DreamDetail({ user }) {
           || 'Untitled dream';
         const actorDisplayName = viewerProfile?.displayName || user?.displayName || 'Dreamer';
         const actorUsername = viewerProfile?.username || user?.username || '';
+        const nextDreamOwnerUsername = value === 'anonymous' ? '' : dreamOwnerUsernameForDisplay;
         const events = Array.from(targetIds).map((targetUserId) => ({
           targetUserId,
           payload: {
@@ -874,7 +875,7 @@ export default function DreamDetail({ user }) {
             type: 'dreamUpdate',
             dreamId: dream.id,
             dreamOwnerId: dream.userId || null,
-            dreamOwnerUsername: authorProfile?.username || '',
+            dreamOwnerUsername: nextDreamOwnerUsername,
             dreamTitleSnapshot: snapshotTitle,
             content: 'Visibility was updated.'
           }
@@ -913,7 +914,7 @@ export default function DreamDetail({ user }) {
             type: 'dreamUpdate',
             dreamId: dream.id,
             dreamOwnerId: dream.userId || null,
-            dreamOwnerUsername: authorProfile?.username || '',
+            dreamOwnerUsername: dreamOwnerUsernameForDisplay,
             dreamTitleSnapshot: snapshotTitle,
             content: 'Title was updated.'
           }
@@ -958,7 +959,7 @@ export default function DreamDetail({ user }) {
             type: 'dreamUpdate',
             dreamId: dream.id,
             dreamOwnerId: dream.userId || null,
-            dreamOwnerUsername: authorProfile?.username || '',
+            dreamOwnerUsername: dreamOwnerUsernameForDisplay,
             dreamTitleSnapshot: snapshotTitle,
             content: 'Date was updated.'
           }
@@ -1005,7 +1006,7 @@ export default function DreamDetail({ user }) {
             type: 'dreamUpdate',
             dreamId: dream.id,
             dreamOwnerId: dream.userId || null,
-            dreamOwnerUsername: authorProfile?.username || '',
+            dreamOwnerUsername: dreamOwnerUsernameForDisplay,
             dreamTitleSnapshot: snapshotTitle,
             content: 'Dream content was updated.'
           }
@@ -1219,7 +1220,7 @@ export default function DreamDetail({ user }) {
         author_username:        viewerProfile?.username || user?.username || '',
         dream_id:               activeDreamId,
         dream_owner_id:         dream?.userId || null,
-        dream_owner_username:   authorProfile?.username || '',
+        dream_owner_username:   dreamOwnerUsernameForDisplay,
         dream_title_snapshot:   snapshotTitle,
         mentions:               mentionTargets.ids,
         mention_handles:        mentionTargets.handles,
@@ -1239,7 +1240,7 @@ export default function DreamDetail({ user }) {
         userId:              viewerId,
         authorDisplayName:   viewerProfile?.displayName || user?.displayName || 'Dreamer',
         authorUsername:      viewerProfile?.username || user?.username || '',
-        dreamOwnerUsername:  authorProfile?.username || '',
+        dreamOwnerUsername:  dreamOwnerUsernameForDisplay,
         dreamTitleSnapshot:  snapshotTitle,
         content:             trimmed,
         parentCommentId:     currentReplyTarget?.id || null,
@@ -1281,7 +1282,7 @@ export default function DreamDetail({ user }) {
         actorUsername,
         dreamId: activeDreamId,
         dreamOwnerId: dream?.userId || null,
-        dreamOwnerUsername: authorProfile?.username || '',
+        dreamOwnerUsername: dreamOwnerUsernameForDisplay,
         dreamTitleSnapshot: snapshotTitle,
         commentId: commentDocRef.id,
         parentCommentId: currentReplyTarget?.id || null,
@@ -1751,6 +1752,7 @@ export default function DreamDetail({ user }) {
   }
 
   const titleText = dream.title?.trim() || (dream.aiGenerated && dream.aiTitle) || 'Untitled dream';
+  const dreamOwnerUsernameForDisplay = dream.visibility === 'anonymous' ? '' : (authorProfile?.username || '');
   const hasAudienceQuery = audienceQuery.trim().length > 0;
   const commentCountLabel = comments.length ? ` (${comments.length})` : '';
   const visibilitySummary = visibilityLabel(dream.visibility);
