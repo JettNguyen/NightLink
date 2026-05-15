@@ -18,8 +18,8 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/assets\//, /^\/api\//],
       },
       manifest: {
-        name: 'NightLink',
-        short_name: 'NightLink',
+        name: 'Nightlink',
+        short_name: 'Nightlink',
         description: 'Dream journal and social network',
         id: '/',
         scope: '/',

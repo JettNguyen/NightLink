@@ -4,6 +4,9 @@ const config: CapacitorConfig = {
   appId: 'dev.nightlink',
   appName: 'nightlink',
   webDir: 'dist',
+  ios: {
+    backgroundColor: '#05070f',
+  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 1800,

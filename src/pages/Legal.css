@@ -1,3 +1,21 @@
+.legal-back-btn {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.5rem 0;
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.legal-back-btn:hover {
+  opacity: 0.8;
+}
+
 .legal-page {
   max-width: 860px;
   margin: 0 auto;

@@ -132,7 +132,7 @@ function Navigation({ user, activityPreview }) {
       <div className="nav-container">
         <Link to="/journal" className="nav-logo">
           <img src="/favicon.svg" alt="" className="nav-logo-icon" />
-          <span>NightLink</span>
+          <span>Nightlink</span>
         </Link>
 
         <div className="nav-links">

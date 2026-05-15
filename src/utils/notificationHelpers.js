@@ -12,13 +12,13 @@ const getActivityNotificationCopy = (entry = {}) => {
   const dreamTitle = entry.dreamTitleSnapshot || 'your dream';
   switch (entry.type) {
     case 'follow':
-      return { title: `${actor} followed you`, body: 'Open NightLink to see their profile.' };
+      return { title: `${actor} followed you`, body: 'Open Nightlink to see their profile.' };
     case 'reply':
       return { title: `${actor} replied`, body: `On ${dreamTitle}` };
     case 'comment':
       return { title: `${actor} commented`, body: `On ${dreamTitle}` };
     case 'commentReaction':
-      return { title: `${actor} reacted to your comment`, body: entry.emoji ? `Reaction: ${entry.emoji}` : 'Open NightLink to see details.' };
+      return { title: `${actor} reacted to your comment`, body: entry.emoji ? `Reaction: ${entry.emoji}` : 'Open Nightlink to see details.' };
     case 'reaction':
       return { title: `${actor} reacted to your dream`, body: entry.emoji ? `Reaction: ${entry.emoji}` : `On ${dreamTitle}` };
     case 'dreamUpdate':
@@ -267,7 +267,7 @@ export async function syncDailyDreamReminder(enabled) {
     notifications: [{
       id: DREAM_REMINDER_ID,
       title: 'Did you have a dream?',
-      body: 'Log it in NightLink before it fades.',
+      body: 'Log it in Nightlink before it fades.',
       schedule: {
         on: { hour: 9, minute: 0 },
         repeats: true,

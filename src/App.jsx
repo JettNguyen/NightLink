@@ -17,6 +17,7 @@ import { pushActivityLocalNotification, syncDailyDreamReminder } from './utils/n
 import { triggerMediumHaptic } from './utils/haptics';
 import { initIosTapFix } from './utils/iosTapFix';
 import { appUserPropType } from './propTypes';
+import TermsGate, { isTermsAccepted } from './components/TermsGate';
 import {
   IS_RC_SUPPORTED,
   configurePurchases,
@@ -53,7 +54,8 @@ function LegacyRedirect() {
 
 function AppContent({ user, loading, ready }) {
   const { pathname } = useLocation();
-  const showNav = user && pathname !== '/login';
+  const [termsAccepted, setTermsAccepted] = useState(() => isTermsAccepted());
+  const showNav = user && pathname !== '/login' && termsAccepted;
   const mainClassName = showNav ? 'app-main app-main--with-nav' : 'app-main app-main--no-nav';
   const home = useMemo(() => (user ? '/journal' : '/login'), [user]);
   const activity = useActivityPreview(user?.uid);
@@ -220,8 +222,23 @@ function AppContent({ user, loading, ready }) {
     );
   }
 
-  if (ready && !user && pathname !== '/login') {
+  if (ready && !user && !['/login', '/terms', '/privacy'].includes(pathname)) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Authenticated but hasn't accepted terms yet — gate everything except /terms and /privacy
+  if (user && !termsAccepted) {
+    return (
+      <div className="app">
+        <Suspense fallback={<LazyRouteLoader />}>
+          <Routes>
+            <Route path="/terms" element={<TermsOfUse />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="*" element={<TermsGate onAccepted={() => setTermsAccepted(true)} />} />
+          </Routes>
+        </Suspense>
+      </div>
+    );
   }
 
   const wrap = (Component) => (

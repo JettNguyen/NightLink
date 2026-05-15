@@ -1,5 +1,5 @@
 /**
- * RevenueCat SDK wrapper for NightLink.
+ * RevenueCat SDK wrapper for Nightlink.
  *
  * Only active on iOS native (Capacitor). All functions are safe to import on
  * web — they simply no-op or return sensible defaults when IS_RC_SUPPORTED is
@@ -13,7 +13,7 @@ import { supabase } from '../supabase';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/** The RevenueCat entitlement identifier for NightLink Pro. */
+/** The RevenueCat entitlement identifier for Nightlink Pro. */
 export const ENTITLEMENT_PRO = 'Nightlink Pro';
 
 /**

@@ -12,8 +12,27 @@ import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
 import { logActivityEvent } from '../services/ActivityService';
+import Toast from '../components/Toast';
 import './Profile.css';
 import { appUserPropType } from '../propTypes';
+
+const DEFAULT_API_ORIGIN = 'https://www.nightlink.dev';
+
+const resolveAccountEndpoint = () => {
+  const configuredEndpoint = (import.meta.env.VITE_ACCOUNT_ENDPOINT || '').trim();
+  if (configuredEndpoint) return configuredEndpoint;
+
+  const configuredApiBase = (import.meta.env.VITE_API_BASE_URL || '').trim();
+  if (configuredApiBase) return `${configuredApiBase.replace(/\/$/, '')}/api/account`;
+
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return '/api/account';
+  }
+
+  return `${DEFAULT_API_ORIGIN}/api/account`;
+};
+
+const ACCOUNT_ENDPOINT = resolveAccountEndpoint();
 
 export default function Profile({ user }) {
   const { handle: routeHandle } = useParams();
@@ -40,6 +59,10 @@ export default function Profile({ user }) {
   const [connectionListType, setConnectionListType] = useState(null);
   const [connectionProfiles, setConnectionProfiles] = useState([]);
   const [connectionLoading, setConnectionLoading] = useState(false);
+  const [toast, setToast] = useState('');
+  const [reportModal, setReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportBusy, setReportBusy] = useState(false);
   const navigate = useNavigate();
   const viewerId = user?.uid || null;
   const editingRef = useRef(false);
@@ -87,7 +110,7 @@ export default function Profile({ user }) {
   // Load viewer's own profile (for following state)
   useEffect(() => {
     if (!viewerId) { setViewerData(null); return; }
-    supabase.from('profiles').select('following_ids, follower_ids, username').eq('id', viewerId).single()
+    supabase.from('profiles').select('following_ids, follower_ids, username, settings').eq('id', viewerId).single()
       .then(({ data }) => setViewerData(data ? mapProfile(data) : null));
   }, [viewerId]);
 
@@ -189,7 +212,7 @@ export default function Profile({ user }) {
       if (data) setUserData(mapProfile(data));
       void triggerMediumHaptic();
     } catch {
-      alert('Failed to update profile');
+      setToast('Failed to update profile.');
     }
     setLoading(false);
   };
@@ -209,7 +232,7 @@ export default function Profile({ user }) {
         actorUsername: viewerData?.username || null,
         type: 'follow',
       });
-    } catch { alert('Unable to follow this user.'); }
+    } catch { setToast('Unable to follow this user.'); }
     finally { setFollowAction({ type: null }); }
   }
 
@@ -224,9 +247,99 @@ export default function Profile({ user }) {
       void triggerLightHaptic();
       void supabase.from('activity').delete()
         .eq('target_user_id', targetUserId).eq('actor_id', user.uid).eq('type', 'follow');
-    } catch { alert('Unable to unfollow right now.'); }
+    } catch { setToast('Unable to unfollow right now.'); }
     finally { setFollowAction({ type: null }); }
   }
+
+  const handleBlockUser = async () => {
+    if (!viewerId || !targetUserId || viewingOwnProfile || followAction.type) return;
+    setFollowAction({ type: 'block' });
+    try {
+      const currentSettings = viewerData?.settings || {};
+      const currentBlocked = Array.isArray(currentSettings.blockedUserIds) ? currentSettings.blockedUserIds : [];
+      const nextBlocked = [...new Set([...currentBlocked, targetUserId])];
+      const { error } = await supabase
+        .from('profiles')
+        .update({ settings: { ...currentSettings, blockedUserIds: nextBlocked } })
+        .eq('id', viewerId);
+      if (error) throw error;
+      setViewerData((prev) => prev ? { ...prev, settings: { ...(prev.settings || {}), blockedUserIds: nextBlocked } } : prev);
+      // Auto-unfollow the blocked user in both directions.
+      const isFollowing = (viewerData?.followingIds || []).includes(targetUserId);
+      if (isFollowing) {
+        await supabase.rpc('unfollow_user', { target_id: targetUserId });
+        setViewerData((prev) => prev ? { ...prev, followingIds: (prev.followingIds || []).filter((id) => id !== targetUserId) } : prev);
+        setUserData((prev) => prev ? { ...prev, followerIds: (prev.followerIds || []).filter((id) => id !== viewerId) } : prev);
+      }
+      setToast('User blocked. Their content is now hidden from your feed.');
+    } catch {
+      setToast('Could not block this user right now.');
+    } finally {
+      setFollowAction({ type: null });
+    }
+  };
+
+  const handleUnblockUser = async () => {
+    if (!viewerId || !targetUserId || viewingOwnProfile || followAction.type) return;
+    setFollowAction({ type: 'unblock' });
+    try {
+      const currentSettings = viewerData?.settings || {};
+      const currentBlocked = Array.isArray(currentSettings.blockedUserIds) ? currentSettings.blockedUserIds : [];
+      const nextBlocked = currentBlocked.filter((id) => id !== targetUserId);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ settings: { ...currentSettings, blockedUserIds: nextBlocked } })
+        .eq('id', viewerId);
+      if (error) throw error;
+      setViewerData((prev) => prev ? { ...prev, settings: { ...(prev.settings || {}), blockedUserIds: nextBlocked } } : prev);
+      setToast('User unblocked.');
+    } catch {
+      setToast('Could not unblock this user right now.');
+    } finally {
+      setFollowAction({ type: null });
+    }
+  };
+
+  const handleReportUser = () => {
+    if (!viewerId || !targetUserId || viewingOwnProfile) return;
+    setReportReason('');
+    setReportModal(true);
+  };
+
+  const handleSubmitReport = async () => {
+    if (!reportReason.trim()) return;
+    setReportBusy(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const idToken = sessionData?.session?.access_token;
+      if (!idToken) throw new Error('Please sign in again before reporting.');
+
+      const response = await fetch(ACCOUNT_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({
+          action: 'report_content',
+          uid: viewerId,
+          targetType: 'user',
+          targetId: targetUserId,
+          targetUserId,
+          reason: reportReason.trim(),
+          details: `Reported profile from @${userData?.username || 'unknown'}`
+        })
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.success) throw new Error(payload?.error || 'Could not submit report.');
+      setReportModal(false);
+      setReportReason('');
+      setToast('Report submitted. We review safety reports within 24 hours.');
+    } catch (error) {
+      setToast(error.message || 'Could not submit report.');
+    } finally {
+      setReportBusy(false);
+      setFollowAction({ type: null });
+    }
+  };
 
   const handleDreamNavigation = useCallback((dreamId, ownerUsername, ownerId) => {
     if (!dreamId) return;
@@ -243,9 +356,11 @@ export default function Profile({ user }) {
   }, [navigate]);
 
   const viewerFollowingIds  = viewerData?.followingIds || [];
+  const viewerBlockedIds = Array.isArray(viewerData?.settings?.blockedUserIds) ? viewerData.settings.blockedUserIds : [];
   const targetFollowerIds   = userData?.followerIds  || [];
   const targetFollowingIds  = userData?.followingIds || [];
   const isFollowingTarget   = !viewingOwnProfile && viewerFollowingIds.includes(targetUserId);
+  const isBlockedTarget = !viewingOwnProfile && viewerBlockedIds.includes(targetUserId);
   const followsYou          = !viewingOwnProfile && targetFollowingIds.includes(user?.uid);
   const viewerFollowedByTarget = useMemo(() => !viewingOwnProfile && !!viewerId && targetFollowingIds.includes(viewerId), [viewerId, viewingOwnProfile, targetFollowingIds]);
   const connectionHeadingName = userData?.displayName || 'this dreamer';
@@ -270,6 +385,8 @@ export default function Profile({ user }) {
 
   const displayedDreams = useMemo(() => {
     if (viewingOwnProfile) return dreams;
+    // Hide all dreams if the profile owner is blocked.
+    if (isBlockedTarget) return [];
     return dreams.filter((d) => {
       if (!d) return false;
       const vis = d.visibility || 'private';
@@ -280,7 +397,7 @@ export default function Profile({ user }) {
       if ((vis === 'following' || vis === 'followers') && viewerFollowedByTarget) return true;
       return false;
     });
-  }, [dreams, viewingOwnProfile, viewerFollowedByTarget, viewerId]);
+  }, [dreams, viewingOwnProfile, viewerFollowedByTarget, viewerId, isBlockedTarget]);
 
   const taggedDreamsForProfile = useMemo(() => {
     if (!targetUserId) return [];
@@ -420,17 +537,24 @@ export default function Profile({ user }) {
               <div className="profile-btn-row">
                 <button onClick={() => setIsEditing(true)} className="edit-profile-btn"><FontAwesomeIcon icon={faPencil} /><span>Edit Profile</span></button>
                 <button type="button" className="settings-btn" onClick={() => navigate('/settings')}><FontAwesomeIcon icon={faGear} /><span>Settings</span></button>
-                <button type="button" className="sign-out-profile-btn" onClick={async () => { try { await supabase.auth.signOut(); } catch { alert('Sign out failed. Please try again.'); } }}>
+                <button type="button" className="sign-out-profile-btn" onClick={async () => { try { await supabase.auth.signOut(); } catch { setToast('Sign out failed. Please try again.'); } }}>
                   <FontAwesomeIcon icon={faRightFromBracket} /><span>Sign Out</span>
                 </button>
               </div>
             )}
             {!viewingOwnProfile && (
               <div className="follow-actions">
-                <button type="button" className={isFollowingTarget ? 'ghost-btn' : 'primary-btn'} onClick={isFollowingTarget ? handleUnfollow : handleFollow} disabled={isFollowActionBusy}>
+                <button type="button" className={isFollowingTarget ? 'ghost-btn' : 'primary-btn'} onClick={isFollowingTarget ? handleUnfollow : handleFollow} disabled={isFollowActionBusy || isBlockedTarget}>
                   {isFollowActionBusy ? 'Working…' : isFollowingTarget ? 'Following' : 'Follow'}
                 </button>
+                <button type="button" className="ghost-btn" onClick={isBlockedTarget ? handleUnblockUser : handleBlockUser} disabled={isFollowActionBusy}>
+                  {isFollowActionBusy ? 'Working…' : isBlockedTarget ? 'Unblock' : 'Block'}
+                </button>
+                <button type="button" className="ghost-btn" onClick={handleReportUser} disabled={isFollowActionBusy}>
+                  {isFollowActionBusy ? 'Working…' : 'Report'}
+                </button>
                 {followsYou && <span className="follow-note">Follows you</span>}
+                {isBlockedTarget && <span className="follow-note">Blocked</span>}
               </div>
             )}
           </div>
@@ -501,6 +625,26 @@ export default function Profile({ user }) {
           </div>
         )}
       </div>
+
+      <Toast message={toast} onDismiss={() => setToast('')} />
+
+      {reportModal && (
+        <div className="report-modal-backdrop" onClick={() => setReportModal(false)}>
+          <div className="report-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Report user</h3>
+            <p className="report-modal-desc">Select the reason. Reports are reviewed within 24 hours.</p>
+            <div className="report-reasons">
+              {['Harassment or bullying', 'Hate speech', 'Sexual content', 'Violence', 'Spam', 'Other'].map((r) => (
+                <button key={r} type="button" className={`report-reason-btn${reportReason === r ? ' selected' : ''}`} onClick={() => setReportReason(r)}>{r}</button>
+              ))}
+            </div>
+            <div className="report-modal-actions">
+              <button type="button" className="secondary-btn" onClick={() => setReportModal(false)}>Cancel</button>
+              <button type="button" className="danger-btn" onClick={handleSubmitReport} disabled={!reportReason.trim() || reportBusy}>{reportBusy ? 'Submitting…' : 'Submit report'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

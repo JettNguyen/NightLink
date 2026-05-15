@@ -1,11 +1,11 @@
 <p align="center">
   <a href="https://nightlink.dev">
-    <img src="public/favicon.svg" alt="NightLink logo" width="88" height="88" />
+    <img src="public/favicon.svg" alt="Nightlink logo" width="88" height="88" />
   </a>
 </p>
 
 <h1 align="center">
-  <a href="https://nightlink.dev">NightLink</a>
+  <a href="https://nightlink.dev">Nightlink</a>
 </h1>
 
 <p align="center">
@@ -27,7 +27,7 @@
 - React to dreams and comments
 - PWA compatability
 
-> See [docs/ux-case-study.md](docs/ux-case-study.md) to see why NightLink exists.
+> See [docs/ux-case-study.md](docs/ux-case-study.md) to see why Nightlink exists.
 
 ## Use as a Progressive Web App (PWA)
 

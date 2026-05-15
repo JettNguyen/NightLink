@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import { mapProfile } from '../utils/mappers';
 import LoadingIndicator from '../components/LoadingIndicator';
@@ -21,6 +22,8 @@ import {
   syncCustomerInfoToSupabase,
   addCreditsToSupabase,
 } from '../utils/purchases';
+import Toast from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
 import './Settings.css';
 
 const DEFAULT_SETTINGS = {
@@ -151,6 +154,7 @@ Toggle.defaultProps = {
 };
 
 export default function Settings({ user }) {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -171,6 +175,9 @@ export default function Settings({ user }) {
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [billingStatus, setBillingStatus] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteInput, setDeleteInput] = useState('');
+  const [toast, setToast] = useState(null);
   const [rcCustomerInfo, setRcCustomerInfo] = useState(null);
   const [rcLoading, setRcLoading] = useState(false);
   const savedRef = useRef(JSON.stringify(DEFAULT_SETTINGS));
@@ -257,25 +264,6 @@ export default function Settings({ user }) {
     return () => supabase.removeChannel(channel);
   }, [uid]);
 
-  useEffect(() => {
-    if (!isNativeIOS) return undefined;
-    const root = document.documentElement;
-
-    const syncTopStateClass = () => {
-      const isAtTop = (window.scrollY || 0) <= 2;
-      root.classList.toggle('settings-at-top', isAtTop);
-    };
-
-    root.classList.add('settings-page-active');
-    syncTopStateClass();
-    window.addEventListener('scroll', syncTopStateClass, { passive: true });
-
-    return () => {
-      window.removeEventListener('scroll', syncTopStateClass);
-      root.classList.remove('settings-at-top');
-      root.classList.remove('settings-page-active');
-    };
-  }, [isNativeIOS]);
 
   useEffect(() => {
     if (!uid || !user?.getIdToken) return;
@@ -392,6 +380,25 @@ export default function Settings({ user }) {
       setBillingStatus('Checkout cancelled. No charge was made.');
     }
   }, [uid]);
+
+  // On iOS, force a WebKit repaint once the profile finishes loading.
+  // The transition from loading-spinner → full content causes a large DOM
+  // swap that can leave stale GPU tiles (visible as a blank box) until the
+  // user scrolls. Toggling opacity triggers immediate rasterization without
+  // any visible change or scroll movement.
+  useEffect(() => {
+    if (!isNativeIOS || loading) return;
+    const page = document.querySelector('.settings-page');
+    if (!page) return;
+    page.style.opacity = '0.9999';
+    const raf = requestAnimationFrame(() => {
+      page.style.opacity = '';
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      page.style.opacity = '';
+    };
+  }, [isNativeIOS, loading]);
 
   // Load RC customer info when Settings opens on iOS.
   // App.jsx handles the background listener; this gives the billing section
@@ -766,19 +773,24 @@ export default function Settings({ user }) {
 
   // ─────────────────────────────────────────────────────────────────────────────
 
-  const handleDeleteAccount = async () => {
+  const handleDeleteAccount = () => {
     if (!uid || deletingAccount) return;
-    const confirmPhrase = 'DELETE';
-    const typed = window.prompt('Type DELETE to permanently remove your account and all data.');
-    if (typed !== confirmPhrase) {
-      setBillingStatus('Account deletion cancelled.');
+    setDeleteInput('');
+    setDeleteConfirmOpen(true);
+  };
+
+  const executeDeleteAccount = async () => {
+    setDeleteConfirmOpen(false);
+    if (deleteInput !== 'DELETE') {
+      setToast('Account deletion cancelled.');
       return;
     }
 
     setDeletingAccount(true);
     setBillingStatus('');
     try {
-      const idToken = await user?.getIdToken?.();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const idToken = sessionData?.session?.access_token;
       if (!idToken) {
         throw new Error('Please sign in again and retry.');
       }
@@ -792,7 +804,7 @@ export default function Settings({ user }) {
         body: JSON.stringify({
           action: 'delete_account',
           uid,
-          confirmText: confirmPhrase
+          confirmText: 'DELETE'
         })
       });
 
@@ -836,7 +848,7 @@ export default function Settings({ user }) {
           {status === 'saved' && <span className="settings-status success">Saved</span>}
           {status === 'error' && <span className="settings-status error">Failed</span>}
           <button type="button" className="ghost-btn" onClick={handleReset} disabled={saving}>Reset</button>
-          <button type="button" className="primary-btn" onClick={handleSave} disabled={!canSave || saving}>
+          <button type="button" className={`primary-btn${saving ? ' is-loading' : ''}`} onClick={handleSave} disabled={!canSave || saving} style={saving ? { cursor: 'wait' } : undefined}>
             {saving ? 'Saving...' : 'Save'}
           </button>
         </div>
@@ -1008,7 +1020,7 @@ export default function Settings({ user }) {
                 <p className="notification-hint">Push notifications require a modern browser with Service Worker support.</p>
               )}
               <div className="toggle-row">
-                <div className="toggle-label"><strong>Push notifications</strong><span>Receive updates even when NightLink is closed.</span></div>
+                <div className="toggle-label"><strong>Push notifications</strong><span>Receive updates even when Nightlink is closed.</span></div>
                 <Toggle id="notificationsEnabled" checked={settings.notificationsEnabled} onChange={handleNotificationsToggle} disabled={!notificationsSupported || notificationBusy} />
               </div>
               <div className="toggle-row">
@@ -1063,13 +1075,16 @@ export default function Settings({ user }) {
           <section className="settings-section">
             <div className="settings-section-head">
               <h2>Legal</h2>
-              <p>Review the required policies before publishing in app stores.</p>
+              <p>Read our Terms of Use and Privacy Policy. By using Nightlink you agree to these terms. We have zero tolerance for objectionable or abusive content.</p>
             </div>
             <div className="settings-section-body">
               <div className="action-buttons">
-                <a className="ghost-btn legal-link-btn" href="/terms" target="_blank" rel="noreferrer">Terms of Use</a>
-                <a className="ghost-btn legal-link-btn" href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>
+                <button type="button" className="ghost-btn legal-link-btn" onClick={() => navigate('/terms')}>Terms of Use</button>
+                <button type="button" className="ghost-btn legal-link-btn" onClick={() => navigate('/privacy')}>Privacy Policy</button>
               </div>
+              <p className="settings-footnote">
+                Safety reporting contact: <a href="mailto:jettuf26@gmail.com">Jett Nguyen (jettuf26@gmail.com)</a>
+              </p>
             </div>
           </section>
 
@@ -1087,6 +1102,25 @@ export default function Settings({ user }) {
           </section>
         </div>
       )}
+
+      {deleteConfirmOpen && (
+        <ConfirmModal
+          title="Delete account?"
+          message="This will permanently remove your account and all associated data. This cannot be undone."
+          confirmLabel={deletingAccount ? 'Deleting…' : 'Delete account'}
+          cancelLabel="Cancel"
+          danger
+          inputLabel='Type "DELETE" to confirm'
+          inputPlaceholder="DELETE"
+          inputValue={deleteInput}
+          onInputChange={setDeleteInput}
+          confirmDisabled={deleteInput !== 'DELETE' || deletingAccount}
+          onConfirm={executeDeleteAccount}
+          onCancel={() => setDeleteConfirmOpen(false)}
+        />
+      )}
+
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
     </div>
   );
 }
