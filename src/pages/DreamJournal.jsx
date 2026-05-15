@@ -8,6 +8,7 @@ import { ListSkeleton } from '../components/SkeletonLoader';
 import { formatDreamDate, getTodayDateInputValue, parseDateInputValue } from '../utils/dates';
 import { buildDreamPath } from '../utils/urlHelpers';
 import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
+import { containsBlockedContent } from '../utils/contentModeration';
 import './DreamJournal.css';
 import { appUserPropType } from '../propTypes';
 
@@ -21,8 +22,7 @@ const VISIBILITY_LABELS = {
 const VISIBILITY_OPTIONS = [
   { value: 'private',   label: 'Private',              helper: 'Only you can view this entry.' },
   { value: 'public',    label: 'Public',               helper: 'Appears on your profile and Following feed.' },
-  { value: 'following', label: 'People you follow',    helper: 'Only people you follow can view it.' },
-  { value: 'anonymous', label: 'Anonymous',            helper: 'Shared publicly without your name attached.' }
+  { value: 'following', label: 'People you follow',    helper: 'Only people you follow can view it.' }
 ];
 
 const CONTENT_PREVIEW_LIMIT = 240;
@@ -247,6 +247,10 @@ export default function DreamJournal({ user }) {
   const handleSaveDream = async (event) => {
     event.preventDefault();
     if (!content.trim() || !user?.uid) return;
+    if (containsBlockedContent(content) || containsBlockedContent(title)) {
+      setSaveError('This content may violate our community standards. Please edit and try again.');
+      return;
+    }
     setLoading(true);
     setSaveError('');
 

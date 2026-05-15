@@ -94,6 +94,54 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  if (action === 'report_content') {
+    const { targetType, targetId, targetUserId, reason, details } = body || {};
+    if (!targetType || !targetId || !reason) {
+      return res.status(400).json({ error: 'Missing report details.' });
+    }
+
+    try {
+      const { data: reporter, error: reporterError } = await admin
+        .from('profiles')
+        .select('settings')
+        .eq('id', uid)
+        .single();
+      if (reporterError) throw reporterError;
+
+      const now = new Date().toISOString();
+      const currentSettings = reporter?.settings || {};
+      const currentReports = Array.isArray(currentSettings.safetyReports) ? currentSettings.safetyReports : [];
+      const reportRecord = {
+        id: `${now}:${targetType}:${targetId}`,
+        createdAt: now,
+        reporterId: uid,
+        targetType,
+        targetId,
+        targetUserId: targetUserId || null,
+        reason: String(reason).slice(0, 160),
+        details: String(details || '').slice(0, 400),
+        status: 'submitted'
+      };
+
+      const nextReports = [reportRecord, ...currentReports].slice(0, 100);
+      const { error: updateError } = await admin
+        .from('profiles')
+        .update({
+          settings: {
+            ...currentSettings,
+            safetyReports: nextReports
+          }
+        })
+        .eq('id', uid);
+      if (updateError) throw updateError;
+
+      return res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('report_content failed', error);
+      return res.status(500).json({ error: error.message || 'Could not submit report.' });
+    }
+  }
+
   // Handle delete_account action
   if (action !== 'delete_account') return res.status(400).json({ error: 'Unknown action' });
   if (confirmText !== 'DELETE') return res.status(400).json({ error: 'Invalid confirmation phrase.' });

@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
 
     const results = await Promise.all(
       tokens.map(t =>
-        sendApns(t, 'Did you have a dream?', 'Log it in NightLink before it fades.', { type: 'dream-reminder' })
+        sendApns(t, 'Did you have a dream?', 'Log it in Nightlink before it fades.', { type: 'dream-reminder' })
       )
     );
 

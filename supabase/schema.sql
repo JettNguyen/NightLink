@@ -1,5 +1,5 @@
 -- ============================================================
--- NightLink — Supabase PostgreSQL Schema
+-- Nightlink — Supabase PostgreSQL Schema
 -- Run this in the Supabase SQL editor (Dashboard → SQL editor)
 -- ============================================================
 

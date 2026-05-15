@@ -25,7 +25,7 @@
   position: -webkit-sticky;
   position: sticky;
   top: calc(74px + env(safe-area-inset-top));
-  z-index: 10;
+  z-index: 200;
   background: rgba(6, 8, 17, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -40,22 +40,22 @@
   flex-wrap: nowrap;
 }
 
-html[data-native-platform='ios'].settings-page-active .settings-page .settings-save-bar {
-  position: fixed;
-  top: calc(72px + env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(920px, calc(100vw - 2.5rem));
-  z-index: 110;
-  transition: top 0.2s ease;
+/* iOS: stick save bar just below the desktop (iPad) nav */
+html[data-native-platform='ios'] .settings-save-bar {
+  top: calc(88px + env(safe-area-inset-top));
+  /* Remove backdrop-filter on iOS native to prevent GPU compositing promotion.
+     The compositing layer it creates causes a blank-box stale-tile artifact
+     above it (where settings-header renders) until the user scrolls. */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(6, 8, 17, 0.97);
 }
 
-html[data-native-platform='ios'].settings-page-active.settings-at-top .settings-page .settings-save-bar {
-  top: calc(166px + env(safe-area-inset-top));
-}
-
-html[data-native-platform='ios'].settings-page-active .settings-page .settings-sections {
-  padding-top: 5rem;
+/* iOS: stick save bar just below the mobile (iPhone) nav */
+@media (max-width: 768px) {
+  html[data-native-platform='ios'] .settings-save-bar {
+    top: calc(74px + env(safe-area-inset-top));
+  }
 }
 
 .settings-save-bar p {
@@ -479,6 +479,7 @@ html[data-native-platform='ios'].settings-page-active .settings-page .settings-s
 }
 
 .action-buttons {
+  padding-bottom: 5px;
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
@@ -517,6 +518,7 @@ html[data-native-platform='ios'].settings-page-active .settings-page .settings-s
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-height: 44px;
 }
 
 .danger-zone {
@@ -535,11 +537,6 @@ html[data-native-platform='ios'].settings-page-active .settings-page .settings-s
   padding: 3rem 1rem;
 }
 
-@media (max-width: 768px) {
-  .settings-save-bar {
-    top: 0;
-  }
-}
 
 @media (max-width: 600px) {
   .settings-save-bar {
@@ -549,6 +546,17 @@ html[data-native-platform='ios'].settings-page-active .settings-page .settings-s
   }
 
   .settings-save-bar .btn-group {
+    justify-content: flex-end;
+  }
+
+  /* Keep save bar as a single row on iOS regardless of screen width */
+  html[data-native-platform='ios'] .settings-save-bar {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  html[data-native-platform='ios'] .settings-save-bar .btn-group {
     justify-content: flex-end;
   }
 
@@ -566,13 +574,4 @@ html[data-native-platform='ios'].settings-page-active .settings-page .settings-s
     align-self: flex-end;
   }
 
-  html[data-native-platform='ios'].settings-page-active .settings-page .settings-save-bar {
-    flex-direction: row;
-    align-items: center;
-    gap: 0.55rem;
-  }
-
-  html[data-native-platform='ios'].settings-page-active .settings-page .settings-save-bar .btn-group {
-    justify-content: flex-end;
-  }
 }

@@ -13,12 +13,31 @@ import './Feed.css';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { ListSkeleton } from '../components/SkeletonLoader';
 import ReactionInsightsModal from '../components/ReactionInsightsModal';
+import Toast from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
 import updateDreamReaction from '../services/ReactionService';
 import fetchUserSummaries from '../services/UserService';
 import { appUserPropType } from '../propTypes';
 import { COMMON_EMOJI_REACTIONS, filterEmojiInput } from '../constants/emojiOptions';
 
 const INITIAL_INSIGHT_STATE = { open: false, emoji: '', title: '', subtitle: '', userIds: [], anchorRect: null };
+const DEFAULT_API_ORIGIN = 'https://www.nightlink.dev';
+
+const resolveAccountEndpoint = () => {
+  const configuredEndpoint = (import.meta.env.VITE_ACCOUNT_ENDPOINT || '').trim();
+  if (configuredEndpoint) return configuredEndpoint;
+
+  const configuredApiBase = (import.meta.env.VITE_API_BASE_URL || '').trim();
+  if (configuredApiBase) return `${configuredApiBase.replace(/\/$/, '')}/api/account`;
+
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return '/api/account';
+  }
+
+  return `${DEFAULT_API_ORIGIN}/api/account`;
+};
+
+const ACCOUNT_ENDPOINT = resolveAccountEndpoint();
 
 const normalizeAnchorRect = (rect) => {
   if (!rect) return null;
@@ -44,6 +63,14 @@ export default function Feed({ user }) {
   const [customReactionValue, setCustomReactionValue] = useState('');
   const [userSummaries, setUserSummaries] = useState({});
   const [reactionInsightState, setReactionInsightState] = useState(INITIAL_INSIGHT_STATE);
+  const [viewerSettings, setViewerSettings] = useState({});
+  const [blockedUserIds, setBlockedUserIds] = useState([]);
+  const [hiddenDreamIds, setHiddenDreamIds] = useState([]);
+  const [toast, setToast] = useState('');
+  const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm, danger? }
+  const [reportModal, setReportModal] = useState(null);   // { dream }
+  const [reportReason, setReportReason] = useState('');
+  const [reportBusy, setReportBusy] = useState(false);
   const customEmojiInputRef = useRef(null);
   const userSummariesRef = useRef(userSummaries);
   const reactionInsightOpenRef = useRef(false);
@@ -59,16 +86,26 @@ export default function Feed({ user }) {
   useEffect(() => {
     if (!user?.uid) { setFollowingIds([]); setFollowingIdsLoaded(true); return; }
 
-    supabase.from('profiles').select('following_ids').eq('id', user.uid).single()
+    supabase.from('profiles').select('following_ids, settings').eq('id', user.uid).single()
       .then(({ data }) => {
         setFollowingIds(data?.following_ids || []);
+        const settings = data?.settings || {};
+        setViewerSettings(settings);
+        setBlockedUserIds(Array.isArray(settings.blockedUserIds) ? settings.blockedUserIds : []);
+        setHiddenDreamIds(Array.isArray(settings.hiddenDreamIds) ? settings.hiddenDreamIds : []);
         setFollowingIdsLoaded(true);
       });
 
     const channel = supabase
       .channel(`feed-profile:${user.uid}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.uid}` },
-        (payload) => setFollowingIds(payload.new?.following_ids || []))
+        (payload) => {
+          setFollowingIds(payload.new?.following_ids || []);
+          const settings = payload.new?.settings || {};
+          setViewerSettings(settings);
+          setBlockedUserIds(Array.isArray(settings.blockedUserIds) ? settings.blockedUserIds : []);
+          setHiddenDreamIds(Array.isArray(settings.hiddenDreamIds) ? settings.hiddenDreamIds : []);
+        })
       .subscribe();
 
     return () => supabase.removeChannel(channel);
@@ -121,6 +158,8 @@ export default function Feed({ user }) {
     if (!rawDreams.length) return [];
     const filtered = rawDreams.filter((dream) => {
       if (!dream) return false;
+      if (hiddenDreamIds.includes(dream.id)) return false;
+      if (dream.userId && blockedUserIds.includes(dream.userId)) return false;
       const vis = dream.visibility || 'private';
       if (vis === 'private') return dream.userId === viewerId;
       if (viewerId && Array.isArray(dream.excludedViewerIds) && dream.excludedViewerIds.includes(viewerId)) return false;
@@ -137,7 +176,120 @@ export default function Feed({ user }) {
       const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return bTime - aTime;
     });
-  }, [rawDreams, followingProfiles, viewerId]);
+  }, [rawDreams, followingProfiles, viewerId, blockedUserIds, hiddenDreamIds]);
+
+  const persistViewerSafetySettings = useCallback(async (nextSettings) => {
+    if (!viewerId) return;
+    const merged = { ...(viewerSettings || {}), ...(nextSettings || {}) };
+    setViewerSettings(merged);
+    await supabase.from('profiles').update({ settings: merged }).eq('id', viewerId);
+  }, [viewerId, viewerSettings]);
+
+  const handleHideDream = useCallback(async (event, dreamId) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!dreamId) return;
+    const nextHidden = [...new Set([...(hiddenDreamIds || []), dreamId])];
+    setHiddenDreamIds(nextHidden);
+    try {
+      await persistViewerSafetySettings({ hiddenDreamIds: nextHidden });
+    } catch {
+      // Keep local hide even if persistence fails.
+    }
+  }, [hiddenDreamIds, persistViewerSafetySettings]);
+
+  const handleBlockAuthor = useCallback(async (event, authorId) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!authorId || !viewerId || authorId === viewerId) return;
+    const nextBlocked = [...new Set([...(blockedUserIds || []), authorId])];
+    setBlockedUserIds(nextBlocked);
+    try {
+      await persistViewerSafetySettings({ blockedUserIds: nextBlocked });
+    } catch {
+      // Keep local block even if persistence fails.
+    }
+  }, [blockedUserIds, viewerId, persistViewerSafetySettings]);
+
+  const submitSafetyReport = useCallback(async ({ targetType, targetId, targetUserId, reason, details }) => {
+    if (!viewerId) return;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const idToken = sessionData?.session?.access_token;
+    if (!idToken) throw new Error('Please sign in again before reporting.');
+
+    const response = await fetch(ACCOUNT_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`
+      },
+      body: JSON.stringify({
+        action: 'report_content',
+        uid: viewerId,
+        targetType,
+        targetId,
+        targetUserId: targetUserId || null,
+        reason,
+        details: details || ''
+      })
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload?.success) {
+      throw new Error(payload?.error || 'Could not submit report.');
+    }
+  }, [viewerId]);
+
+  const handleReportDream = useCallback((event, dream) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!dream?.id) return;
+    setReportReason('');
+    setReportModal({ dream });
+  }, []);
+
+  const handleSubmitReport = useCallback(async () => {
+    if (!reportModal?.dream || !reportReason.trim()) return;
+    setReportBusy(true);
+    try {
+      await submitSafetyReport({
+        targetType: 'dream',
+        targetId: reportModal.dream.id,
+        targetUserId: reportModal.dream.userId,
+        reason: reportReason.trim(),
+        details: `Reported from feed at ${new Date().toISOString()}`
+      });
+      setReportModal(null);
+      setReportReason('');
+      setToast('Report submitted. We review safety reports within 24 hours.');
+    } catch (error) {
+      setToast(error.message || 'Could not submit report.');
+    } finally {
+      setReportBusy(false);
+    }
+  }, [reportModal, reportReason, submitSafetyReport]);
+
+  const handleRemoveOwnDream = useCallback((event, dream) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!dream?.id || dream.userId !== viewerId) return;
+    setConfirmModal({
+      title: 'Remove dream',
+      message: 'Remove this dream? This cannot be undone.',
+      confirmLabel: 'Remove',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        setRawDreams((prev) => prev.filter((entry) => entry.id !== dream.id));
+        try {
+          const { error: removeError } = await supabase.from('dreams').delete().eq('id', dream.id);
+          if (removeError) throw removeError;
+        } catch {
+          setToast('Could not remove this dream right now.');
+        }
+      },
+    });
+  }, [viewerId]);
 
   useEffect(() => {
     setReactionState((prev) => {
@@ -175,10 +327,10 @@ export default function Feed({ user }) {
   }, [customReactionTarget]);
 
   const handleReactionSelection = useCallback(async (dream, emoji) => {
-    if (!viewerId) { alert('Sign in to react to dreams'); return; }
+    if (!viewerId) { setToast('Sign in to react to dreams.'); return; }
     const currentState = reactionState[dream.id];
     const currentReaction = currentState?.viewerReaction || null;
-    if (currentReaction && emoji && emoji !== currentReaction) { alert('Clear your current reaction before choosing another emoji.'); return; }
+    if (currentReaction && emoji && emoji !== currentReaction) { setToast('Clear your current reaction before choosing another.'); return; }
     const nextReaction = emoji === currentReaction ? null : emoji;
     setReactionState((prev) => {
       const counts = { ...(prev[dream.id]?.counts || dream.reactionCounts || {}) };
@@ -193,7 +345,7 @@ export default function Feed({ user }) {
         dreamTitleSnapshot: dream.title || dream.aiTitle || 'Dream',
         userId: viewerId,
         emoji: nextReaction,
-        actorDisplayName: user?.displayName || user?.email || 'NightLink dreamer',
+        actorDisplayName: user?.displayName || user?.email || 'Nightlink dreamer',
         actorUsername: user?.username || null
       });
     } catch (err) {
@@ -366,6 +518,7 @@ export default function Feed({ user }) {
             const snippet = dream.content ? (dream.content.length > 240 ? `${dream.content.slice(0, 240)}…` : dream.content) : 'No entry text yet.';
             const visibilityLabel = dream.visibility === 'anonymous' ? 'Anonymous dream' : dream.visibility === 'following' || dream.visibility === 'followers' ? 'Shared with people they follow' : 'Public dream';
             const showProfileLink = !isAnonymous && Boolean(dream.userId);
+            const isOwnerDream = Boolean(viewerId && dream.userId === viewerId);
             const profilePath = showProfileLink ? buildProfilePath(authorUsername, dream.userId) : null;
             const handleAuthorNavigation = (event) => { if (!showProfileLink) return; event.stopPropagation(); event.preventDefault(); if (profilePath) navigate(profilePath); };
             const openDreamDetail = () => { const path = isAnonymous ? `/dream/${dream.id}` : buildDreamPath(authorUsername, dream.userId, dream.id); navigate(path, { state: { fromNav: '/feed' } }); };
@@ -398,6 +551,19 @@ export default function Feed({ user }) {
                 {dream.tags && dream.tags.length > 0 && (
                   <div className="feed-tags">{dream.tags.map((tag, index) => <span key={index} className="tag">{tag.value}</span>)}</div>
                 )}
+                <div className="feed-safety-actions">
+                  <button type="button" className="feed-safety-btn" onClick={(event) => handleHideDream(event, dream.id)}>Hide</button>
+                  {!isOwnerDream && (
+                    <button type="button" className="feed-safety-btn" onClick={(event) => { event.preventDefault(); event.stopPropagation(); handleHideDream(event, dream.id); }}>Remove from feed</button>
+                  )}
+                  {!isAnonymous && !isOwnerDream && dream.userId && (
+                    <button type="button" className="feed-safety-btn" onClick={(event) => handleBlockAuthor(event, dream.userId)}>Block user</button>
+                  )}
+                  <button type="button" className="feed-safety-btn" onClick={(event) => handleReportDream(event, dream)}>Report</button>
+                  {isOwnerDream && (
+                    <button type="button" className="feed-safety-btn danger" onClick={(event) => handleRemoveOwnDream(event, dream)}>Remove post</button>
+                  )}
+                </div>
                 <div className="activity-reactions feed-reactions">
                   <div className="reaction-buttons">
                     <button type="button" className={`reaction-button${reactionSnapshot.viewerReaction === defaultReaction ? ' active' : ''}`} onClick={(e) => { if (consumeSuppressedClick(e)) return; handleReactionClick(e, dream, defaultReaction); }} aria-label="React with a heart">
@@ -456,6 +622,37 @@ export default function Feed({ user }) {
         </div>
       )}
       <ReactionInsightsModal open={reactionInsightState.open} anchorRect={reactionInsightState.anchorRect} title={reactionInsightState.title} subtitle={reactionInsightState.subtitle} emoji={reactionInsightState.emoji} entries={reactionInsightEntries} />
+
+      <Toast message={toast} onDismiss={() => setToast('')} />
+
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmLabel={confirmModal.confirmLabel}
+          danger={confirmModal.danger}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
+
+      {reportModal && (
+        <div className="report-modal-backdrop" onClick={() => setReportModal(null)}>
+          <div className="report-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Report dream</h3>
+            <p className="report-modal-desc">Select the reason that best describes the issue. Reports are reviewed within 24 hours.</p>
+            <div className="report-reasons">
+              {['Harassment or bullying', 'Hate speech', 'Sexual content', 'Violence', 'Spam', 'Other'].map((r) => (
+                <button key={r} type="button" className={`report-reason-btn${reportReason === r ? ' selected' : ''}`} onClick={() => setReportReason(r)}>{r}</button>
+              ))}
+            </div>
+            <div className="report-modal-actions">
+              <button type="button" className="secondary-btn" onClick={() => setReportModal(null)}>Cancel</button>
+              <button type="button" className="danger-btn" onClick={handleSubmitReport} disabled={!reportReason.trim() || reportBusy}>{reportBusy ? 'Submitting…' : 'Submit report'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -100,13 +100,13 @@ export function getNotificationCopy(payload: Record<string, unknown>): { title: 
   const emoji      = payload.emoji ? ` ${payload.emoji}` : '';
 
   switch (payload.type) {
-    case 'follow':          return { title: `${actor} followed you`,               body: 'Open NightLink to see their profile.' };
+    case 'follow':          return { title: `${actor} followed you`,               body: 'Open Nightlink to see their profile.' };
     case 'reply':           return { title: `${actor} replied`,                    body: `On "${dreamTitle}"` };
     case 'comment':         return { title: `${actor} commented`,                  body: `On "${dreamTitle}"` };
-    case 'commentReaction': return { title: `${actor} reacted to your comment`,    body: `${emoji || 'Open NightLink to see details.'}` };
+    case 'commentReaction': return { title: `${actor} reacted to your comment`,    body: `${emoji || 'Open Nightlink to see details.'}` };
     case 'reaction':        return { title: `${actor} reacted to your dream`,      body: `${emoji} on "${dreamTitle}"`.trim() };
     case 'dreamUpdate':     return { title: `${actor} posted an update`,           body: `On "${dreamTitle}"` };
     case 'mention':         return { title: `${actor} mentioned you`,              body: `In "${dreamTitle}"` };
-    default:                return { title: 'New activity on NightLink',           body: 'Open the app to see what happened.' };
+    default:                return { title: 'New activity on Nightlink',           body: 'Open the app to see what happened.' };
   }
 }

@@ -13,6 +13,9 @@ import { logActivityEvents } from '../services/ActivityService';
 import updateDreamReaction, { toggleCommentHeart } from '../services/ReactionService';
 import fetchUserSummaries from '../services/UserService';
 import { formatDateInputValue, formatDreamDate, parseDateInputValue } from '../utils/dates';
+import { containsBlockedContent } from '../utils/contentModeration';
+import Toast from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
 import './DreamDetail.css';
 import { appUserPropType } from '../propTypes';
 import { COMMON_EMOJI_REACTIONS, filterEmojiInput } from '../constants/emojiOptions';
@@ -48,8 +51,7 @@ const FREE_ALLOWED_PROMPT_KEYS = new Set(['balanced', 'coach', 'therapist']);
 const VISIBILITY_OPTIONS = [
   { value: 'private', label: 'Private', helper: 'Only you can see this.' },
   { value: 'public', label: 'Public', helper: 'Visible on your profile and feed.' },
-  { value: 'following', label: 'Followers only', helper: 'People you follow can see it.' },
-  { value: 'anonymous', label: 'Anonymous', helper: 'Shared without your identity.' }
+  { value: 'following', label: 'Followers only', helper: 'People you follow can see it.' }
 ];
 
 const DEFAULT_API_ORIGIN = 'https://www.nightlink.dev';
@@ -76,7 +78,22 @@ const resolveAiEndpoint = () => {
   return '/api/ai';
 };
 
+const resolveAccountEndpoint = () => {
+  const configuredEndpoint = (import.meta.env.VITE_ACCOUNT_ENDPOINT || '').trim();
+  if (configuredEndpoint) return configuredEndpoint;
+
+  const configuredApiBase = (import.meta.env.VITE_API_BASE_URL || '').trim();
+  if (configuredApiBase) return `${configuredApiBase.replace(/\/$/, '')}/api/account`;
+
+  if (Capacitor.isNativePlatform()) {
+    return `${DEFAULT_API_ORIGIN}/api/account`;
+  }
+
+  return '/api/account';
+};
+
 const AI_URL = resolveAiEndpoint();
+const ACCOUNT_ENDPOINT = resolveAccountEndpoint();
 const DEFAULT_EMOJI = '💙';
 const ACTIVITY_PRIORITY = { mention: 2, reply: 1, comment: 0 };
 const INITIAL_INSIGHT_STATE = {
@@ -188,6 +205,11 @@ export default function DreamDetail({ user }) {
   const [customEmojiPickerOpen, setCustomEmojiPickerOpen] = useState(false);
   const [userSummaries, setUserSummaries] = useState({});
   const [reactionInsightState, setReactionInsightState] = useState(INITIAL_INSIGHT_STATE);
+  const [reportModal, setReportModal] = useState(null); // { targetType, targetId, targetUserId, commentEntry? }
+  const [reportReason, setReportReason] = useState('');
+  const [reportBusy, setReportBusy] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null); // { action: 'deleteComment', commentId, authorId } | { action: 'deleteDream' }
   const viewerId = user?.uid || null;
   const [authorProfile, setAuthorProfile] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
@@ -557,7 +579,7 @@ export default function DreamDetail({ user }) {
         dreamTitleSnapshot: dream.title || dream.aiTitle || 'Dream entry',
         userId: viewerId,
         emoji: nextReaction,
-        actorDisplayName: user?.displayName || user?.email || 'NightLink dreamer',
+        actorDisplayName: user?.displayName || user?.email || 'Nightlink dreamer',
         actorUsername: user?.username || user?.handle || null
       });
     } catch (error) {
@@ -983,6 +1005,10 @@ export default function DreamDetail({ user }) {
 
   const handleSaveContent = async () => {
     if (!dream || !isOwner || !contentInput.trim()) return;
+    if (containsBlockedContent(contentInput)) {
+      setError('This content may violate our community standards. Please edit and try again.');
+      return;
+    }
     try {
       const { error } = await supabase.from('dreams').update({ content: contentInput.trim(), tags: editableTags }).eq('id', dream.id);
       if (error) throw error;
@@ -1195,6 +1221,10 @@ export default function DreamDetail({ user }) {
     const trimmed = commentInput.trim();
     const activeDreamId = dream?.id || dreamId;
     if (!trimmed || !activeDreamId) return;
+    if (containsBlockedContent(trimmed)) {
+      setCommentStatus('This comment may violate our community standards. Please edit and try again.');
+      return;
+    }
 
     setCommentBusy(true);
     setCommentStatus('');
@@ -1322,11 +1352,14 @@ export default function DreamDetail({ user }) {
     }
   };
 
-  const handleDeleteComment = async (commentId, authorId) => {
+  const handleDeleteComment = (commentId, authorId) => {
     if (!commentId || !dream?.id || !viewerId) return;
     if (!isOwner && authorId !== viewerId) return;
-    if (!window.confirm('Remove this comment?')) return;
+    setConfirmModal({ action: 'deleteComment', commentId, authorId });
+  };
 
+  const executeDeleteComment = async (commentId) => {
+    setConfirmModal(null);
     setRemovingCommentId(commentId);
     setCommentStatus('');
     try {
@@ -1431,7 +1464,8 @@ export default function DreamDetail({ user }) {
     setStatusMessage('');
 
     try {
-      const idToken = await user?.getIdToken?.();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const idToken = sessionData?.session?.access_token;
       if (!idToken) {
         setStatusMessage('Please sign in again to use AI features.');
         setAnalyzing(false);
@@ -1592,9 +1626,13 @@ export default function DreamDetail({ user }) {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!dream || !isOwner || dream.id.startsWith('local-')) return;
-    if (!window.confirm('Delete this dream? This cannot be undone.')) return;
+    setConfirmModal({ action: 'deleteDream' });
+  };
+
+  const executeDeleteDream = async () => {
+    setConfirmModal(null);
     setDeleting(true);
     try {
       const { error } = await supabase.from('dreams').delete().eq('id', dream.id);
@@ -1605,6 +1643,93 @@ export default function DreamDetail({ user }) {
       setDeleting(false);
     }
   };
+
+  const submitSafetyReport = useCallback(async ({ targetType, targetId, targetUserId, reason, details }) => {
+    if (!viewerId) return;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const idToken = sessionData?.session?.access_token;
+    if (!idToken) throw new Error('Please sign in again before reporting.');
+
+    const response = await fetch(ACCOUNT_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`
+      },
+      body: JSON.stringify({
+        action: 'report_content',
+        uid: viewerId,
+        targetType,
+        targetId,
+        targetUserId: targetUserId || null,
+        reason,
+        details: details || ''
+      })
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload?.success) {
+      throw new Error(payload?.error || 'Could not submit report.');
+    }
+  }, [viewerId, user]);
+
+  const handleReportDream = useCallback(() => {
+    if (!dream?.id || !viewerId) return;
+    setReportReason('');
+    setReportModal({ targetType: 'dream', targetId: dream.id, targetUserId: dream.userId });
+  }, [dream, viewerId]);
+
+  const handleReportComment = useCallback((entry) => {
+    if (!entry?.id || !viewerId) return;
+    setReportReason('');
+    setReportModal({ targetType: 'comment', targetId: entry.id, targetUserId: entry.userId, commentEntry: entry });
+  }, [viewerId]);
+
+  const handleSubmitReport = useCallback(async () => {
+    if (!reportModal || !reportReason.trim()) return;
+    setReportBusy(true);
+    try {
+      await submitSafetyReport({
+        targetType: reportModal.targetType,
+        targetId: reportModal.targetId,
+        targetUserId: reportModal.targetUserId,
+        reason: reportReason.trim(),
+        details: reportModal.targetType === 'comment'
+          ? `Reported comment on dream ${dream?.id || 'unknown'}`
+          : `Reported from dream detail at ${new Date().toISOString()}`,
+      });
+      setReportModal(null);
+      setReportReason('');
+      if (reportModal.targetType === 'comment') {
+        setCommentStatus('Report submitted. We review safety reports within 24 hours.');
+      } else {
+        setStatusMessage('Report submitted. We review safety reports within 24 hours.');
+      }
+    } catch (reportError) {
+      setStatusMessage(reportError.message || 'Could not submit report.');
+    } finally {
+      setReportBusy(false);
+    }
+  }, [reportModal, reportReason, submitSafetyReport, dream?.id]);
+
+  const handleBlockAuthor = useCallback(async () => {
+    if (!viewerId || !dream?.userId || dream.userId === viewerId) return;
+    try {
+      const currentSettings = userSettings || {};
+      const currentBlocked = Array.isArray(currentSettings.blockedUserIds) ? currentSettings.blockedUserIds : [];
+      const nextBlocked = [...new Set([...currentBlocked, dream.userId])];
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ settings: { ...currentSettings, blockedUserIds: nextBlocked } })
+        .eq('id', viewerId);
+      if (updateError) throw updateError;
+      setUserSettings((prev) => ({ ...(prev || {}), blockedUserIds: nextBlocked }));
+      setStatusMessage('User blocked. Their content is now hidden from your feed.');
+      navigate('/feed');
+    } catch {
+      setStatusMessage('Could not block this user right now.');
+    }
+  }, [viewerId, dream?.userId, userSettings, navigate]);
 
   const renderCommentCard = (entry, depth = 0) => {
     const canRemove = isOwner || entry.userId === viewerId;
@@ -1659,6 +1784,15 @@ export default function DreamDetail({ user }) {
                   onClick={() => handleReplyToComment(entry)}
                 >
                   Reply
+                </button>
+              ) : null}
+              {viewerId && entry.userId !== viewerId ? (
+                <button
+                  type="button"
+                  className="comment-report-btn"
+                  onClick={() => handleReportComment(entry)}
+                >
+                  Report
                 </button>
               ) : null}
               {canRemove && (
@@ -2381,6 +2515,16 @@ export default function DreamDetail({ user }) {
           <button type="button" className="secondary-btn" onClick={goBack}>
             Close
           </button>
+          {!isOwner && viewerId && (
+            <>
+              <button type="button" className="ghost-btn" onClick={handleBlockAuthor}>
+                Block user
+              </button>
+              <button type="button" className="ghost-btn" onClick={handleReportDream}>
+                Report dream
+              </button>
+            </>
+          )}
           {isOwner && (
             <button
               type="button"
@@ -2402,6 +2546,62 @@ export default function DreamDetail({ user }) {
         emoji={reactionInsightState.emoji}
         entries={reactionInsightEntries}
       />
+
+      {reportModal && (
+        <div className="report-modal-backdrop" onClick={() => setReportModal(null)}>
+          <div className="report-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Report {reportModal.targetType === 'comment' ? 'comment' : 'dream'}</h3>
+            <p className="report-modal-desc">Select the reason that best describes the issue. Reports are reviewed within 24 hours.</p>
+            <div className="report-reasons">
+              {['Harassment or bullying', 'Hate speech', 'Sexual content', 'Violence', 'Spam', 'Other'].map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  className={`report-reason-btn${reportReason === r ? ' selected' : ''}`}
+                  onClick={() => setReportReason(r)}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+            <div className="report-modal-actions">
+              <button type="button" className="secondary-btn" onClick={() => setReportModal(null)}>Cancel</button>
+              <button
+                type="button"
+                className="danger-btn"
+                onClick={handleSubmitReport}
+                disabled={!reportReason.trim() || reportBusy}
+              >
+                {reportBusy ? 'Submitting…' : 'Submit report'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmModal?.action === 'deleteComment' && (
+        <ConfirmModal
+          title="Remove comment?"
+          message="This comment will be permanently deleted."
+          confirmLabel="Remove"
+          danger
+          onConfirm={() => executeDeleteComment(confirmModal.commentId)}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
+
+      {confirmModal?.action === 'deleteDream' && (
+        <ConfirmModal
+          title="Delete dream?"
+          message="This dream and all its comments will be permanently deleted. This cannot be undone."
+          confirmLabel="Delete"
+          danger
+          onConfirm={executeDeleteDream}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
+
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
     </div>
   );
 }

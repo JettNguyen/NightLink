@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -42,6 +42,8 @@ export default function AuthPage() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [acceptedPolicies, setAcceptedPolicies] = useState(false);
+  const [confirmedAge, setConfirmedAge] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -86,6 +88,8 @@ export default function AuthPage() {
 
     const name = username.trim();
     if (!name) { setError('Choose a username.'); setLoading(false); return; }
+    if (!confirmedAge) { setError('You must be 13 or older to create an account.'); setLoading(false); return; }
+    if (!acceptedPolicies) { setError('Please agree to the Terms and Privacy Policy to continue.'); setLoading(false); return; }
     if (!USERNAME_RE.test(name)) {
       setError('3–20 chars: letters, numbers, underscores.');
       setLoading(false);
@@ -185,7 +189,6 @@ export default function AuthPage() {
           }
         });
         if (err) throw err;
-        if (!data?.url) throw new Error('Could not start Google sign in.');
         if (!data?.url) throw new Error('Sign in failed. Please try again.');
 
         let finished = false;
@@ -358,7 +361,7 @@ export default function AuthPage() {
           <span className="auth-title-icon" aria-hidden="true">
             <img src="/favicon.svg" alt="" />
           </span>
-          <span className="auth-title-text">NightLink</span>
+          <span className="auth-title-text">Nightlink</span>
         </h1>
         <p className="auth-subtitle">Your dreams, your story</p>
 
@@ -505,6 +508,28 @@ export default function AuthPage() {
             {isSignUp && (
               <p className="auth-password-hint">At least 8 characters</p>
             )}
+            {isSignUp && (
+              <label className="auth-policy-check">
+                <input
+                  type="checkbox"
+                  checked={confirmedAge}
+                  onChange={(e) => setConfirmedAge(e.target.checked)}
+                />
+                <span>I confirm I am 13 years of age or older.</span>
+              </label>
+            )}
+            {isSignUp && (
+              <label className="auth-policy-check">
+                <input
+                  type="checkbox"
+                  checked={acceptedPolicies}
+                  onChange={(e) => setAcceptedPolicies(e.target.checked)}
+                />
+                <span>
+                  I agree to the <Link to="/terms">Terms of Use</Link> and <Link to="/privacy">Privacy Policy</Link>, and understand there is no tolerance for abusive or objectionable content.
+                </span>
+              </label>
+            )}
             {!isSignUp && (
               <button
                 type="button"
@@ -547,6 +572,12 @@ export default function AuthPage() {
             )}
           </form>
         )}
+
+        <p className="auth-legal-links">
+          <Link to="/terms">Terms of Use</Link>
+          <span aria-hidden="true">•</span>
+          <Link to="/privacy">Privacy Policy</Link>
+        </p>
       </div>
     </div>
   );

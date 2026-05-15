@@ -1,4 +1,4 @@
-# NightLink Packages Plan
+# Nightlink Packages Plan
 
 This repo contains reusable UI and service layers. Below is a lightweight playbook for carving them into publishable packages (npm or GitHub Packages).
 
@@ -43,7 +43,7 @@ Each package keeps its own `tsconfig`, tests, and `README` snippet with usage.
 | --- | --- | --- |
 | Week 1 | Extract components + write READMEs | Design Eng |
 | Week 2 | Add tests + storybook stories | Design Eng |
-| Week 3 | Publish alpha, integrate back into NightLink | Design Eng |
+| Week 3 | Publish alpha, integrate back into Nightlink | Design Eng |
 
 ## Post-Publish
 

@@ -23,12 +23,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationWillEnterForeground(_ application: UIApplication) {
-        // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
+        // Only called on true background → foreground transitions (not interruptions
+        // or system overlays). Safe to re-apply webview appearance here without
+        // risk of triggering during in-app navigation.
+        enableWebViewBounceIfNeeded()
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
-        enableWebViewBounceIfNeeded()
+        // Do NOT call enableWebViewBounceIfNeeded here — this fires for any
+        // interruption (system alerts, iOS 26 Liquid Glass overlays, etc.) and
+        // the 0.35 s delayed timer was causing a blank-box flash on in-app navigation.
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
@@ -53,9 +57,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             guard let bridgeVC = self.findBridgeViewController() else { return }
             guard let webView = bridgeVC.bridge?.webView else { return }
 
-            bridgeVC.view.backgroundColor = UIColor(red: 5.0/255.0, green: 7.0/255.0, blue: 15.0/255.0, alpha: 1.0)
-            webView.backgroundColor = UIColor(red: 5.0/255.0, green: 7.0/255.0, blue: 15.0/255.0, alpha: 1.0)
-            webView.scrollView.backgroundColor = UIColor(red: 5.0/255.0, green: 7.0/255.0, blue: 15.0/255.0, alpha: 1.0)
+            let appBg = UIColor(red: 5.0/255.0, green: 7.0/255.0, blue: 15.0/255.0, alpha: 1.0)
+
+            // Mark the WebView as opaque so iOS 26 Liquid Glass doesn't composite
+            // its tint layer over the app content.
+            webView.isOpaque = true
+            webView.backgroundColor = appBg
+            webView.scrollView.backgroundColor = appBg
+            bridgeVC.view.backgroundColor = appBg
+
+            // underPageBackgroundColor prevents the system pull-to-refresh rubberbanding
+            // area from showing the iOS system background colour (iOS 15+).
+            if #available(iOS 15.0, *) {
+                webView.underPageBackgroundColor = appBg
+            }
+
             webView.scrollView.bounces = true
             webView.scrollView.alwaysBounceVertical = true
             webView.scrollView.alwaysBounceHorizontal = false
