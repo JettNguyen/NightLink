@@ -8,7 +8,7 @@ import { ListSkeleton } from '../components/SkeletonLoader';
 import { formatDreamDate, getTodayDateInputValue, parseDateInputValue } from '../utils/dates';
 import { buildDreamPath } from '../utils/urlHelpers';
 import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
-import { containsBlockedContent } from '../utils/contentModeration';
+import { getModerationFeedback } from '../utils/contentModeration';
 import './DreamJournal.css';
 import { appUserPropType } from '../propTypes';
 
@@ -247,8 +247,14 @@ export default function DreamJournal({ user }) {
   const handleSaveDream = async (event) => {
     event.preventDefault();
     if (!content.trim() || !user?.uid) return;
-    if (containsBlockedContent(content) || containsBlockedContent(title)) {
-      setSaveError('This content may violate our community standards. Please edit and try again.');
+    const titleFeedback = getModerationFeedback(title, { contentType: 'dream title' });
+    if (titleFeedback) {
+      setSaveError(titleFeedback);
+      return;
+    }
+    const contentFeedback = getModerationFeedback(content, { contentType: 'dream text' });
+    if (contentFeedback) {
+      setSaveError(contentFeedback);
       return;
     }
     setLoading(true);
