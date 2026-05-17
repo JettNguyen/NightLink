@@ -10,7 +10,7 @@ export default function TermsOfUse() {
       </button>
       <article className="legal-card">
         <h1>Terms of Use</h1>
-        <p className="legal-updated">Last updated: May 14, 2026</p>
+        <p className="legal-updated">Last updated: May 17, 2026</p>
 
         <section>
           <h2>1. Acceptance</h2>
@@ -22,8 +22,8 @@ export default function TermsOfUse() {
         <section>
           <h2>2. Eligibility and age requirement</h2>
           <p>
-            You must be at least 13 years of age to create an account or use Nightlink. By creating an account,
-            you confirm that you meet this requirement. Users under 13 are not permitted to use the service.
+            You must be at least 18 years of age to create an account or use Nightlink. By creating an account,
+            you confirm that you meet this requirement. Users under 18 are not permitted to use the service.
           </p>
         </section>
 

@@ -88,7 +88,7 @@ export default function AuthPage() {
 
     const name = username.trim();
     if (!name) { setError('Choose a username.'); setLoading(false); return; }
-    if (!confirmedAge) { setError('You must be 13 or older to create an account.'); setLoading(false); return; }
+    if (!confirmedAge) { setError('You must be 18 or older to create an account.'); setLoading(false); return; }
     if (!acceptedPolicies) { setError('Please agree to the Terms and Privacy Policy to continue.'); setLoading(false); return; }
     if (!USERNAME_RE.test(name)) {
       setError('3–20 chars: letters, numbers, underscores.');
@@ -515,7 +515,7 @@ export default function AuthPage() {
                   checked={confirmedAge}
                   onChange={(e) => setConfirmedAge(e.target.checked)}
                 />
-                <span>I confirm I am 13 years of age or older.</span>
+                <span>I confirm I am 18 years of age or older.</span>
               </label>
             )}
             {isSignUp && (

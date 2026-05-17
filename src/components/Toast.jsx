@@ -1,10 +1,7 @@
 import { useEffect } from 'react';
+import PropTypes from 'prop-types';
 import './Toast.css';
 
-/**
- * Toast — a brief non-blocking message shown at the bottom of the screen.
- * Usage: <Toast message="Saved!" onDismiss={() => setMsg('')} />
- */
 export default function Toast({ message, onDismiss, duration = 3000 }) {
   useEffect(() => {
     if (!message) return;
@@ -20,3 +17,9 @@ export default function Toast({ message, onDismiss, duration = 3000 }) {
     </div>
   );
 }
+
+Toast.propTypes = {
+  message: PropTypes.string,
+  onDismiss: PropTypes.func.isRequired,
+  duration: PropTypes.number,
+};

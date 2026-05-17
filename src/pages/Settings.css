@@ -373,6 +373,10 @@ html[data-native-platform='ios'] .settings-save-bar {
   color: var(--text);
 }
 
+.prompt-preview-box.memory-locked {
+  opacity: 0.65;
+}
+
 .notification-support {
   display: flex;
   flex-wrap: wrap;
