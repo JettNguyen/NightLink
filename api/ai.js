@@ -7,44 +7,29 @@ const MODEL = 'gpt-4o-mini';
 const API_URL = 'https://api.openai.com/v1/chat/completions';
 const PROMPT_ID_ALIASES = { investigator: 'director' };
 const FREE_ALLOWED_PROMPT_STYLES = new Set(['balanced', 'coach', 'therapist']);
+// For an 18+ app we only block content that Apple explicitly prohibits:
+// CSAM, content that promotes or glorifies real-world violence/terrorism,
+// self-harm encouragement, and content that sexualises minors.
+// General adult themes, mild profanity, and dream-context violence are allowed.
 const TEEN_UNSAFE_PATTERNS = [
   /\bkill yourself\b/i,
   /\bkys\b/i,
   /\bself[-\s]?harm\b/i,
-  /\bsuicide\b/i,
-  /\brape\b/i,
-  /\bsexual assault\b/i,
-  /\bmolest(?:ed|er|ation)?\b/i,
+  /\bcut(?:ting)? myself\b/i,
+  /\bsuicide\s+(method|how|guide|plan)\b/i,
   /\bchild porn\b/i,
   /\bc\.s\.a\.m\b/i,
   /\bcsam\b/i,
   /\bunderage\s+sex\b/i,
-  /\bporn(?:ography)?\b/i,
-  /\bblowjob\b/i,
-  /\bhandjob\b/i,
-  /\bdeepthroat\b/i,
-  /\bnudes?\b/i,
-  /\bshoot(?:ing| up)?\b/i,
-  /\bstab(?:bed|bing)?\b/i,
-  /\bmurder(?:ed|er)?\b/i,
-  /\bmassacre\b/i,
-  /\bgenocide\b/i,
-  /\bbomb\b/i,
-  /\bterroris(?:t|m)\b/i,
-  /\bnazi\b/i,
-  /\bwhite supremacy\b/i,
-  /\bcocaine\b/i,
-  /\bheroin\b/i,
-  /\bfentanyl\b/i,
-  /\bfent\b/i,
-  /\bmeth(?:amphetamine)?\b/i,
-  /\bmotherfucker\b/i,
-  /\bfuck(?:ed|ing)?\b/i,
-  /\bbullshit\b/i,
+  /\bchild\s+(?:sexual|sex)\b/i,
+  /\bminor\s+(?:sexual|sex|nude|naked)\b/i,
+  /\bterroris(?:t|m)\s+(?:attack|manifesto|recruit)\b/i,
+  /\bwhite\s+supremac(?:y|ist)\b/i,
+  /\bgenocide\s+(?:is\s+)?(?:good|great|right|justified)\b/i,
 ];
 
 const SAFE_AI_TITLE_FALLBACK = 'Reflective Dream';
-const SAFE_AI_THEMES_FALLBACK = 'Some details were removed to keep this summary age-appropriate. Use this as a general reflection only. AI output may be inaccurate and is not medical, mental health, legal, or safety advice.';
+const SAFE_AI_THEMES_FALLBACK = 'Some details were removed from this summary as they fall outside what the AI can discuss. Use this as a general reflection only. AI output may be inaccurate and is not medical, mental health, legal, or safety advice.';
 
 const PROMPT_TEMPLATES = {
   balanced: "You're here to break down dreams in a way that actually helps. Pick out 1-2 symbols that stand out and explain what they might mean, then drop a reflection question and one small thing they can actually do about it. Keep it real and useful-3-6 sentences max. Be warm but don't overcomplicate it.",
@@ -227,10 +212,10 @@ const buildPremiumContext = async (uid, excludeDreamId) => {
 };
 
 const buildSystemPrompt = (customPrompt, contextBlock) => {
-  const teenSafeInstruction = 'Audience is 13+. Keep all output age-appropriate and non-graphic. Do not include sexual content, explicit violence, self-harm encouragement, hate/extremist language, drug promotion, or profanity. If the dream includes sensitive material, respond in supportive, non-graphic language and focus on emotional coping and safe reflection.';
+  const safetyInstruction = 'This is an 18+ platform. You may engage thoughtfully with mature dream themes including violence, sexuality, and existential content as they naturally appear in dreams. Do not generate content that promotes self-harm, glorifies real-world terrorism or hate groups, or sexualises minors. If the dream touches on self-harm or suicide, respond with supportive, grounded language.';
   const base = customPrompt
-    ? `${customPrompt}\n\n${teenSafeInstruction}\n\nAlso generate a short poetic title (2-4 words). Return only minified JSON: {"title":"string","themes":"string"} where "themes" contains your full analysis.`
-    : `You are a creative dream interpreter. ${teenSafeInstruction} Generate a short poetic title (2-4 words) and a brief themes paragraph. Use speculative language. Return only minified JSON: {"title":"string","themes":"string"}`;
+    ? `${customPrompt}\n\n${safetyInstruction}\n\nAlso generate a short poetic title (2-4 words). Return only minified JSON: {"title":"string","themes":"string"} where "themes" contains your full analysis.`
+    : `You are a creative dream interpreter. ${safetyInstruction} Generate a short poetic title (2-4 words) and a brief themes paragraph. Use speculative language. Return only minified JSON: {"title":"string","themes":"string"}`;
   if (!contextBlock) return base;
   return `${base}\n\n${contextBlock}\n\nReference the above history if relevant — note recurring symbols, names, or patterns when they appear in this dream too.`;
 };

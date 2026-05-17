@@ -10,7 +10,7 @@ export default function PrivacyPolicy() {
       </button>
       <article className="legal-card">
         <h1>Privacy Policy</h1>
-        <p className="legal-updated">Last updated: May 14, 2026</p>
+        <p className="legal-updated">Last updated: May 17, 2026</p>
 
         <section>
           <h2>1. Data we collect</h2>
@@ -75,10 +75,10 @@ export default function PrivacyPolicy() {
         </section>
 
         <section>
-          <h2>7. Children's privacy</h2>
+          <h2>7. Age requirement and minors</h2>
           <p>
-            Nightlink is intended for users who are 13 years of age or older. We do not knowingly collect
-            personal information from children under 13. If you believe a child under 13 has created an
+            Nightlink is intended for users who are 18 years of age or older. We do not knowingly collect
+            personal information from anyone under 18. If you believe someone under 18 has created an
             account, please contact us and we will promptly remove the account and associated data.
           </p>
         </section>

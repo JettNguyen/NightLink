@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import './TermsGate.css';
 
-export const TERMS_KEY = 'nightlink_terms_v1';
+// Bump this version string whenever the Terms or Privacy Policy are updated.
+// Any user whose stored key doesn't match will be shown the gate again.
+export const TERMS_KEY = 'nightlink_terms_v2';
 
 export function isTermsAccepted() {
   return localStorage.getItem(TERMS_KEY) === '1';
@@ -36,7 +39,7 @@ export default function TermsGate({ onAccepted }) {
               checked={confirmedAge}
               onChange={(e) => setConfirmedAge(e.target.checked)}
             />
-            <span>I confirm I am 13 years of age or older.</span>
+            <span>I confirm I am 18 years of age or older.</span>
           </label>
           <label className="terms-gate-check">
             <input
@@ -64,3 +67,7 @@ export default function TermsGate({ onAccepted }) {
     </div>
   );
 }
+
+TermsGate.propTypes = {
+  onAccepted: PropTypes.func.isRequired,
+};

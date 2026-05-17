@@ -1,19 +1,6 @@
+import PropTypes from 'prop-types';
 import './ConfirmModal.css';
 
-/**
- * ConfirmModal — replaces window.confirm and window.prompt.
- *
- * Props:
- *   title        string   — heading
- *   message      string   — body text
- *   confirmLabel string   — confirm button text (default "Confirm")
- *   cancelLabel  string   — cancel button text (default "Cancel")
- *   danger       bool     — red confirm button
- *   inputLabel   string   — if set, shows a text input and passes its value to onConfirm
- *   inputPlaceholder string
- *   onConfirm    fn(value?) — called with input value if input mode
- *   onCancel     fn
- */
 export default function ConfirmModal({
   title,
   message,
@@ -61,3 +48,18 @@ export default function ConfirmModal({
     </div>
   );
 }
+
+ConfirmModal.propTypes = {
+  title: PropTypes.string,
+  message: PropTypes.string,
+  confirmLabel: PropTypes.string,
+  cancelLabel: PropTypes.string,
+  danger: PropTypes.bool,
+  inputLabel: PropTypes.string,
+  inputPlaceholder: PropTypes.string,
+  inputValue: PropTypes.string,
+  onInputChange: PropTypes.func,
+  onConfirm: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
+  confirmDisabled: PropTypes.bool,
+};

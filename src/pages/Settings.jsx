@@ -959,7 +959,7 @@ export default function Settings({ user }) {
           <section className="settings-section">
             <div className="settings-section-head">
               <h2>AI insight style</h2>
-              <p>Free includes three styles. Upgrade to Pro to unlock all styles and custom instructions.</p>
+              <p>Free includes three styles. Upgrade to Pro to unlock all styles, custom instructions, and dream memory.</p>
             </div>
             <div className="settings-section-body">
               <div className="prompt-options">
@@ -997,6 +997,14 @@ export default function Settings({ user }) {
                   </div>
                 </div>
               )}
+              <div className={`prompt-preview-box${tier !== 'premium' ? ' memory-locked' : ''}`}>
+                <p className="preview-label">Dream memory {tier !== 'premium' && <span className="preset-lock-pill">Pro</span>}</p>
+                <p className="preview-text">
+                  {tier === 'premium'
+                    ? 'When you analyze a dream, the AI reads your last 10 analyzed dreams to spot recurring symbols, people, places, and themes across your journal.'
+                    : 'Upgrade to Pro and the AI will read across your dream history to recognize recurring symbols, people, and themes each time you run an analysis.'}
+                </p>
+              </div>
             </div>
           </section>
 
