@@ -13,7 +13,7 @@ import { logActivityEvents } from '../services/ActivityService';
 import updateDreamReaction, { toggleCommentHeart } from '../services/ReactionService';
 import fetchUserSummaries from '../services/UserService';
 import { formatDateInputValue, formatDreamDate, parseDateInputValue } from '../utils/dates';
-import { containsBlockedContent } from '../utils/contentModeration';
+import { getModerationFeedback, sanitizeAiGeneratedContent } from '../utils/contentModeration';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
 import './DreamDetail.css';
@@ -1005,8 +1005,9 @@ export default function DreamDetail({ user }) {
 
   const handleSaveContent = async () => {
     if (!dream || !isOwner || !contentInput.trim()) return;
-    if (containsBlockedContent(contentInput)) {
-      setError('This content may violate our community standards. Please edit and try again.');
+    const contentFeedback = getModerationFeedback(contentInput, { contentType: 'dream text' });
+    if (contentFeedback) {
+      setError(contentFeedback);
       return;
     }
     try {
@@ -1221,8 +1222,9 @@ export default function DreamDetail({ user }) {
     const trimmed = commentInput.trim();
     const activeDreamId = dream?.id || dreamId;
     if (!trimmed || !activeDreamId) return;
-    if (containsBlockedContent(trimmed)) {
-      setCommentStatus('This comment may violate our community standards. Please edit and try again.');
+    const commentFeedback = getModerationFeedback(trimmed, { contentType: 'comment' });
+    if (commentFeedback) {
+      setCommentStatus(commentFeedback);
       return;
     }
 
@@ -1459,6 +1461,11 @@ export default function DreamDetail({ user }) {
       setStatusMessage('Dream content is empty, nothing to analyze.');
       return;
     }
+    const dreamSafetyFeedback = getModerationFeedback(trimmedContent, { contentType: 'dream text' });
+    if (dreamSafetyFeedback) {
+      setStatusMessage(`${dreamSafetyFeedback} Update the dream text, then try AI again.`);
+      return;
+    }
 
     setAnalyzing(true);
     setStatusMessage('');
@@ -1537,20 +1544,21 @@ export default function DreamDetail({ user }) {
 
       const generatedTitle = payload?.title?.trim() || '';
       const generatedInsights = (payload?.themes || payload?.summary || payload?.insights || '').trim();
+      const sanitized = sanitizeAiGeneratedContent({ title: generatedTitle, insights: generatedInsights });
       const updates = { aiGenerated: true };
 
-      if (generatedTitle) {
-        updates.aiTitle = generatedTitle;
+      if (sanitized.title) {
+        updates.aiTitle = sanitized.title;
         if (!dream.title?.trim()) {
-          updates.title = generatedTitle;
+          updates.title = sanitized.title;
         }
       }
 
-      if (generatedInsights) {
-        updates.aiInsights = generatedInsights;
+      if (sanitized.insights) {
+        updates.aiInsights = sanitized.insights;
       }
 
-      if (!generatedTitle || !generatedInsights) {
+      if (!sanitized.title || !sanitized.insights) {
         throw new Error('AI response was incomplete.');
       }
 
@@ -1564,7 +1572,9 @@ export default function DreamDetail({ user }) {
       if (saveErr) throw saveErr;
 
       setDream(prev => ({ ...prev, ...updates }));
-      setStatusMessage('Title and summary updated.');
+      setStatusMessage(sanitized.wasFiltered
+        ? 'AI summary was safety-filtered for 13+ audience and updated.'
+        : 'Title and summary updated.');
     } catch (err) {
       setStatusMessage(err.message || 'Summary generation failed.');
     } finally {
@@ -2154,7 +2164,10 @@ export default function DreamDetail({ user }) {
             <div>
               <h3>Summary</h3>
               {dream.aiGenerated && dream.aiInsights ? (
-                <p className="detail-insight">{dream.aiInsights}</p>
+                <>
+                  <p className="detail-insight">{dream.aiInsights}</p>
+                  <p className="ai-disclaimer">AI insights are for reflection only and may be inaccurate. Do not use them as medical, mental health, legal, or safety advice.</p>
+                </>
               ) : (
                 <p className="detail-insight muted">No summary yet.</p>
               )}
