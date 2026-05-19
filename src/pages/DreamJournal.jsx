@@ -22,7 +22,8 @@ const VISIBILITY_LABELS = {
 const VISIBILITY_OPTIONS = [
   { value: 'private',   label: 'Private',              helper: 'Only you can view this entry.' },
   { value: 'public',    label: 'Public',               helper: 'Appears on your profile and Following feed.' },
-  { value: 'following', label: 'People you follow',    helper: 'Only people you follow can view it.' }
+  { value: 'following', label: 'People you follow',    helper: 'Only people you follow can view it.' },
+  { value: 'anonymous', label: 'Anonymous',            helper: 'Shared publicly but your name and profile are hidden.' },
 ];
 
 const CONTENT_PREVIEW_LIMIT = 240;
@@ -453,6 +454,7 @@ export default function DreamJournal({ user }) {
                       key={option.value}
                       type="button"
                       className={visibility === option.value ? 'visibility-chip active' : 'visibility-chip'}
+                      data-vis={option.value}
                       onClick={() => handleVisibilitySelect(option.value)}
                       aria-pressed={visibility === option.value}
                       disabled={loading}
