@@ -58,6 +58,15 @@ export default function DreamJournal({ user }) {
   const navigate = useNavigate();
   const hasAudienceQuery = audienceQuery.trim().length > 0;
 
+  // Lock body scroll while modal is open so only the modal itself scrolls
+  useEffect(() => {
+    if (showNewDream) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [showNewDream]);
+
   // Real-time dreams subscription
   useEffect(() => {
     if (!user?.uid) {
@@ -580,13 +589,13 @@ export default function DreamJournal({ user }) {
                   </p>
                 )}
               </div>
+              <p className="ai-hint">Want an AI title or analysis? Save first, then open the dream to generate it.</p>
               <div className="modal-actions">
                 <button type="button" className="ghost-btn" onClick={closeModal} disabled={loading}>Cancel</button>
                 <button type="submit" className="primary-btn" disabled={loading || !content.trim()}>
                   {loading ? 'Saving…' : 'Save dream'}
                 </button>
               </div>
-              <p className="hint">Want an AI title or summary? Save first, then open the dream to generate it.</p>
             </form>
           </div>
         </div>

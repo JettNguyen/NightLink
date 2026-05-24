@@ -308,6 +308,17 @@
   backdrop-filter: blur(16px);
 }
 
+/* The form scrolls internally; the page behind never scrolls while modal is open */
+.modal-content form {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -490,6 +501,10 @@
 
 .status-hint {
   color: var(--primary);
+}
+
+.ai-hint {
+  padding: 10px 0 0 0;
 }
 
 .tag-suggestion-list {
