@@ -5,6 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { supabase } from './supabase';
 import AuthPage from './pages/AuthPage';
+import HomePage from './pages/HomePage';
 import DreamJournal from './pages/DreamJournal';
 import DreamDetail from './pages/DreamDetail';
 import Feed from './pages/Feed';
@@ -57,7 +58,7 @@ function AppContent({ user, loading, ready }) {
   const [termsAccepted, setTermsAccepted] = useState(() => isTermsAccepted());
   const showNav = user && pathname !== '/login' && termsAccepted;
   const mainClassName = showNav ? 'app-main app-main--with-nav' : 'app-main app-main--no-nav';
-  const home = useMemo(() => (user ? '/journal' : '/login'), [user]);
+  const home = useMemo(() => (user ? '/journal' : '/'), [user]);
   const activity = useActivityPreview(user?.uid);
   const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
   const seenActivityNotificationIdsRef = useRef(new Set());
@@ -77,7 +78,7 @@ function AppContent({ user, loading, ready }) {
     return () => clearTimeout(timer);
   }, []);
 
-  const pullRefreshEnabled = isNativeIOS && !['/login', '/terms', '/privacy'].includes(pathname);
+  const pullRefreshEnabled = isNativeIOS && !['/', '/login', '/terms', '/privacy'].includes(pathname);
 
   useEffect(() => {
     if (!pullRefreshEnabled) return undefined;
@@ -222,7 +223,7 @@ function AppContent({ user, loading, ready }) {
     );
   }
 
-  if (ready && !user && !['/login', '/terms', '/privacy'].includes(pathname)) {
+  if (ready && !user && !['/', '/login', '/terms', '/privacy'].includes(pathname)) {
     return <Navigate to="/login" replace />;
   }
 
@@ -259,7 +260,7 @@ function AppContent({ user, loading, ready }) {
       {showNav && <Navigation user={user} activityPreview={activity} />}
     <main className={mainClassName} style={{ minHeight: '100dvh', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <Routes>
-          <Route path="/" element={<Navigate to={home} replace />} />
+          <Route path="/" element={user ? <Navigate to="/journal" replace /> : <HomePage />} />
           <Route path="/login" element={user ? <Navigate to="/journal" replace /> : <AuthPage />} />
           <Route path="/terms" element={<Suspense fallback={<LazyRouteLoader />}><TermsOfUse /></Suspense>} />
           <Route path="/privacy" element={<Suspense fallback={<LazyRouteLoader />}><PrivacyPolicy /></Suspense>} />

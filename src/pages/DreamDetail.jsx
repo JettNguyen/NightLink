@@ -28,7 +28,8 @@ const PROMPT_TEMPLATES = {
   mystical: 'You\'re reading this dream through a spiritual lens, tapping into archetypes and universal symbols like the moon, shadows, journeys, rebirth. Use poetic language and pull out the deeper meaning or soul lesson they need to hear. 3-6 sentences. Be mystical and intentional, not vague.',
   creative: 'You\'re helping turn their dream into story material. Point out the wildest or most vivid parts, suggest how it could work as a plot, character arc, or worldbuilding element, and keep them grounded while firing up their creativity. 3-6 sentences. Be inspiring without being extra.',
   director: 'You\'re an auteur movie director retelling this dream as a film pitch. Describe the opening shot, key set pieces, tone, and how you\'d translate the dream\'s message to the screen. It should feel like one vivid paragraph—bold, cinematic, occasionally unhinged but still coherent enough to spark the dreamer\'s imagination.',
-  comedian: 'You\'re finding the humor in how absurd dreams can get. Roast the weirdest parts with some playful commentary, but still acknowledge the real feelings underneath. 3-6 sentences. Be funny in a way that lands—warm and clever, not trying too hard.'
+  comedian: 'You\'re finding the humor in how absurd dreams can get. Roast the weirdest parts with some playful commentary, but still acknowledge the real feelings underneath. 3-6 sentences. Be funny in a way that lands—warm and clever, not trying too hard.',
+  astrology: 'You\'re an astrologer reading this dream through the lens of celestial wisdom and the dreamer\'s birth chart. Connect the dream symbols and emotions to lunar cycles, planetary influences, and astrological archetypes. Mention how today\'s planetary transits might relate to this dream\'s deeper meaning. Offer spiritual guidance with 3-6 sentences that blend intuition with astrological insight—mystical but grounded.'
 };
 
 const PROMPT_LABELS = {
@@ -39,7 +40,8 @@ const PROMPT_LABELS = {
   mystical: 'Mystic oracle',
   creative: 'Story weaver',
   director: 'Movie director',
-  comedian: 'Dream comedian'
+  comedian: 'Dream comedian',
+  astrology: 'Astrology guide'
 };
 
 const PROMPT_ID_ALIASES = {
@@ -177,6 +179,7 @@ export default function DreamDetail({ user }) {
   const [reanalyzing, setReanalyzing] = useState(false);
   const [aiQuota, setAiQuota] = useState(null);
   const [promptSelectorOpen, setPromptSelectorOpen] = useState(false);
+  const [firstAnalysisPromptSelector, setFirstAnalysisPromptSelector] = useState(false);
   const [selectedPrompt, setSelectedPrompt] = useState(null);
   const [userSettings, setUserSettings] = useState(null);
   const [audienceOptions, setAudienceOptions] = useState([]);
@@ -1453,7 +1456,7 @@ export default function DreamDetail({ user }) {
     }
   };
 
-  const handleAnalyzeDream = async ({ customPrompt = null, promptKey = null } = {}) => {
+  const handleAnalyzeDream = async ({ customPrompt = null, promptKey = null, skipPromptSelector = false } = {}) => {
     if (!dream || !isOwner || dream.id.startsWith('local-')) return;
 
     const trimmedContent = (dream.content || '').trim();
@@ -1464,6 +1467,12 @@ export default function DreamDetail({ user }) {
     const dreamSafetyFeedback = getModerationFeedback(trimmedContent, { contentType: 'dream text' });
     if (dreamSafetyFeedback) {
       setStatusMessage(`${dreamSafetyFeedback} Update the dream text, then try AI again.`);
+      return;
+    }
+
+    // For first analysis, show style selector instead of generating immediately
+    if (!dream.aiGenerated && !skipPromptSelector && !customPrompt && !promptKey) {
+      setFirstAnalysisPromptSelector(true);
       return;
     }
 
@@ -2166,7 +2175,7 @@ export default function DreamDetail({ user }) {
               {dream.aiGenerated && dream.aiInsights ? (
                 <>
                   <p className="detail-insight">{dream.aiInsights}</p>
-                  <p className="ai-disclaimer">AI insights are for reflection only and may be inaccurate. Do not use them as medical, mental health, legal, or safety advice.</p>
+                  <p className="ai-privacy-notice">🔒 Your dreams stay private. This analysis is not used for AI training and is deleted based on your privacy settings. <br/>AI insights are for reflection only and may be inaccurate. Do not use them as medical, mental health, legal, or safety advice.</p>
                 </>
               ) : (
                 <p className="detail-insight muted">No summary yet.</p>
@@ -2187,6 +2196,58 @@ export default function DreamDetail({ user }) {
                       : 'Monthly limit reached'}
               </p>
             )}
+            {isOwner && !dream.aiGenerated && firstAnalysisPromptSelector ? (
+              <div className="prompt-selector-modal">
+                <div className="prompt-selector-overlay" onClick={() => setFirstAnalysisPromptSelector(false)} />
+                <div className="prompt-selector-content">
+                  <h3>Choose an insight style</h3>
+                  <p className="prompt-selector-hint">You can change this anytime in Settings</p>
+                  <button
+                    type="button"
+                    className="prompt-option-btn current-prompt"
+                    onClick={() => {
+                      setFirstAnalysisPromptSelector(false);
+                      handleAnalyzeDream({ skipPromptSelector: true });
+                    }}
+                    disabled={analyzing}
+                  >
+                    <strong>Use my current preference</strong>
+                    <span>({userSettings?.aiPromptPreset === 'custom'
+                      ? 'Custom prompt'
+                      : (PROMPT_LABELS[normalizePromptKey(userSettings?.aiPromptPreset)] || 'Balanced guide')})</span>
+                  </button>
+                  <div className="prompt-options-grid">
+                    {promptOptionKeys.map((key) => {
+                      const locked = isPromptLockedForTier(aiQuota?.tier || 'free', key);
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          className={`prompt-option-btn${locked ? ' locked' : ''}`}
+                          onClick={() => {
+                            setFirstAnalysisPromptSelector(false);
+                            handleReanalyze(key);
+                          }}
+                          disabled={analyzing || locked}
+                          title={locked ? 'Upgrade to Pro to unlock this style' : undefined}
+                        >
+                          {PROMPT_LABELS[key]}
+                          {locked ? ' (Pro)' : ''}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    onClick={() => setFirstAnalysisPromptSelector(false)}
+                    style={{ marginTop: '0.5rem' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
             {isOwner && !dream.aiGenerated ? (
               <button
                 type="button"

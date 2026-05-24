@@ -276,7 +276,7 @@ export default function AuthPage() {
           // If the browser closes naturally, keep listeners active a little longer
           // because callback handoff can be delayed on iOS.
           if (finished) return;
-          await wait(3000);
+          await wait(2000);
           if (finished) return;
 
           // Recover when appUrlOpen is delayed/missed: if session already exists, complete sign-in.
@@ -297,7 +297,7 @@ export default function AuthPage() {
             if (finished) return;
             await cleanup();
             setLoading(false);
-            setError('Google sign-in timed out. Please try again.');
+            setError('Google sign-in did not complete. Please check your internet connection and try again.');
           }, 9000);
         });
 
@@ -572,6 +572,10 @@ export default function AuthPage() {
             )}
           </form>
         )}
+
+        <div className="auth-privacy-message">
+          <p>🔒 Your dreams stay private and secure. No data collection for AI training.</p>
+        </div>
 
         <p className="auth-legal-links">
           <Link to="/terms">Terms of Use</Link>
