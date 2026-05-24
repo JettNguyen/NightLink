@@ -263,6 +263,9 @@
   resize: vertical;
   min-height: 180px;
   transition: border-color 0.22s ease, box-shadow 0.22s ease;
+  /* Ensure scrolling happens only within textarea, not the modal */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .dream-textarea:focus {
@@ -297,7 +300,9 @@
   max-width: 640px;
   max-height: 92dvh;
   padding-bottom: calc(1.85rem + env(safe-area-inset-bottom));
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(16px);

@@ -39,7 +39,8 @@ const PROMPT_TEMPLATES = {
   mystical: "You're reading this dream through a spiritual lens, tapping into archetypes and universal symbols like the moon, shadows, journeys, rebirth. Use poetic language and pull out the deeper meaning or soul lesson they need to hear. 3-6 sentences. Be mystical and intentional, not vague.",
   creative: "You're helping turn their dream into story material. Point out the wildest or most vivid parts, suggest how it could work as a plot, character arc, or worldbuilding element, and keep them grounded while firing up their creativity. 3-6 sentences. Be inspiring without being extra.",
   director: "You're an auteur movie director retelling this dream as a film pitch. Describe the opening shot, key set pieces, tone, and how you'd translate the dream's message to the screen. It should feel like one vivid paragraph-bold, cinematic, occasionally unhinged but still coherent enough to spark the dreamer's imagination.",
-  comedian: "You're finding the humor in how absurd dreams can get. Roast the weirdest parts with some playful commentary, but still acknowledge the real feelings underneath. 3-6 sentences. Be funny in a way that lands-warm and clever, not trying too hard."
+  comedian: "You're finding the humor in how absurd dreams can get. Roast the weirdest parts with some playful commentary, but still acknowledge the real feelings underneath. 3-6 sentences. Be funny in a way that lands-warm and clever, not trying too hard.",
+  astrology: "You're an astrologer reading this dream through the lens of celestial wisdom and the dreamer's birth chart. Connect the dream symbols and emotions to lunar cycles, planetary influences, and astrological archetypes. Mention how today's planetary transits might relate to this dream's deeper meaning. Offer spiritual guidance with 3-6 sentences that blend intuition with astrological insight-mystical but grounded."
 };
 
 const setCors = (res, origin) => {

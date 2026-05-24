@@ -249,6 +249,23 @@ html[data-native-platform='ios'] .auth-page {
   color: var(--primary);
 }
 
+.auth-privacy-message {
+  margin: 1.5rem 0 1rem;
+  padding: 0.875rem 1rem;
+  background: rgba(10, 132, 255, 0.08);
+  border: 1px solid rgba(10, 132, 255, 0.2);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.auth-privacy-message p {
+  margin: 0;
+  color: inherit;
+}
+
 .auth-legal-links {
   margin-top: 1rem;
   display: flex;

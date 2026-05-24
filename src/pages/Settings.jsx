@@ -65,6 +65,7 @@ const PROMPT_PRESETS = [
   { id: 'therapist', title: 'Comfort AI', description: "Gentle reassurance for nightmares with grounded reminders that you're safe." },
   { id: 'scientist', title: 'Brain Scientist', description: 'Neuroscience-backed explanations of REM sleep and memory processing.' },
   { id: 'mystical', title: 'Mystic Oracle', description: 'Poetic interpretations with archetypal wisdom and spiritual vibes.' },
+  { id: 'astrology', title: 'Astrology Guide', description: 'Celestial wisdom connecting your dream to lunar cycles and planetary transits.' },
   { id: 'creative', title: 'Story Weaver', description: 'Turn your dream into a narrative seed for writing or worldbuilding.' },
   { id: 'director', title: 'Movie Director', description: 'One paragraph film treatment of your dream. Bold, cinematic, occasionally chaotic.' },
   { id: 'comedian', title: 'Dream Comedian', description: 'Light-hearted, humorous takes on the absurdity of your subconscious.' },
@@ -256,8 +257,13 @@ export default function Settings({ user }) {
             aiPromptPreset: normalizedPreset,
             aiPromptCustom: incoming.aiPromptCustom ?? ''
           };
-          savedRef.current = JSON.stringify(merged);
-          setSettings(merged);
+          // Only update settings from real-time if user hasn't made local changes
+          // This prevents unsaved changes from being overridden by real-time updates
+          const currentSettingsStr = JSON.stringify(settings);
+          if (currentSettingsStr === savedRef.current) {
+            savedRef.current = JSON.stringify(merged);
+            setSettings(merged);
+          }
         })
       .subscribe();
 
@@ -959,7 +965,7 @@ export default function Settings({ user }) {
           <section className="settings-section">
             <div className="settings-section-head">
               <h2>AI insight style</h2>
-              <p>Free includes three styles. Upgrade to Pro to unlock all styles, custom instructions, and dream memory.</p>
+              <p>Your dreams stay private. AI analysis never trains models or collects data. Free includes three styles. Upgrade to Pro to unlock all styles, custom instructions, and cross-dream pattern analysis.</p>
             </div>
             <div className="settings-section-body">
               <div className="prompt-options">
