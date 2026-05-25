@@ -35,8 +35,31 @@ const CARD_VISIBILITY_LABELS = {
   anonymous: 'Anon',
 };
 
+const CALENDAR_WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const pad2 = (value) => String(value).padStart(2, '0');
+
+const formatDateKeyFromLocalDate = (date) => (
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+);
+
+const monthPrefixFromDate = (date) => (
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-`
+);
+
+const monthLabel = (date) => (
+  new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(date)
+);
+
+const dateLabel = (dateKey) => {
+  const parsed = parseDateInputValue(dateKey);
+  if (!parsed) return dateKey;
+  return formatDreamDate(parsed, 'MMMM d, yyyy');
+};
+
 export default function DreamJournal({ user }) {
   const [dreams, setDreams] = useState([]);
+  const [viewMode, setViewMode] = useState('list');
   const [showNewDream, setShowNewDream] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -55,6 +78,11 @@ export default function DreamJournal({ user }) {
   const [taggingStatus, setTaggingStatus] = useState('');
   const [taggingBusy, setTaggingBusy] = useState(false);
   const [viewerProfile, setViewerProfile] = useState(null);
+  const [selectedCalendarDateKey, setSelectedCalendarDateKey] = useState(null);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const navigate = useNavigate();
   const hasAudienceQuery = audienceQuery.trim().length > 0;
 
@@ -189,6 +217,70 @@ export default function DreamJournal({ user }) {
       return label.includes(normalized);
     });
   }, [audienceQuery, connectionOptions]);
+
+  const dreamsByDate = useMemo(() => {
+    const groups = {};
+    dreams.forEach((dream) => {
+      if (!dream?.createdAt) return;
+      const key = formatDreamDate(dream.createdAt, 'yyyy-MM-dd');
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(dream);
+    });
+    Object.keys(groups).forEach((key) => {
+      groups[key].sort((a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0));
+    });
+    return groups;
+  }, [dreams]);
+
+  const calendarCells = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const firstWeekday = firstDay.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cells = [];
+
+    for (let i = 0; i < firstWeekday; i += 1) {
+      cells.push({ type: 'spacer', key: `spacer-${i}` });
+    }
+
+    const todayKey = getTodayDateInputValue();
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const date = new Date(year, month, day);
+      const dateKey = formatDateKeyFromLocalDate(date);
+      const dayDreams = dreamsByDate[dateKey] || [];
+      cells.push({
+        type: 'day',
+        key: dateKey,
+        day,
+        dateKey,
+        dreamCount: dayDreams.length,
+        hasDreams: dayDreams.length > 0,
+        isToday: dateKey === todayKey,
+        isSelected: selectedCalendarDateKey === dateKey,
+      });
+    }
+
+    const trailing = (7 - (cells.length % 7)) % 7;
+    for (let i = 0; i < trailing; i += 1) {
+      cells.push({ type: 'spacer', key: `trailing-${i}` });
+    }
+
+    return cells;
+  }, [calendarMonth, dreamsByDate, selectedCalendarDateKey]);
+
+  const selectedCalendarDreams = useMemo(() => {
+    if (!selectedCalendarDateKey) return [];
+    return dreamsByDate[selectedCalendarDateKey] || [];
+  }, [dreamsByDate, selectedCalendarDateKey]);
+
+  useEffect(() => {
+    if (!selectedCalendarDateKey) return;
+    const monthPrefix = monthPrefixFromDate(calendarMonth);
+    if (!selectedCalendarDateKey.startsWith(monthPrefix)) {
+      setSelectedCalendarDateKey(null);
+    }
+  }, [selectedCalendarDateKey, calendarMonth]);
 
   const toggleExcludedViewer = (id) => {
     if (!id) return;
@@ -350,6 +442,26 @@ export default function DreamJournal({ user }) {
     setVisibility(nextVisibility);
   };
 
+  const showListView = () => {
+    void triggerLightHaptic();
+    setViewMode('list');
+  };
+
+  const showCalendarView = () => {
+    void triggerLightHaptic();
+    setViewMode('calendar');
+  };
+
+  const goToPreviousMonth = () => {
+    void triggerLightHaptic();
+    setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const goToNextMonth = () => {
+    void triggerLightHaptic();
+    setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
+
   const renderDreamCard = (dream) => {
     const dateLabel = dream.createdAt ? formatDreamDate(dream.createdAt, 'MMM d') : 'Undated';
     const visLabel = CARD_VISIBILITY_LABELS[dream.visibility] || CARD_VISIBILITY_LABELS.private;
@@ -395,6 +507,26 @@ export default function DreamJournal({ user }) {
           <p className="page-subtitle">Your own personal dream archive.</p>
         </div>
         <div className="action-group">
+          <div className="view-toggle" role="tablist" aria-label="Dream journal view mode">
+            <button
+              type="button"
+              className={viewMode === 'list' ? 'view-toggle-btn active' : 'view-toggle-btn'}
+              role="tab"
+              aria-selected={viewMode === 'list'}
+              onClick={showListView}
+            >
+              List
+            </button>
+            <button
+              type="button"
+              className={viewMode === 'calendar' ? 'view-toggle-btn active' : 'view-toggle-btn'}
+              role="tab"
+              aria-selected={viewMode === 'calendar'}
+              onClick={showCalendarView}
+            >
+              Calendar
+            </button>
+          </div>
           <button type="button" onClick={openNewDream} className="primary-btn">
             + New Dream
           </button>
@@ -406,9 +538,66 @@ export default function DreamJournal({ user }) {
       {initialLoading ? (
         <ListSkeleton count={4} />
       ) : dreams.length ? (
-        <div className="dreams-list">
-          {dreams.map((dream) => renderDreamCard(dream))}
-        </div>
+        viewMode === 'list' ? (
+          <div className="dreams-list">
+            {dreams.map((dream) => renderDreamCard(dream))}
+          </div>
+        ) : (
+          <div className="journal-calendar-shell">
+            <div className="journal-calendar" aria-label="Dream journal calendar">
+              <div className="calendar-toolbar">
+                <button type="button" className="ghost-btn" onClick={goToPreviousMonth} aria-label="Previous month">←</button>
+                <h2>{monthLabel(calendarMonth)}</h2>
+                <button type="button" className="ghost-btn" onClick={goToNextMonth} aria-label="Next month">→</button>
+              </div>
+              <div className="calendar-weekdays">
+                {CALENDAR_WEEKDAYS.map((label) => (
+                  <span key={label}>{label}</span>
+                ))}
+              </div>
+              <div className="calendar-grid">
+                {calendarCells.map((cell) => {
+                  if (cell.type === 'spacer') {
+                    return <div key={cell.key} className="calendar-spacer" aria-hidden="true" />;
+                  }
+                  return (
+                    <button
+                      key={cell.key}
+                      type="button"
+                      className={`calendar-day${cell.hasDreams ? ' has-dreams' : ''}${cell.isToday ? ' is-today' : ''}${cell.isSelected ? ' is-selected' : ''}`}
+                      onClick={() => setSelectedCalendarDateKey(cell.dateKey)}
+                      aria-pressed={cell.isSelected}
+                      aria-label={`${dateLabel(cell.dateKey)}${cell.hasDreams ? `, ${cell.dreamCount} dream${cell.dreamCount === 1 ? '' : 's'}` : ', no dreams'}`}
+                    >
+                      <span className="calendar-day-number">{cell.day}</span>
+                      {cell.hasDreams && <span className="calendar-day-count">{cell.dreamCount}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="calendar-day-panel">
+              {selectedCalendarDateKey ? (
+                <>
+                  <div className="calendar-day-panel-head">
+                    <h3>{dateLabel(selectedCalendarDateKey)}</h3>
+                    <p>{selectedCalendarDreams.length} dream{selectedCalendarDreams.length === 1 ? '' : 's'}</p>
+                  </div>
+                  {selectedCalendarDreams.length ? (
+                    <div className="dreams-list calendar-dreams-list">
+                      {selectedCalendarDreams.map((dream) => renderDreamCard(dream))}
+                    </div>
+                  ) : (
+                    <p className="empty-state">No dreams logged for this date.</p>
+                  )}
+                </>
+              ) : (
+                <p className="empty-state">Select a date to see dreams from that day.</p>
+              )}
+            </div>
+          </div>
+        )
       ) : (
         <p className="empty-state">No dreams yet. Log your dreams here!</p>
       )}

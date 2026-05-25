@@ -55,6 +55,153 @@
   gap: 1.25rem;
 }
 
+.view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.view-toggle-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 0.55rem 0.9rem;
+  min-height: 40px;
+}
+
+.view-toggle-btn.active {
+  background: rgba(90, 200, 250, 0.18);
+  color: var(--text);
+}
+
+.journal-calendar-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.journal-calendar {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+  padding: 1rem;
+  box-shadow: var(--shadow-light);
+}
+
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.calendar-toolbar h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.calendar-weekdays span {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.calendar-spacer {
+  min-height: 72px;
+}
+
+.calendar-day {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  min-height: 72px;
+  padding: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  color: var(--text);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.calendar-day:hover {
+  border-color: rgba(90, 200, 250, 0.45);
+}
+
+.calendar-day.is-today {
+  box-shadow: inset 0 0 0 1px rgba(90, 200, 250, 0.55);
+}
+
+.calendar-day.has-dreams {
+  background: rgba(90, 200, 250, 0.1);
+}
+
+.calendar-day.is-selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(90, 200, 250, 0.25);
+}
+
+.calendar-day-number {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.calendar-day-count {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  padding: 0.15rem 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.calendar-day-panel {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1rem;
+}
+
+.calendar-day-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.8rem;
+}
+
+.calendar-day-panel-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.calendar-day-panel-head p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.calendar-dreams-list {
+  margin-top: 0.25rem;
+}
+
 .dream-card {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.03) 100%);
   border: 1px solid var(--border);
@@ -161,6 +308,7 @@
   font-size: 1.05rem;
   display: -webkit-box;
   -webkit-box-orient: vertical;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
@@ -185,6 +333,7 @@
   font-size: 0.9rem;
   display: -webkit-box;
   -webkit-box-orient: vertical;
+  line-clamp: 4;
   -webkit-line-clamp: 4;
   overflow: hidden;
   white-space: normal;
@@ -599,9 +748,27 @@
 }
 
 @media (max-width: 640px) {
+  .view-toggle {
+    width: 100%;
+  }
+
+  .view-toggle-btn {
+    flex: 1;
+  }
+
   .dreams-list {
     grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
+  }
+
+  .calendar-day,
+  .calendar-spacer {
+    min-height: 58px;
+  }
+
+  .calendar-day-panel-head {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .dream-card {
@@ -611,11 +778,13 @@
 
   .dream-title {
     font-size: 0.95rem;
+    line-clamp: 2;
     -webkit-line-clamp: 2;
   }
 
   .dream-content {
     font-size: 0.82rem;
+    line-clamp: 3;
     -webkit-line-clamp: 3;
   }
 
