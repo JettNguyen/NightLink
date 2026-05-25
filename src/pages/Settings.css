@@ -40,22 +40,15 @@
   flex-wrap: nowrap;
 }
 
-/* iOS: stick save bar just below the desktop (iPad) nav */
+/* iOS: stick save bar just below the iOS header (52px, same for all device sizes) */
 html[data-native-platform='ios'] .settings-save-bar {
-  top: calc(88px + env(safe-area-inset-top));
+  top: calc(52px + env(safe-area-inset-top));
   /* Remove backdrop-filter on iOS native to prevent GPU compositing promotion.
      The compositing layer it creates causes a blank-box stale-tile artifact
      above it (where settings-header renders) until the user scrolls. */
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   background: rgba(6, 8, 17, 0.97);
-}
-
-/* iOS: stick save bar just below the mobile (iPhone) nav */
-@media (max-width: 768px) {
-  html[data-native-platform='ios'] .settings-save-bar {
-    top: calc(74px + env(safe-area-inset-top));
-  }
 }
 
 .settings-save-bar p {

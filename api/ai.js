@@ -29,7 +29,7 @@ const TEEN_UNSAFE_PATTERNS = [
 ];
 
 const SAFE_AI_TITLE_FALLBACK = 'Reflective Dream';
-const SAFE_AI_THEMES_FALLBACK = 'Some details were removed from this summary as they fall outside what the AI can discuss. Use this as a general reflection only. AI output may be inaccurate and is not medical, mental health, legal, or safety advice.';
+const SAFE_AI_THEMES_FALLBACK = 'Some details were removed from this analysis as they fall outside what the AI can discuss. Use this as a general reflection only. AI output may be inaccurate and is not medical, mental health, legal, or safety advice.';
 
 const PROMPT_TEMPLATES = {
   balanced: "You're here to break down dreams in a way that actually helps. Pick out 1-2 symbols that stand out and explain what they might mean, then drop a reflection question and one small thing they can actually do about it. Keep it real and useful-3-6 sentences max. Be warm but don't overcomplicate it.",

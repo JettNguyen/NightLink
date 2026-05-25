@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { faBook, faCompass, faSearch, faUser, faBell } from '@fortawesome/free-solid-svg-icons';
+import { faBook, faCompass, faSearch, faUser, faBell, faChevronLeft, faGear } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import './Navigation.css';
 import { appUserPropType, activityPreviewPropType } from '../propTypes';
 import { persistFeedSeenTimestamp } from '../services/UserService';
@@ -10,11 +11,38 @@ import { triggerLightHaptic } from '../utils/haptics';
 const COMPACT_ENTER = 110;
 const COMPACT_EXIT = 40;
 const getWin = () => (typeof globalThis !== 'undefined' ? globalThis.window : undefined);
+const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
 
 function Navigation({ user, activityPreview }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [compact, setCompact] = useState(false);
   const compactRef = useRef(compact);
+  const iosHeaderRef = useRef(null);
+  const iosLastScrollYRef = useRef(0);
+  const iosHeaderCompactRef = useRef(false);
+
+  // Tab root paths — back button never shows on these
+  const TAB_PATHS = new Set(['/journal', '/feed', '/search', '/activity', '/profile']);
+
+  // Show back button only when on a non-tab page that was navigated to via router push.
+  // location.key is 'default' on initial/direct load; unique string on any push.
+  const canGoBack = isNativeIOS
+    && location.key !== 'default'
+    && !TAB_PATHS.has(location.pathname);
+
+  // Show settings gear in header right slot when on own profile tab
+  const showHeaderSettings = isNativeIOS && location.pathname === '/profile';
+
+  const handleBack = useCallback(() => {
+    void triggerLightHaptic();
+    navigate(-1);
+  }, [navigate]);
+
+  const handleGoSettings = useCallback(() => {
+    void triggerLightHaptic();
+    navigate('/settings');
+  }, [navigate]);
   const viewerId = user?.uid || '';
   const inbox = activityPreview?.inboxEntries ?? [];
   const unreadCount = activityPreview?.unreadActivityCount ?? inbox.filter((e) => !e?.read).length;
@@ -106,7 +134,9 @@ function Navigation({ user, activityPreview }) {
 
   useEffect(() => { compactRef.current = compact; }, [compact]);
 
+  // Web-only: compact scroll behaviour for top nav
   useEffect(() => {
+    if (isNativeIOS) return;
     const w = getWin();
     if (!w) return;
     let ticking = false;
@@ -127,6 +157,145 @@ function Navigation({ user, activityPreview }) {
     return () => w.removeEventListener('scroll', onScroll);
   }, []);
 
+  // iOS-only: compact/expand header on scroll direction.
+  // Compact = translateY(-52px): content slides up, safe-area bar stays visible under dynamic island.
+  // We set transition timing inline before the transform so collapse (fast ease-in) and
+  // expand (spring) use different curves without CSS class order conflicts.
+  useEffect(() => {
+    if (!isNativeIOS) return;
+    const w = getWin();
+    if (!w) return;
+    let ticking = false;
+    const THRESHOLD = 10;
+
+    const setCompact = (compact) => {
+      const el = iosHeaderRef.current;
+      if (!el) return;
+      const left = el.querySelector('.nav-ios-header-left');
+      const center = el.querySelector('.nav-ios-header-center');
+      const right = el.querySelector('.nav-ios-header-right');
+      if (compact) {
+        el.style.transitionDuration = '0.22s';
+        el.style.transitionTimingFunction = 'cubic-bezier(0.4, 0, 0.6, 1)';
+        el.style.transform = 'translateY(-52px)';
+        [left, center, right].forEach((node) => {
+          if (!node) return;
+          node.style.opacity = '0';
+          node.style.transition = 'opacity 0.12s ease';
+        });
+      } else {
+        el.style.transitionDuration = '0.38s';
+        el.style.transitionTimingFunction = 'cubic-bezier(0.22, 1, 0.36, 1)';
+        el.style.transform = 'translateY(0px)';
+        [left, center, right].forEach((node) => {
+          if (!node) return;
+          node.style.transition = 'opacity 0.22s ease 0.1s';
+          node.style.opacity = '1';
+        });
+      }
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      w.requestAnimationFrame(() => {
+        const y = w.scrollY || 0;
+        const delta = y - iosLastScrollYRef.current;
+
+        if (y <= 10) {
+          if (iosHeaderCompactRef.current) {
+            iosHeaderCompactRef.current = false;
+            setCompact(false);
+          }
+        } else if (delta > THRESHOLD && !iosHeaderCompactRef.current) {
+          iosHeaderCompactRef.current = true;
+          setCompact(true);
+        } else if (delta < -THRESHOLD && iosHeaderCompactRef.current) {
+          iosHeaderCompactRef.current = false;
+          setCompact(false);
+        }
+
+        iosLastScrollYRef.current = y;
+        ticking = false;
+      });
+    };
+
+    w.addEventListener('scroll', onScroll, { passive: true });
+    return () => w.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // ── iOS native: top header + bottom tab bar ──────────────────────────────
+  if (isNativeIOS) {
+    return (
+      <>
+        <header ref={iosHeaderRef} className="nav-ios-header">
+          <div className="nav-ios-header-side nav-ios-header-left">
+            {canGoBack && (
+              <button type="button" className="nav-ios-back-btn" onClick={handleBack} aria-label="Go back">
+                <FontAwesomeIcon icon={faChevronLeft} />
+              </button>
+            )}
+          </div>
+          <div className="nav-ios-header-center">
+            <img src="/favicon.svg" alt="" className="nav-ios-logo-icon" />
+            <span className="nav-ios-logo-text">Nightlink</span>
+          </div>
+          <div className="nav-ios-header-side nav-ios-header-right">
+            {showHeaderSettings && (
+              <button type="button" className="nav-ios-back-btn" onClick={handleGoSettings} aria-label="Settings">
+                <FontAwesomeIcon icon={faGear} />
+              </button>
+            )}
+          </div>
+        </header>
+
+        <nav className="nav-ios-tabbar">
+          <Link to="/journal" aria-label="Journal" className={`nav-ios-tab${isActive('/journal') ? ' active' : ''}`} onClick={handleNavTap('/journal')}>
+            <span className="nav-icon-wrapper">
+              <FontAwesomeIcon icon={faBook} className="nav-icon" />
+            </span>
+            <span className="nav-tab-label">Journal</span>
+          </Link>
+          <Link to="/feed" aria-label="Feed" className={`nav-ios-tab${isActive('/feed') ? ' active' : ''}`} onClick={handleNavTap('/feed', markFeedSeen)}>
+            <span className="nav-icon-wrapper">
+              <FontAwesomeIcon icon={faCompass} className="nav-icon" />
+              {hasNewFeed && (
+                <span className="nav-activity-indicator" aria-label={`${newFeedCount} new`}>
+                  {newFeedCount > 9 ? '9+' : newFeedCount}
+                </span>
+              )}
+            </span>
+            <span className="nav-tab-label">Feed</span>
+          </Link>
+          <Link to="/search" aria-label="Search" className={`nav-ios-tab${isActive('/search') ? ' active' : ''}`} onClick={handleNavTap('/search')}>
+            <span className="nav-icon-wrapper">
+              <FontAwesomeIcon icon={faSearch} className="nav-icon" />
+            </span>
+            <span className="nav-tab-label">Search</span>
+          </Link>
+          <Link to="/activity" aria-label="Activity" className={`nav-ios-tab${isActive('/activity') ? ' active' : ''}`} onClick={handleNavTap('/activity')}>
+            <span className="nav-icon-wrapper">
+              <FontAwesomeIcon icon={faBell} className="nav-icon" />
+              {hasUnread && (
+                <span className="nav-activity-indicator" aria-label={`${unreadCount} unread`}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </span>
+            <span className="nav-tab-label">Activity</span>
+          </Link>
+          <Link to="/profile" aria-label="Profile" className={`nav-ios-tab${isActive('/profile') ? ' active' : ''}`} onClick={handleNavTap('/profile')}>
+            <span className="nav-icon-wrapper">
+              <FontAwesomeIcon icon={faUser} className="nav-icon" />
+            </span>
+            <span className="nav-tab-label">Profile</span>
+          </Link>
+        </nav>
+      </>
+    );
+  }
+
+  // ── Web: existing top nav ─────────────────────────────────────────────────
   return (
     <nav className={`navigation${compact ? ' navigation-compact' : ''}`}>
       <div className="nav-container">

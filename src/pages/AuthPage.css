@@ -14,10 +14,13 @@
 }
 
 html[data-native-platform='ios'] .auth-page {
-  height: 100dvh;
-  max-height: 100dvh;
-  overflow-y: auto;
-  overscroll-behavior-y: none;
+  min-height: 100dvh;
+  height: auto;
+  overflow: visible;
+  align-items: flex-start;
+  padding-top: calc(3rem + env(safe-area-inset-top));
+  padding-bottom: calc(3rem + env(safe-area-inset-bottom));
+  background: var(--background);
 }
 
 .auth-page::before {

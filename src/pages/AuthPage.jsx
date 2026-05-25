@@ -61,11 +61,6 @@ export default function AuthPage() {
     if (ref.current) setHeight(ref.current.scrollHeight);
   }, [isSignUp, username, displayName, email, identifier]);
 
-  useEffect(() => {
-    if (!IS_IOS_NATIVE) return;
-    document.documentElement.classList.add('auth-page-active');
-    return () => document.documentElement.classList.remove('auth-page-active');
-  }, []);
 
   // Resolve a login identifier to an email. Supports raw email or username lookup.
   const resolveEmail = async (val) => {

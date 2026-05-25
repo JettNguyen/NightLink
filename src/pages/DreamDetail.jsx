@@ -5,6 +5,7 @@ import { faHeart, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Capacitor } from '@capacitor/core';
+import { triggerLightHaptic } from '../utils/haptics';
 import { supabase } from '../supabase';
 import { mapDream, mapProfile, mapComment } from '../utils/mappers';
 import LoadingIndicator from '../components/LoadingIndicator';
@@ -558,6 +559,7 @@ export default function DreamDetail({ user }) {
     }
 
     const nextReaction = emoji === currentReaction ? null : emoji;
+    void triggerLightHaptic();
     const optimisticCounts = { ...previousSnapshot.counts };
 
     if (currentReaction) {
@@ -592,6 +594,7 @@ export default function DreamDetail({ user }) {
   }, [dream, reactionSnapshot, user, viewerId]);
 
   const containerClass = 'page-container dream-detail-page';
+  const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
   const goBack = () => {
     if (window.history.length > 2) {
       navigate(-1);
@@ -1527,7 +1530,7 @@ export default function DreamDetail({ user }) {
         payload = raw ? JSON.parse(raw) : null;
       } catch (parseError) {
         console.error('Failed to parse AI response:', parseError, 'Raw response:', raw);
-        throw new Error('Invalid response from summary service.');
+        throw new Error('Invalid response from analysis service.');
       }
 
       if (!response.ok) {
@@ -1540,7 +1543,7 @@ export default function DreamDetail({ user }) {
           setStatusMessage('Monthly limit reached. Upgrade or buy credits in Settings to keep analyzing.');
           return;
         }
-        throw new Error(payload?.error || `Summary service error (HTTP ${response.status})`);
+        throw new Error(payload?.error || `Analysis service error (HTTP ${response.status})`);
       }
 
       if (payload?.remainingFree !== undefined || payload?.creditBalance !== undefined) {
@@ -1582,10 +1585,10 @@ export default function DreamDetail({ user }) {
 
       setDream(prev => ({ ...prev, ...updates }));
       setStatusMessage(sanitized.wasFiltered
-        ? 'AI summary was safety-filtered for 13+ audience and updated.'
-        : 'Title and summary updated.');
+        ? 'AI analysis was safety-filtered for 13+ audience and updated.'
+        : 'Title and analysis updated.');
     } catch (err) {
-      setStatusMessage(err.message || 'Summary generation failed.');
+      setStatusMessage(err.message || 'Analysis generation failed.');
     } finally {
       setAnalyzing(false);
     }
@@ -1883,10 +1886,12 @@ export default function DreamDetail({ user }) {
   if (error) {
     return (
       <div className={containerClass}>
-        <button className="detail-back-btn" type="button" onClick={goBack}>
-          <span className="detail-back-icon" aria-hidden="true">&larr;</span>
-          <span>Go back</span>
-        </button>
+        {!isNativeIOS && (
+          <button className="detail-back-btn" type="button" onClick={goBack}>
+            <span className="detail-back-icon" aria-hidden="true">&larr;</span>
+            <span>Go back</span>
+          </button>
+        )}
         <div className="detail-error">{error}</div>
       </div>
     );
@@ -1895,10 +1900,12 @@ export default function DreamDetail({ user }) {
   if (!dream) {
     return (
       <div className={containerClass}>
-        <button className="detail-back-btn" type="button" onClick={goBack}>
-          <span className="detail-back-icon" aria-hidden="true">&larr;</span>
-          <span>Go back</span>
-        </button>
+        {!isNativeIOS && (
+          <button className="detail-back-btn" type="button" onClick={goBack}>
+            <span className="detail-back-icon" aria-hidden="true">&larr;</span>
+            <span>Go back</span>
+          </button>
+        )}
         <div className="detail-error">Dream not available.</div>
       </div>
     );
@@ -1915,16 +1922,18 @@ export default function DreamDetail({ user }) {
   return (
     <div className={containerClass}>
       <div className="detail-card">
-        <div className="detail-toolbar">
-          <button
-            type="button"
-            className="detail-back-btn"
-            onClick={goBack}
-          >
-            <span className="detail-back-icon" aria-hidden="true">&larr;</span>
-            <span>Go back</span>
-          </button>
-        </div>
+        {!isNativeIOS && (
+          <div className="detail-toolbar">
+            <button
+              type="button"
+              className="detail-back-btn"
+              onClick={goBack}
+            >
+              <span className="detail-back-icon" aria-hidden="true">&larr;</span>
+              <span>Go back</span>
+            </button>
+          </div>
+        )}
         <div className="detail-head">
           <div className="detail-title-block">
             {isOwner ? (
@@ -2170,165 +2179,171 @@ export default function DreamDetail({ user }) {
         )}
 
         <div className="detail-summary">
-            <div>
-              <h3>Summary</h3>
+            <div className="detail-summary-text">
+              <h3>Analysis</h3>
               {dream.aiGenerated && dream.aiInsights ? (
                 <>
                   <p className="detail-insight">{dream.aiInsights}</p>
                   <p className="ai-privacy-notice">🔒 Your dreams stay private. This analysis is not used for AI training and is deleted based on your privacy settings. <br/>AI insights are for reflection only and may be inaccurate. Do not use them as medical, mental health, legal, or safety advice.</p>
                 </>
               ) : (
-                <p className="detail-insight muted">No summary yet.</p>
+                <p className="detail-insight muted">No analysis yet.</p>
               )}
             </div>
-            {isOwner && aiQuota && (
-              <p className="ai-quota-badge">
-                {aiQuota.tier === 'premium'
-                  ? aiQuota.remainingFree > 0
-                    ? `${aiQuota.remainingFree} of 30 Pro analyses left this cycle`
-                    : aiQuota.creditBalance > 0
-                      ? `${aiQuota.creditBalance} paid AI credit${aiQuota.creditBalance === 1 ? '' : 's'} remaining`
-                      : 'Pro monthly limit reached'
-                  : aiQuota.remainingFree > 0
-                    ? `${aiQuota.remainingFree} of 1 free analysis left`
-                    : aiQuota.creditBalance > 0
-                      ? `${aiQuota.creditBalance} paid AI credit${aiQuota.creditBalance === 1 ? '' : 's'} remaining`
-                      : 'Monthly limit reached'}
-              </p>
-            )}
-            {isOwner && !dream.aiGenerated && firstAnalysisPromptSelector ? (
-              <div className="prompt-selector-modal">
-                <div className="prompt-selector-overlay" onClick={() => setFirstAnalysisPromptSelector(false)} />
-                <div className="prompt-selector-content">
-                  <h3>Choose an insight style</h3>
-                  <p className="prompt-selector-hint">You can change this anytime in Settings</p>
-                  <button
-                    type="button"
-                    className="prompt-option-btn current-prompt"
-                    onClick={() => {
-                      setFirstAnalysisPromptSelector(false);
-                      handleAnalyzeDream({ skipPromptSelector: true });
-                    }}
-                    disabled={analyzing}
-                  >
-                    <strong>Use my current preference</strong>
-                    <span>({userSettings?.aiPromptPreset === 'custom'
-                      ? 'Custom prompt'
-                      : (PROMPT_LABELS[normalizePromptKey(userSettings?.aiPromptPreset)] || 'Balanced guide')})</span>
-                  </button>
-                  <div className="prompt-options-grid">
-                    {promptOptionKeys.map((key) => {
-                      const locked = isPromptLockedForTier(aiQuota?.tier || 'free', key);
-                      return (
+            {isOwner && (
+              <div className="detail-summary-footer">
+                <div className="detail-summary-controls">
+                  {aiQuota && (
+                    <p className="ai-quota-badge">
+                      {aiQuota.tier === 'premium'
+                        ? aiQuota.remainingFree > 0
+                          ? `${aiQuota.remainingFree} of 30 Pro analyses left this cycle`
+                          : aiQuota.creditBalance > 0
+                            ? `${aiQuota.creditBalance} paid AI credit${aiQuota.creditBalance === 1 ? '' : 's'} remaining`
+                            : 'Pro monthly limit reached'
+                        : aiQuota.remainingFree > 0
+                          ? `${aiQuota.remainingFree} of 1 free analysis left`
+                          : aiQuota.creditBalance > 0
+                            ? `${aiQuota.creditBalance} paid AI credit${aiQuota.creditBalance === 1 ? '' : 's'} remaining`
+                            : 'Monthly limit reached'}
+                    </p>
+                  )}
+                  {!dream.aiGenerated && firstAnalysisPromptSelector ? (
+                    <div className="prompt-selector-modal">
+                      <div className="prompt-selector-overlay" onClick={() => setFirstAnalysisPromptSelector(false)} />
+                      <div className="prompt-selector-content">
+                        <h3>Choose an insight style</h3>
+                        <p className="prompt-selector-hint">You can change this anytime in Settings</p>
                         <button
-                          key={key}
                           type="button"
-                          className={`prompt-option-btn${locked ? ' locked' : ''}`}
+                          className="prompt-option-btn current-prompt"
                           onClick={() => {
                             setFirstAnalysisPromptSelector(false);
-                            handleReanalyze(key);
+                            handleAnalyzeDream({ skipPromptSelector: true });
                           }}
-                          disabled={analyzing || locked}
-                          title={locked ? 'Upgrade to Pro to unlock this style' : undefined}
+                          disabled={analyzing}
                         >
-                          {PROMPT_LABELS[key]}
-                          {locked ? ' (Pro)' : ''}
+                          <strong>Use my current preference</strong>
+                          <span>({userSettings?.aiPromptPreset === 'custom'
+                            ? 'Custom prompt'
+                            : (PROMPT_LABELS[normalizePromptKey(userSettings?.aiPromptPreset)] || 'Balanced guide')})</span>
                         </button>
-                      );
-                    })}
-                  </div>
-                  <button
-                    type="button"
-                    className="ghost-btn"
-                    onClick={() => setFirstAnalysisPromptSelector(false)}
-                    style={{ marginTop: '0.5rem' }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : null}
-            {isOwner && !dream.aiGenerated ? (
-              <button
-                type="button"
-                className="primary-btn"
-                onClick={() => handleAnalyzeDream()}
-                disabled={analyzing || aiLockedByQuota}
-              >
-                {analyzing ? 'Generating title & summary…' : 'Generate title & summary'}
-              </button>
-            ) : null}
-            {isOwner && dream.aiGenerated ? (
-              <div className="reanalyze-controls">
-                <button
-                  type="button"
-                  className="ghost-btn"
-                  onClick={() => setPromptSelectorOpen(!promptSelectorOpen)}
-                  disabled={reanalyzing || analyzing || aiLockedByQuota}
-                >
-                  {reanalyzing ? 'Regenerating…' : 'Regenerate with different prompt'}
-                </button>
-                {promptSelectorOpen && (
-                  <div className="prompt-selector-panel">
-                    <p className="prompt-selector-label">Choose a prompt style:</p>
-                    <button
-                      type="button"
-                      className="prompt-option-btn current-prompt"
-                      onClick={() => handleReanalyze('current')}
-                      disabled={reanalyzing}
-                    >
-                      <strong>Use my settings</strong>
-                      <span>({userSettings?.aiPromptPreset === 'custom'
-                        ? 'Custom prompt'
-                        : (PROMPT_LABELS[normalizePromptKey(userSettings?.aiPromptPreset)] || 'Balanced guide')})</span>
-                    </button>
-                    <div className="prompt-options-grid">
-                      {promptOptionKeys.map((key) => {
-                        const locked = isPromptLockedForTier(aiQuota?.tier || 'free', key);
-                        return (
-                          <button
-                            key={key}
-                            type="button"
-                            className={`prompt-option-btn${locked ? ' locked' : ''}`}
-                            onClick={() => handleReanalyze(key)}
-                            disabled={reanalyzing || locked}
-                            title={locked ? 'Upgrade to Pro to unlock this style' : undefined}
-                          >
-                            {PROMPT_LABELS[key]}
-                            {locked ? ' (Pro)' : ''}
-                          </button>
-                        );
-                      })}
-                      {userSettings?.aiPromptPreset === 'custom' && userSettings?.aiPromptCustom && (
+                        <div className="prompt-options-grid">
+                          {promptOptionKeys.map((key) => {
+                            const locked = isPromptLockedForTier(aiQuota?.tier || 'free', key);
+                            return (
+                              <button
+                                key={key}
+                                type="button"
+                                className={`prompt-option-btn${locked ? ' locked' : ''}`}
+                                onClick={() => {
+                                  setFirstAnalysisPromptSelector(false);
+                                  handleReanalyze(key);
+                                }}
+                                disabled={analyzing || locked}
+                                title={locked ? 'Upgrade to Pro to unlock this style' : undefined}
+                              >
+                                {PROMPT_LABELS[key]}
+                                {locked ? ' (Pro)' : ''}
+                              </button>
+                            );
+                          })}
+                        </div>
                         <button
                           type="button"
-                          className={`prompt-option-btn custom-prompt-option${aiQuota?.tier !== 'premium' ? ' locked' : ''}`}
-                          onClick={() => handleReanalyze('custom')}
-                          disabled={reanalyzing || aiQuota?.tier !== 'premium'}
+                          className="ghost-btn"
+                          onClick={() => setFirstAnalysisPromptSelector(false)}
+                          style={{ marginTop: '0.5rem' }}
                         >
-                          {aiQuota?.tier === 'premium' ? 'My custom prompt' : 'My custom prompt (Pro)'}
+                          Cancel
                         </button>
-                      )}
+                      </div>
                     </div>
+                  ) : null}
+                  {!dream.aiGenerated ? (
                     <button
                       type="button"
-                      className="ghost-btn"
-                      onClick={() => setPromptSelectorOpen(false)}
-                      style={{ marginTop: '0.5rem' }}
+                      className="primary-btn"
+                      onClick={() => handleAnalyzeDream()}
+                      disabled={analyzing || aiLockedByQuota}
                     >
-                      Cancel
+                      {analyzing ? 'Generating title & analysis…' : 'Generate title & analysis'}
                     </button>
+                  ) : null}
+                  {dream.aiGenerated ? (
+                    <div className="reanalyze-controls">
+                      <button
+                        type="button"
+                        className="ghost-btn"
+                        onClick={() => setPromptSelectorOpen(!promptSelectorOpen)}
+                        disabled={reanalyzing || analyzing || aiLockedByQuota}
+                      >
+                        {reanalyzing ? 'Regenerating…' : 'Regenerate with different prompt'}
+                      </button>
+                      {promptSelectorOpen && (
+                        <div className="prompt-selector-panel">
+                          <p className="prompt-selector-label">Choose a prompt style:</p>
+                          <button
+                            type="button"
+                            className="prompt-option-btn current-prompt"
+                            onClick={() => handleReanalyze('current')}
+                            disabled={reanalyzing}
+                          >
+                            <strong>Use my settings</strong>
+                            <span>({userSettings?.aiPromptPreset === 'custom'
+                              ? 'Custom prompt'
+                              : (PROMPT_LABELS[normalizePromptKey(userSettings?.aiPromptPreset)] || 'Balanced guide')})</span>
+                          </button>
+                          <div className="prompt-options-grid">
+                            {promptOptionKeys.map((key) => {
+                              const locked = isPromptLockedForTier(aiQuota?.tier || 'free', key);
+                              return (
+                                <button
+                                  key={key}
+                                  type="button"
+                                  className={`prompt-option-btn${locked ? ' locked' : ''}`}
+                                  onClick={() => handleReanalyze(key)}
+                                  disabled={reanalyzing || locked}
+                                  title={locked ? 'Upgrade to Pro to unlock this style' : undefined}
+                                >
+                                  {PROMPT_LABELS[key]}
+                                  {locked ? ' (Pro)' : ''}
+                                </button>
+                              );
+                            })}
+                            {userSettings?.aiPromptPreset === 'custom' && userSettings?.aiPromptCustom && (
+                              <button
+                                type="button"
+                                className={`prompt-option-btn custom-prompt-option${aiQuota?.tier !== 'premium' ? ' locked' : ''}`}
+                                onClick={() => handleReanalyze('custom')}
+                                disabled={reanalyzing || aiQuota?.tier !== 'premium'}
+                              >
+                                {aiQuota?.tier === 'premium' ? 'My custom prompt' : 'My custom prompt (Pro)'}
+                              </button>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className="ghost-btn"
+                            onClick={() => setPromptSelectorOpen(false)}
+                            style={{ marginTop: '0.5rem' }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+                {aiQuota && aiQuota.tier !== 'premium' && (
+                  <div className="ai-upgrade-cta">
+                    <p>Unlock all insight styles, custom instructions, and cross-dream pattern analysis with Pro.</p>
+                    <div className="ai-upgrade-cta-actions">
+                      <button type="button" className="ghost-btn" onClick={() => navigate('/settings')}>Subscribe to Pro</button>
+                      <button type="button" className="ghost-btn" onClick={() => navigate('/settings')}>Buy AI credits</button>
+                    </div>
                   </div>
                 )}
-              </div>
-            ) : null}
-            {isOwner && aiQuota?.tier !== 'premium' && (
-              <div className="ai-upgrade-cta">
-                <p>Unlock all insight styles, custom instructions, and cross-dream pattern analysis with Pro.</p>
-                <div className="ai-upgrade-cta-actions">
-                  <button type="button" className="ghost-btn" onClick={() => navigate('/settings')}>Subscribe to Pro</button>
-                  <button type="button" className="ghost-btn" onClick={() => navigate('/settings')}>Buy AI credits</button>
-                </div>
               </div>
             )}
           </div>

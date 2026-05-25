@@ -83,8 +83,8 @@ function AppContent({ user, loading, ready }) {
   useEffect(() => {
     if (!pullRefreshEnabled) return undefined;
 
-    const PULL_THRESHOLD = 250;
-    const MAX_PULL_DISTANCE = 500;
+    const PULL_THRESHOLD = 130;
+    const MAX_PULL_DISTANCE = 220;
     const REFRESH_COOLDOWN_MS = 2000;
     const initialLastRefresh = Number(sessionStorage.getItem('nightlink_last_pull_refresh') || '0');
     if (initialLastRefresh > 0) {
@@ -96,9 +96,26 @@ function AppContent({ user, loading, ready }) {
       setPullDistance(value);
     };
 
+    // Walk up from the touch target — if any ancestor is a scrollable container
+    // (overflow auto/scroll with actual overflow content), don't activate pull-to-refresh.
+    // This prevents the handler from fighting modal/sheet scroll and triggering on upward flings.
+    // Any ancestor with overflow-y auto/scroll disables pull-to-refresh,
+    // regardless of whether it's currently overflowing. This prevents the
+    // handler from activating inside modals and sheet scroll containers.
+    const isInsideScrollable = (el) => {
+      let node = el instanceof Element ? el.parentElement : null;
+      while (node && node !== document.body) {
+        const { overflowY } = window.getComputedStyle(node);
+        if (overflowY === 'auto' || overflowY === 'scroll') return true;
+        node = node.parentElement;
+      }
+      return false;
+    };
+
     const onTouchStart = (event) => {
       const target = event.target;
       if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (isInsideScrollable(target)) return;
       if (window.scrollY > 0) return;
       if (!event.touches || event.touches.length !== 1) return;
       pullStartYRef.current = event.touches[0].clientY;
@@ -153,7 +170,7 @@ function AppContent({ user, loading, ready }) {
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onTouchEnd);
     };
-  }, []);
+  }, [pullRefreshEnabled]);
 
   useEffect(() => {
     const settings = activity?.viewerProfile?.settings || {};
@@ -250,15 +267,15 @@ function AppContent({ user, loading, ready }) {
     <div className="app">
       {pullRefreshEnabled && (
         <div
-          className={`pull-refresh-indicator${pullDistance > 0 ? ' is-visible' : ''}${pullDistance >= 250 ? ' is-armed' : ''}`}
-          style={{ '--pull-progress': String(Math.min(1, pullDistance / 250)) }}
+          className={`pull-refresh-indicator${pullDistance > 0 ? ' is-visible' : ''}${pullDistance >= 130 ? ' is-armed' : ''}`}
+          style={{ '--pull-progress': String(Math.min(1, pullDistance / 130)) }}
         >
           {pullDistance >= 250 ? 'Release to refresh' : 'Pull to refresh'}
         </div>
       )}
       <OfflineIndicator />
       {showNav && <Navigation user={user} activityPreview={activity} />}
-    <main className={mainClassName} style={{ minHeight: '100dvh', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    <main className={mainClassName} style={{ minHeight: '100dvh', paddingBottom: isNativeIOS ? 'calc(49px + env(safe-area-inset-bottom))' : 'env(safe-area-inset-bottom)' }}>
         <Routes>
           <Route path="/" element={user ? <Navigate to="/journal" replace /> : <HomePage />} />
           <Route path="/login" element={user ? <Navigate to="/journal" replace /> : <AuthPage />} />
