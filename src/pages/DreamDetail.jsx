@@ -5,6 +5,7 @@ import { faHeart, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Capacitor } from '@capacitor/core';
+import { triggerLightHaptic } from '../utils/haptics';
 import { supabase } from '../supabase';
 import { mapDream, mapProfile, mapComment } from '../utils/mappers';
 import LoadingIndicator from '../components/LoadingIndicator';
@@ -558,6 +559,7 @@ export default function DreamDetail({ user }) {
     }
 
     const nextReaction = emoji === currentReaction ? null : emoji;
+    void triggerLightHaptic();
     const optimisticCounts = { ...previousSnapshot.counts };
 
     if (currentReaction) {
@@ -592,6 +594,7 @@ export default function DreamDetail({ user }) {
   }, [dream, reactionSnapshot, user, viewerId]);
 
   const containerClass = 'page-container dream-detail-page';
+  const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
   const goBack = () => {
     if (window.history.length > 2) {
       navigate(-1);
@@ -1883,10 +1886,12 @@ export default function DreamDetail({ user }) {
   if (error) {
     return (
       <div className={containerClass}>
-        <button className="detail-back-btn" type="button" onClick={goBack}>
-          <span className="detail-back-icon" aria-hidden="true">&larr;</span>
-          <span>Go back</span>
-        </button>
+        {!isNativeIOS && (
+          <button className="detail-back-btn" type="button" onClick={goBack}>
+            <span className="detail-back-icon" aria-hidden="true">&larr;</span>
+            <span>Go back</span>
+          </button>
+        )}
         <div className="detail-error">{error}</div>
       </div>
     );
@@ -1895,10 +1900,12 @@ export default function DreamDetail({ user }) {
   if (!dream) {
     return (
       <div className={containerClass}>
-        <button className="detail-back-btn" type="button" onClick={goBack}>
-          <span className="detail-back-icon" aria-hidden="true">&larr;</span>
-          <span>Go back</span>
-        </button>
+        {!isNativeIOS && (
+          <button className="detail-back-btn" type="button" onClick={goBack}>
+            <span className="detail-back-icon" aria-hidden="true">&larr;</span>
+            <span>Go back</span>
+          </button>
+        )}
         <div className="detail-error">Dream not available.</div>
       </div>
     );
@@ -1915,16 +1922,18 @@ export default function DreamDetail({ user }) {
   return (
     <div className={containerClass}>
       <div className="detail-card">
-        <div className="detail-toolbar">
-          <button
-            type="button"
-            className="detail-back-btn"
-            onClick={goBack}
-          >
-            <span className="detail-back-icon" aria-hidden="true">&larr;</span>
-            <span>Go back</span>
-          </button>
-        </div>
+        {!isNativeIOS && (
+          <div className="detail-toolbar">
+            <button
+              type="button"
+              className="detail-back-btn"
+              onClick={goBack}
+            >
+              <span className="detail-back-icon" aria-hidden="true">&larr;</span>
+              <span>Go back</span>
+            </button>
+          </div>
+        )}
         <div className="detail-head">
           <div className="detail-title-block">
             {isOwner ? (

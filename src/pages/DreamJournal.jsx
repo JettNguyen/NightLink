@@ -342,7 +342,7 @@ export default function DreamJournal({ user }) {
     setTaggedUsers([]); setTagHandle(''); setTaggingStatus('');
   };
 
-  const closeModal = () => { if (loading) return; setShowNewDream(false); resetForm(); };
+  const closeModal = () => { if (loading) return; void triggerLightHaptic(); setShowNewDream(false); resetForm(); };
   const handleOverlayClick = (e) => { if (e.target === e.currentTarget) closeModal(); };
   const handleOverlayKeyDown = (e) => { if (e.key === 'Escape') { e.preventDefault(); closeModal(); } };
 

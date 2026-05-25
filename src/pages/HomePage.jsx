@@ -5,7 +5,10 @@ export default function HomePage() {
   return (
     <div className="home-page">
       <section className="home-hero">
-        <p className="home-eyebrow">NightLink</p>
+        <div className="home-logo-row">
+          <img src="/favicon.svg" alt="Nightlink" className="home-logo-icon" />
+          <span className="home-logo-text">Nightlink</span>
+        </div>
         <h1>Your private space for dream reflection and trusted connection.</h1>
         <p className="home-subtitle">
           Capture dreams, unlock AI-powered insights, and share only when you choose.

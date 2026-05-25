@@ -1102,6 +1102,22 @@ export default function Settings({ user }) {
             </div>
           </section>
 
+          <section className="settings-section">
+            <div className="settings-section-head">
+              <h2>Sign out</h2>
+              <p>Sign out of your Nightlink account on this device.</p>
+            </div>
+            <div className="settings-section-body">
+              <button
+                type="button"
+                className="primary-btn password-btn"
+                onClick={async () => { try { await supabase.auth.signOut(); } catch { /* ignore */ } }}
+              >
+                Sign out
+              </button>
+            </div>
+          </section>
+
           <section className="settings-section danger-zone">
             <div className="settings-section-head">
               <h2>Delete account</h2>

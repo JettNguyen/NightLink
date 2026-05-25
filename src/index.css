@@ -58,15 +58,10 @@ html[data-native-platform='ios'] body {
   overscroll-behavior: auto;
 }
 
-html[data-native-platform='ios'].auth-page-active,
-html[data-native-platform='ios'].auth-page-active body {
-  overscroll-behavior: none;
-  overflow: hidden;
-}
 
 .pull-refresh-indicator {
   position: fixed;
-  top: calc(74px + env(safe-area-inset-top) + 8px);
+  top: calc(52px + env(safe-area-inset-top) + 8px);
   left: 50%;
   transform: translate(-50%, calc(-18px + (var(--pull-progress, 0) * 18px)));
   opacity: 0;
@@ -146,6 +141,10 @@ a {
 
 .app-main--with-nav {
   padding-top: calc(88px + env(safe-area-inset-top));
+}
+
+html[data-native-platform='ios'] .app-main--with-nav {
+  padding-top: calc(52px + env(safe-area-inset-top));
 }
 
 .page-container {

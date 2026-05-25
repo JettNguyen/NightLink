@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRightFromBracket, faPencil, faGear } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '../supabase';
 import { mapProfile, mapDream } from '../utils/mappers';
 import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
@@ -66,6 +67,7 @@ export default function Profile({ user }) {
   const navigate = useNavigate();
   const viewerId = user?.uid || null;
   const editingRef = useRef(false);
+  const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
 
   useEffect(() => { editingRef.current = isEditing; }, [isEditing]);
 
@@ -536,10 +538,14 @@ export default function Profile({ user }) {
             {viewingOwnProfile && (
               <div className="profile-btn-row">
                 <button onClick={() => setIsEditing(true)} className="edit-profile-btn"><FontAwesomeIcon icon={faPencil} /><span>Edit Profile</span></button>
-                <button type="button" className="settings-btn" onClick={() => navigate('/settings')}><FontAwesomeIcon icon={faGear} /><span>Settings</span></button>
-                <button type="button" className="sign-out-profile-btn" onClick={async () => { try { await supabase.auth.signOut(); } catch { setToast('Sign out failed. Please try again.'); } }}>
-                  <FontAwesomeIcon icon={faRightFromBracket} /><span>Sign Out</span>
-                </button>
+                {!isNativeIOS && (
+                  <button type="button" className="settings-btn" onClick={() => navigate('/settings')}><FontAwesomeIcon icon={faGear} /><span>Settings</span></button>
+                )}
+                {!isNativeIOS && (
+                  <button type="button" className="sign-out-profile-btn" onClick={async () => { try { await supabase.auth.signOut(); } catch { setToast('Sign out failed. Please try again.'); } }}>
+                    <FontAwesomeIcon icon={faRightFromBracket} /><span>Sign Out</span>
+                  </button>
+                )}
               </div>
             )}
             {!viewingOwnProfile && (

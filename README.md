@@ -13,6 +13,12 @@
 </p>
 
 <p align="center">
+  <a href="https://apps.apple.com/us/app/nightlink-social/id6768789704">
+    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="48" />
+  </a>
+</p>
+
+<p align="center">
   <a href="https://github.com/JettNguyen/NightLink/actions/workflows/ci.yml"><img src="https://github.com/JettNguyen/NightLink/actions/workflows/ci.yml/badge.svg" alt="Node.js CI" /></a>
   <a href="https://github.com/JettNguyen/NightLink/actions/workflows/github-code-scanning/codeql"><img src="https://github.com/JettNguyen/NightLink/actions/workflows/github-code-scanning/codeql/badge.svg" alt="CodeQL" /></a>
 </p>
