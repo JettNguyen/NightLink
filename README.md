@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://apps.apple.com/us/app/nightlink-social/id6768789704">
+  <a href="https://apps.apple.com/us/app/nightlink-social/id6768789704?ppid=51e85a05-3f4b-4016-a6f3-34fd77ba46df">
     <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="48" />
   </a>
 </p>
