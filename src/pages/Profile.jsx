@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRightFromBracket, faPencil, faGear } from '@fortawesome/free-solid-svg-icons';
+import { faPencil, faGear } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
@@ -540,11 +540,6 @@ export default function Profile({ user }) {
                 <button onClick={() => setIsEditing(true)} className="edit-profile-btn"><FontAwesomeIcon icon={faPencil} /><span>Edit Profile</span></button>
                 {!isNativeIOS && (
                   <button type="button" className="settings-btn" onClick={() => navigate('/settings')}><FontAwesomeIcon icon={faGear} /><span>Settings</span></button>
-                )}
-                {!isNativeIOS && (
-                  <button type="button" className="sign-out-profile-btn" onClick={async () => { try { await supabase.auth.signOut(); } catch { setToast('Sign out failed. Please try again.'); } }}>
-                    <FontAwesomeIcon icon={faRightFromBracket} /><span>Sign Out</span>
-                  </button>
                 )}
               </div>
             )}
