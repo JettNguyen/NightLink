@@ -9,7 +9,7 @@
 </h1>
 
 <p align="center">
-  A dream journal and social network. Log your dreams, get AI-generated titles and summaries, and share with friends, family, or the world.
+  A dream journal and social network. Log your dreams, get AI-generated titles and analyses, and have the option to share with friends, family, or the world.
 </p>
 
 <p align="center">
