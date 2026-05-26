@@ -9,7 +9,13 @@
 </h1>
 
 <p align="center">
-  A dream journal and social network. Log your dreams, get AI-generated titles and summaries, and share with friends, family, or the world.
+  A dream journal and social network. Log your dreams, get AI-generated titles and analyses, and have the option to share with friends, family, or the world.
+</p>
+
+<p align="center">
+  <a href="https://apps.apple.com/us/app/nightlink-social/id6768789704?ppid=51e85a05-3f4b-4016-a6f3-34fd77ba46df">
+    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="48" />
+  </a>
 </p>
 
 <p align="center">

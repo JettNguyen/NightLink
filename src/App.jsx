@@ -18,7 +18,7 @@ import { pushActivityLocalNotification, syncDailyDreamReminder } from './utils/n
 import { triggerMediumHaptic } from './utils/haptics';
 import { initIosTapFix } from './utils/iosTapFix';
 import { appUserPropType } from './propTypes';
-import TermsGate, { isTermsAccepted } from './components/TermsGate';
+import TermsGate, { isTermsAccepted, markTermsAccepted, TERMS_VERSION } from './components/TermsGate';
 import {
   IS_RC_SUPPORTED,
   configurePurchases,
@@ -57,6 +57,24 @@ function AppContent({ user, loading, ready }) {
   const { pathname } = useLocation();
   const [termsAccepted, setTermsAccepted] = useState(() => isTermsAccepted());
   const showNav = user && pathname !== '/login' && termsAccepted;
+
+  // If localStorage was cleared (e.g. iOS WKWebView eviction), restore acceptance
+  // from the user's Supabase profile so they don't have to re-accept every login.
+  useEffect(() => {
+    if (!user?.uid || termsAccepted) return;
+    supabase
+      .from('profiles')
+      .select('settings')
+      .eq('id', user.uid)
+      .single()
+      .then(({ data }) => {
+        if (data?.settings?.termsVersion === TERMS_VERSION) {
+          markTermsAccepted();
+          setTermsAccepted(true);
+        }
+      })
+      .catch(() => {});
+  }, [user?.uid, termsAccepted]);
   const mainClassName = showNav ? 'app-main app-main--with-nav' : 'app-main app-main--no-nav';
   const home = useMemo(() => (user ? '/journal' : '/'), [user]);
   const activity = useActivityPreview(user?.uid);
@@ -252,7 +270,22 @@ function AppContent({ user, loading, ready }) {
           <Routes>
             <Route path="/terms" element={<TermsOfUse />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="*" element={<TermsGate onAccepted={() => setTermsAccepted(true)} />} />
+            <Route path="*" element={<TermsGate onAccepted={() => {
+              setTermsAccepted(true);
+              // Persist to Supabase so acceptance survives localStorage eviction on iOS.
+              if (user?.uid) {
+                supabase
+                  .from('profiles')
+                  .select('settings')
+                  .eq('id', user.uid)
+                  .single()
+                  .then(({ data }) => {
+                    const updated = { ...(data?.settings || {}), termsVersion: TERMS_VERSION };
+                    return supabase.from('profiles').update({ settings: updated }).eq('id', user.uid);
+                  })
+                  .catch(() => {});
+              }
+            }} />} />
           </Routes>
         </Suspense>
       </div>

@@ -3,9 +3,10 @@ import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import './TermsGate.css';
 
-// Bump this version string whenever the Terms or Privacy Policy are updated.
-// Any user whose stored key doesn't match will be shown the gate again.
-export const TERMS_KEY = 'nightlink_terms_v2';
+// Bump TERMS_VERSION whenever the Terms or Privacy Policy are updated.
+// Users whose stored version doesn't match will be shown the gate again.
+export const TERMS_VERSION = 'v2';
+export const TERMS_KEY = `nightlink_terms_${TERMS_VERSION}`;
 
 export function isTermsAccepted() {
   return localStorage.getItem(TERMS_KEY) === '1';
