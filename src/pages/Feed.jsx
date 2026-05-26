@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHeart, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faHeart, faPlus, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../supabase';
 import { mapDream, mapProfile } from '../utils/mappers';
 import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
@@ -71,6 +71,7 @@ export default function Feed({ user }) {
   const [reportModal, setReportModal] = useState(null);   // { dream }
   const [reportReason, setReportReason] = useState('');
   const [reportBusy, setReportBusy] = useState(false);
+  const [feedMenuOpenDreamId, setFeedMenuOpenDreamId] = useState(null);
   const customEmojiInputRef = useRef(null);
   const userSummariesRef = useRef(userSummaries);
   const reactionInsightOpenRef = useRef(false);
@@ -81,6 +82,29 @@ export default function Feed({ user }) {
   const navigate = useNavigate();
   const defaultReaction = '💙';
   const viewerId = user?.uid || null;
+
+  useEffect(() => {
+    if (!feedMenuOpenDreamId) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!event.target.closest('[data-feed-menu-root="true"]')) {
+        setFeedMenuOpenDreamId(null);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setFeedMenuOpenDreamId(null);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [feedMenuOpenDreamId]);
 
   // Load viewer's followingIds
   useEffect(() => {
@@ -246,6 +270,16 @@ export default function Feed({ user }) {
     if (!dream?.id) return;
     setReportReason('');
     setReportModal({ dream });
+  }, []);
+
+  const toggleFeedMenu = useCallback((event, dreamId) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setFeedMenuOpenDreamId((prev) => (prev === dreamId ? null : dreamId));
+  }, []);
+
+  const closeFeedMenu = useCallback(() => {
+    setFeedMenuOpenDreamId(null);
   }, []);
 
   const handleSubmitReport = useCallback(async () => {
@@ -508,7 +542,6 @@ export default function Feed({ user }) {
           {visibleDreams.map((dream) => {
             const profile = dream.userId ? followingProfiles[dream.userId] : null;
             const isAnonymous = dream.visibility === 'anonymous';
-            const authorLabel = isAnonymous ? 'Anonymous dreamer' : profile?.displayName || dream.authorUsername || 'Dreamer';
             const authorUsername = !isAnonymous ? (profile?.username || dream.authorUsername || '') : '';
             const authorHandle = authorUsername ? `@${authorUsername}` : null;
             const avatarIcon = getAvatarIconById(isAnonymous ? 'ghost' : profile?.avatarIcon);
@@ -519,6 +552,7 @@ export default function Feed({ user }) {
             const visibilityLabel = dream.visibility === 'anonymous' ? 'Anonymous dream' : dream.visibility === 'following' || dream.visibility === 'followers' ? 'Shared with people they follow' : 'Public dream';
             const showProfileLink = !isAnonymous && Boolean(dream.userId);
             const isOwnerDream = Boolean(viewerId && dream.userId === viewerId);
+            const isMenuOpen = feedMenuOpenDreamId === dream.id;
             const profilePath = showProfileLink ? buildProfilePath(authorUsername, dream.userId) : null;
             const handleAuthorNavigation = (event) => { if (!showProfileLink) return; event.stopPropagation(); event.preventDefault(); if (profilePath) navigate(profilePath); };
             const openDreamDetail = () => { const path = isAnonymous ? `/dream/${dream.id}` : buildDreamPath(authorUsername, dream.userId, dream.id); navigate(path, { state: { fromNav: '/feed' } }); };
@@ -534,16 +568,38 @@ export default function Feed({ user }) {
                       <FontAwesomeIcon icon={avatarIcon} />
                     </div>
                     <div className="feed-author-meta">
-                      {showProfileLink ? (
-                        <button type="button" className="feed-author feed-author-link" onClick={handleAuthorNavigation}>{authorLabel}</button>
-                      ) : (
-                        <div className="feed-author">{authorLabel}</div>
-                      )}
                       {authorHandle && (showProfileLink ? <button type="button" className="feed-author-handle feed-author-link" onClick={handleAuthorNavigation}>{authorHandle}</button> : <div className="feed-author-handle">{authorHandle}</div>)}
                       <div className="feed-visibility">{visibilityLabel}</div>
                     </div>
                   </div>
-                  <span className="feed-date">{dateLabel}</span>
+                  <div className="feed-card-actions" data-feed-menu-root="true">
+                    <span className="feed-date">{dateLabel}</span>
+                    <button
+                      type="button"
+                      className="feed-card-menu-btn"
+                      aria-label="More actions"
+                      aria-haspopup="menu"
+                      aria-expanded={isMenuOpen}
+                      onClick={(event) => toggleFeedMenu(event, dream.id)}
+                    >
+                      <FontAwesomeIcon icon={faEllipsisVertical} />
+                    </button>
+                    {isMenuOpen && (
+                      <div className="feed-card-menu" role="menu" aria-label="Dream actions">
+                        <button type="button" className="feed-card-menu-item" role="menuitem" onClick={(event) => { closeFeedMenu(); handleHideDream(event, dream.id); }}>Hide</button>
+                        {!isOwnerDream && (
+                          <button type="button" className="feed-card-menu-item" role="menuitem" onClick={(event) => { closeFeedMenu(); handleHideDream(event, dream.id); }}>Remove from feed</button>
+                        )}
+                        {!isAnonymous && !isOwnerDream && dream.userId && (
+                          <button type="button" className="feed-card-menu-item" role="menuitem" onClick={(event) => { closeFeedMenu(); handleBlockAuthor(event, dream.userId); }}>Block user</button>
+                        )}
+                        <button type="button" className="feed-card-menu-item feed-card-menu-item-danger" role="menuitem" onClick={(event) => { closeFeedMenu(); handleReportDream(event, dream); }}>Report</button>
+                        {isOwnerDream && (
+                          <button type="button" className="feed-card-menu-item feed-card-menu-item-danger" role="menuitem" onClick={(event) => { closeFeedMenu(); handleRemoveOwnDream(event, dream); }}>Remove post</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {(dream.title || (dream.aiGenerated && dream.aiTitle)) ? <h3 className="feed-title">{dream.title || dream.aiTitle}</h3> : null}
                 <p className="feed-content">{snippet}</p>
@@ -551,19 +607,6 @@ export default function Feed({ user }) {
                 {dream.tags && dream.tags.length > 0 && (
                   <div className="feed-tags">{dream.tags.map((tag, index) => <span key={index} className="tag">{tag.value}</span>)}</div>
                 )}
-                <div className="feed-safety-actions">
-                  <button type="button" className="feed-safety-btn" onClick={(event) => handleHideDream(event, dream.id)}>Hide</button>
-                  {!isOwnerDream && (
-                    <button type="button" className="feed-safety-btn" onClick={(event) => { event.preventDefault(); event.stopPropagation(); handleHideDream(event, dream.id); }}>Remove from feed</button>
-                  )}
-                  {!isAnonymous && !isOwnerDream && dream.userId && (
-                    <button type="button" className="feed-safety-btn" onClick={(event) => handleBlockAuthor(event, dream.userId)}>Block user</button>
-                  )}
-                  <button type="button" className="feed-safety-btn" onClick={(event) => handleReportDream(event, dream)}>Report</button>
-                  {isOwnerDream && (
-                    <button type="button" className="feed-safety-btn danger" onClick={(event) => handleRemoveOwnDream(event, dream)}>Remove post</button>
-                  )}
-                </div>
                 <div className="activity-reactions feed-reactions">
                   <div className="reaction-buttons">
                     <button type="button" className={`reaction-button${reactionSnapshot.viewerReaction === defaultReaction ? ' active' : ''}`} onClick={(e) => { if (consumeSuppressedClick(e)) return; handleReactionClick(e, dream, defaultReaction); }} aria-label="React with a heart">

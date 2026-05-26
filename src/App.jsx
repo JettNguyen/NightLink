@@ -19,6 +19,7 @@ import { triggerMediumHaptic } from './utils/haptics';
 import { initIosTapFix } from './utils/iosTapFix';
 import { appUserPropType } from './propTypes';
 import TermsGate, { isTermsAccepted, markTermsAccepted, TERMS_VERSION } from './components/TermsGate';
+import { SubscriptionContext } from './contexts/SubscriptionContext';
 import {
   IS_RC_SUPPORTED,
   configurePurchases,
@@ -30,6 +31,8 @@ import {
 
 // Lazy load less critical pages
 const Profile = lazy(() => import('./pages/Profile'));
+const Connections = lazy(() => import('./pages/Connections'));
+const EditProfile = lazy(() => import('./pages/EditProfile'));
 const Search = lazy(() => import('./pages/Search'));
 const Activity = lazy(() => import('./pages/Activity'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -134,6 +137,8 @@ function AppContent({ user, loading, ready }) {
       const target = event.target;
       if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"]')) return;
       if (isInsideScrollable(target)) return;
+      // Don't activate pull-to-refresh when a bottom-sheet / modal overlay is open.
+      if (document.querySelector('.report-modal-backdrop')) return;
       if (window.scrollY > 0) return;
       if (!event.touches || event.touches.length !== 1) return;
       pullStartYRef.current = event.touches[0].clientY;
@@ -144,6 +149,11 @@ function AppContent({ user, loading, ready }) {
 
     const onTouchMove = (event) => {
       if (!pullActiveRef.current) return;
+      if (document.querySelector('.report-modal-backdrop')) {
+        pullActiveRef.current = false;
+        setDistanceSafely(0);
+        return;
+      }
       if (window.scrollY > 0) return;
       const currentY = event.touches?.[0]?.clientY ?? pullStartYRef.current;
       const rawDelta = currentY - pullStartYRef.current;
@@ -326,6 +336,27 @@ function AppContent({ user, loading, ready }) {
               </Suspense>
             </ProtectedRoute>
           } />
+          <Route path="/profile/edit" element={
+            <ProtectedRoute user={user}>
+              <Suspense fallback={<LazyRouteLoader />}>
+                <EditProfile user={user} />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/profile/connections" element={
+            <ProtectedRoute user={user}>
+              <Suspense fallback={<LazyRouteLoader />}>
+                <Connections user={user} />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/profile/:handle/connections" element={
+            <ProtectedRoute user={user}>
+              <Suspense fallback={<LazyRouteLoader />}>
+                <Connections user={user} />
+              </Suspense>
+            </ProtectedRoute>
+          } />
           <Route path="/profile/:handle" element={
             <ProtectedRoute user={user}>
               <Suspense fallback={<LazyRouteLoader />}>
@@ -426,11 +457,12 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
+  const [rcCustomerInfo, setRcCustomerInfo] = useState(null);
   const rcListenerIdRef = useRef(null);
 
   // Initialize RevenueCat once the user is known (iOS native only).
-  // The listener keeps Supabase in sync with any background subscription
-  // changes (renewals, cancellations, grace periods, etc.).
+  // Stores live CustomerInfo in state so any page can read the current tier
+  // without an extra Supabase round-trip (avoids stale-tier false negatives).
   useEffect(() => {
     if (!IS_RC_SUPPORTED || !user?.uid) return;
 
@@ -441,10 +473,12 @@ function App() {
         await configurePurchases(user.uid);
         const customerInfo = await getCustomerInfo();
         if (!cancelled) {
+          setRcCustomerInfo(customerInfo);
           syncCustomerInfoToSupabase(user.uid, customerInfo).catch(console.error);
         }
         const callbackId = await addCustomerInfoUpdateListener((info) => {
           if (!cancelled) {
+            setRcCustomerInfo(info);
             syncCustomerInfoToSupabase(user.uid, info).catch(console.error);
           }
         });
@@ -498,11 +532,13 @@ function App() {
   }, [ready]);
 
   return (
-    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <ErrorBoundary>
-        <AppContent user={user} loading={loading} ready={ready} />
-      </ErrorBoundary>
-    </Router>
+    <SubscriptionContext.Provider value={{ rcCustomerInfo, setRcCustomerInfo }}>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <ErrorBoundary>
+          <AppContent user={user} loading={loading} ready={ready} />
+        </ErrorBoundary>
+      </Router>
+    </SubscriptionContext.Provider>
   );
 }
 

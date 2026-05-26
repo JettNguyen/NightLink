@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { faBook, faCompass, faSearch, faUser, faBell, faChevronLeft, faGear } from '@fortawesome/free-solid-svg-icons';
+import { faBook, faCompass, faSearch, faUser, faBell, faChevronLeft, faGear, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
@@ -33,6 +33,7 @@ function Navigation({ user, activityPreview }) {
 
   // Show settings gear in header right slot when on own profile tab
   const showHeaderSettings = isNativeIOS && location.pathname === '/profile';
+  const showHeaderProfileMenu = isNativeIOS && /^\/profile\/[^/]+$/.test(location.pathname);
 
   const handleBack = useCallback(() => {
     void triggerLightHaptic();
@@ -43,6 +44,14 @@ function Navigation({ user, activityPreview }) {
     void triggerLightHaptic();
     navigate('/settings');
   }, [navigate]);
+
+  const handleOpenProfileMenu = useCallback(() => {
+    void triggerLightHaptic();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('nightlink:open-profile-menu'));
+    }
+  }, []);
+
   const viewerId = user?.uid || '';
   const inbox = activityPreview?.inboxEntries ?? [];
   const unreadCount = activityPreview?.unreadActivityCount ?? inbox.filter((e) => !e?.read).length;
@@ -244,6 +253,11 @@ function Navigation({ user, activityPreview }) {
             {showHeaderSettings && (
               <button type="button" className="nav-ios-back-btn" onClick={handleGoSettings} aria-label="Settings">
                 <FontAwesomeIcon icon={faGear} />
+              </button>
+            )}
+            {showHeaderProfileMenu && (
+              <button type="button" className="nav-ios-back-btn" onClick={handleOpenProfileMenu} aria-label="Profile actions">
+                <FontAwesomeIcon icon={faEllipsisVertical} />
               </button>
             )}
           </div>

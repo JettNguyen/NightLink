@@ -11,7 +11,7 @@ import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGRO
 import LoadingIndicator from '../components/LoadingIndicator';
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
-import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
+import { triggerLightHaptic } from '../utils/haptics';
 import { logActivityEvent } from '../services/ActivityService';
 import Toast from '../components/Toast';
 import './Profile.css';
@@ -42,34 +42,34 @@ export default function Profile({ user }) {
   const [userData, setUserData] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileNotFound, setProfileNotFound] = useState(false);
-  const [displayName, setDisplayName] = useState('');
-  const [username, setUsername] = useState('');
-  const [bio, setBio] = useState('');
-  const [loading, setLoading] = useState(false);
   const [dreams, setDreams] = useState([]);
   const [dreamsLoading, setDreamsLoading] = useState(true);
   const [taggedDreams, setTaggedDreams] = useState([]);
   const [taggedDreamsLoading, setTaggedDreamsLoading] = useState(true);
   const [dreamTab, setDreamTab] = useState('authored');
-  const [isEditing, setIsEditing] = useState(false);
-  const [avatarIcon, setAvatarIcon] = useState(AVATAR_ICONS[0].id);
-  const [avatarBackground, setAvatarBackground] = useState(AVATAR_BACKGROUNDS[0]);
-  const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0]);
   const [viewerData, setViewerData] = useState(null);
   const [followAction, setFollowAction] = useState({ type: null });
-  const [connectionListType, setConnectionListType] = useState(null);
-  const [connectionProfiles, setConnectionProfiles] = useState([]);
-  const [connectionLoading, setConnectionLoading] = useState(false);
   const [toast, setToast] = useState('');
   const [reportModal, setReportModal] = useState(false);
   const [reportReason, setReportReason] = useState('');
   const [reportBusy, setReportBusy] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const viewerId = user?.uid || null;
-  const editingRef = useRef(false);
   const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
 
-  useEffect(() => { editingRef.current = isEditing; }, [isEditing]);
+
+  useEffect(() => {
+    if (!isNativeIOS) return undefined;
+    const handleOpenProfileMenu = () => {
+      if (!viewingOwnProfile && targetUserId) {
+        setProfileMenuOpen(true);
+      }
+    };
+
+    window.addEventListener('nightlink:open-profile-menu', handleOpenProfileMenu);
+    return () => window.removeEventListener('nightlink:open-profile-menu', handleOpenProfileMenu);
+  }, [isNativeIOS, targetUserId, viewingOwnProfile]);
 
   // Resolve handle → targetUserId
   useEffect(() => {
@@ -126,26 +126,13 @@ export default function Profile({ user }) {
     setDreamsLoading(true);
     setTaggedDreams([]);
     setTaggedDreamsLoading(true);
-    setConnectionProfiles([]);
-    setConnectionListType(null);
-    setIsEditing(false);
     setDreamTab('authored');
+    setProfileMenuOpen(false);
 
     supabase.from('profiles').select('*').eq('id', targetUserId).single()
       .then(({ data }) => {
         if (!data) { setProfileNotFound(true); setProfileLoading(false); return; }
-        const p = mapProfile(data);
-        setUserData(p);
-        if (!editingRef.current) {
-          setDisplayName(p.displayName || '');
-          setUsername(p.username || '');
-          setBio(p.settings?.bio || '');
-          if (targetUserId === viewerId) {
-            setAvatarIcon(p.avatarIcon || AVATAR_ICONS[0].id);
-            setAvatarBackground(p.avatarBackground || AVATAR_BACKGROUNDS[0]);
-            setAvatarColor(p.avatarColor || AVATAR_COLORS[0]);
-          }
-        }
+        setUserData(mapProfile(data));
         setProfileLoading(false);
       });
   }, [targetUserId, viewerId]);
@@ -179,45 +166,6 @@ export default function Profile({ user }) {
         setTaggedDreamsLoading(false);
       });
   }, [targetUserId]);
-
-  // Load connections (followers/following list)
-  useEffect(() => {
-    if (!connectionListType || !userData) { setConnectionProfiles([]); setConnectionLoading(false); return; }
-    const ids = connectionListType === 'followers' ? (userData.followerIds || []) : (userData.followingIds || []);
-    if (!ids.length) { setConnectionProfiles([]); setConnectionLoading(false); return; }
-    setConnectionLoading(true);
-    supabase.from('profiles').select('id, display_name, username, avatar_icon, avatar_background, avatar_color').in('id', ids)
-      .then(({ data }) => {
-        setConnectionProfiles((data || []).map(mapProfile));
-        setConnectionLoading(false);
-      });
-  }, [connectionListType, userData?.followerIds, userData?.followingIds]);
-
-  const handleSaveProfile = async (e) => {
-    e.preventDefault();
-    if (!viewingOwnProfile || !user?.uid) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('profiles').update({
-        display_name:     displayName.trim(),
-        username:         username.trim() || userData.username,
-        normalized_username: (username.trim() || userData.username).toLowerCase(),
-        avatar_icon:      avatarIcon,
-        avatar_background: avatarBackground,
-        avatar_color:     avatarColor,
-        settings:         { ...(userData.settings || {}), bio: bio.trim() || null },
-      }).eq('id', user.uid);
-      if (error) throw error;
-      setIsEditing(false);
-      // Refresh local state
-      const { data } = await supabase.from('profiles').select('*').eq('id', user.uid).single();
-      if (data) setUserData(mapProfile(data));
-      void triggerMediumHaptic();
-    } catch {
-      setToast('Failed to update profile.');
-    }
-    setLoading(false);
-  };
 
   const handleFollow = async () => {
     if (!user?.uid || !targetUserId || viewingOwnProfile || followAction.type) return;
@@ -253,7 +201,7 @@ export default function Profile({ user }) {
     finally { setFollowAction({ type: null }); }
   }
 
-  const handleBlockUser = async () => {
+  const handleBlockUser = useCallback(async () => {
     if (!viewerId || !targetUserId || viewingOwnProfile || followAction.type) return;
     setFollowAction({ type: 'block' });
     try {
@@ -279,9 +227,9 @@ export default function Profile({ user }) {
     } finally {
       setFollowAction({ type: null });
     }
-  };
+  }, [followAction.type, targetUserId, viewerData, viewerId, viewingOwnProfile]);
 
-  const handleUnblockUser = async () => {
+  const handleUnblockUser = useCallback(async () => {
     if (!viewerId || !targetUserId || viewingOwnProfile || followAction.type) return;
     setFollowAction({ type: 'unblock' });
     try {
@@ -300,13 +248,14 @@ export default function Profile({ user }) {
     } finally {
       setFollowAction({ type: null });
     }
-  };
+  }, [followAction.type, targetUserId, viewerData, viewerId, viewingOwnProfile]);
 
-  const handleReportUser = () => {
+  const handleReportUser = useCallback(() => {
     if (!viewerId || !targetUserId || viewingOwnProfile) return;
     setReportReason('');
     setReportModal(true);
-  };
+  }, [targetUserId, viewerId, viewingOwnProfile]);
+
 
   const handleSubmitReport = async () => {
     if (!reportReason.trim()) return;
@@ -352,10 +301,15 @@ export default function Profile({ user }) {
 
   const handleProfileNavigation = useCallback((profile) => {
     if (!profile) return;
-    if (typeof profile === 'string') { navigate(buildProfilePath(null, profile)); setConnectionListType(null); return; }
+    if (typeof profile === 'string') { navigate(buildProfilePath(null, profile)); return; }
     navigate(buildProfilePath(profile.username, profile.id));
-    setConnectionListType(null);
   }, [navigate]);
+
+  const handleOpenConnections = useCallback((tab) => {
+    const nextTab = tab === 'following' ? 'following' : 'followers';
+    const basePath = routeHandle ? `/profile/${routeHandle}/connections` : '/profile/connections';
+    navigate(`${basePath}?tab=${nextTab}`);
+  }, [navigate, routeHandle]);
 
   const viewerFollowingIds  = viewerData?.followingIds || [];
   const viewerBlockedIds = Array.isArray(viewerData?.settings?.blockedUserIds) ? viewerData.settings.blockedUserIds : [];
@@ -365,11 +319,10 @@ export default function Profile({ user }) {
   const isBlockedTarget = !viewingOwnProfile && viewerBlockedIds.includes(targetUserId);
   const followsYou          = !viewingOwnProfile && targetFollowingIds.includes(user?.uid);
   const viewerFollowedByTarget = useMemo(() => !viewingOwnProfile && !!viewerId && targetFollowingIds.includes(viewerId), [viewerId, viewingOwnProfile, targetFollowingIds]);
-  const connectionHeadingName = userData?.displayName || 'this dreamer';
   const activeProfileUsername = viewingOwnProfile ? (userData?.username || viewerData?.username || '') : (userData?.username || '');
-  const displayAvatarIconId  = viewingOwnProfile ? (avatarIcon || AVATAR_ICONS[0].id)       : (userData?.avatarIcon || AVATAR_ICONS[0].id);
-  const displayAvatarBackground = viewingOwnProfile ? (avatarBackground || AVATAR_BACKGROUNDS[0]) : (userData?.avatarBackground || AVATAR_BACKGROUNDS[0]);
-  const displayAvatarColor   = viewingOwnProfile ? (avatarColor || AVATAR_COLORS[0])         : (userData?.avatarColor || AVATAR_COLORS[0]);
+  const displayAvatarIconId  = userData?.avatarIcon || AVATAR_ICONS[0].id;
+  const displayAvatarBackground = userData?.avatarBackground || AVATAR_BACKGROUNDS[0];
+  const displayAvatarColor   = userData?.avatarColor || AVATAR_COLORS[0];
   const selectedIcon = useMemo(() => getAvatarIconById(displayAvatarIconId), [displayAvatarIconId]);
   const isFollowActionBusy = Boolean(followAction.type);
 
@@ -497,47 +450,14 @@ export default function Profile({ user }) {
           </div>
         </div>
 
-        {viewingOwnProfile && isEditing ? (
-          <form onSubmit={handleSaveProfile} className="profile-edit-form">
-            <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display Name" required className="profile-input" />
-            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" className="profile-input" />
-            <textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Bio" rows={4} className="profile-textarea" />
-            <div className="avatar-customizer">
-              <p className="customizer-label">Avatar icon</p>
-              <div className="avatar-option-grid">
-                {AVATAR_ICONS.map((option) => (
-                  <button key={option.id} type="button" className={`avatar-option ${avatarIcon === option.id ? 'selected' : ''}`} onClick={() => setAvatarIcon(option.id)}>
-                    <FontAwesomeIcon icon={option.icon} /><span>{option.label}</span>
-                  </button>
-                ))}
-              </div>
-              <p className="customizer-label">Background</p>
-              <div className="color-swatch-grid">
-                {AVATAR_BACKGROUNDS.map((color) => (
-                  <button key={color} type="button" className={`color-swatch ${avatarBackground === color ? 'selected' : ''}`} style={{ background: color }} onClick={() => setAvatarBackground(color)} aria-label={`Select background ${color}`} />
-                ))}
-              </div>
-              <p className="customizer-label">Icon color</p>
-              <div className="color-swatch-grid">
-                {AVATAR_COLORS.map((color) => (
-                  <button key={color} type="button" className={`color-swatch ${avatarColor === color ? 'selected' : ''}`} style={{ background: color }} onClick={() => setAvatarColor(color)} aria-label={`Select icon color ${color}`} />
-                ))}
-              </div>
-            </div>
-            <div className="profile-actions">
-              <button type="button" onClick={() => { setDisplayName(userData.displayName || ''); setUsername(userData.username || ''); setBio(userData.settings?.bio || ''); setAvatarIcon(userData.avatarIcon || AVATAR_ICONS[0].id); setAvatarBackground(userData.avatarBackground || AVATAR_BACKGROUNDS[0]); setAvatarColor(userData.avatarColor || AVATAR_COLORS[0]); setIsEditing(false); }} className="secondary-btn">Cancel</button>
-              <button type="submit" disabled={loading} className="primary-btn">{loading ? 'Saving...' : 'Save'}</button>
-            </div>
-          </form>
-        ) : (
-          <div className="profile-info">
+        <div className="profile-info">
             <h1>{userData.displayName || 'Dreamer'}</h1>
             {userData.username && <p className="profile-username">@{userData.username}</p>}
             {userData.settings?.bio && <p className="profile-bio">{userData.settings.bio}</p>}
             {viewingOwnProfile && userData.email && !userData.isAnonymous && <p className="profile-email">{userData.email}</p>}
             {viewingOwnProfile && (
               <div className="profile-btn-row">
-                <button onClick={() => setIsEditing(true)} className="edit-profile-btn"><FontAwesomeIcon icon={faPencil} /><span>Edit Profile</span></button>
+                <button type="button" onClick={() => navigate('/profile/edit')} className="edit-profile-btn"><FontAwesomeIcon icon={faPencil} /><span>Edit Profile</span></button>
                 {!isNativeIOS && (
                   <button type="button" className="settings-btn" onClick={() => navigate('/settings')}><FontAwesomeIcon icon={faGear} /><span>Settings</span></button>
                 )}
@@ -545,61 +465,36 @@ export default function Profile({ user }) {
             )}
             {!viewingOwnProfile && (
               <div className="follow-actions">
-                <button type="button" className={isFollowingTarget ? 'ghost-btn' : 'primary-btn'} onClick={isFollowingTarget ? handleUnfollow : handleFollow} disabled={isFollowActionBusy || isBlockedTarget}>
-                  {isFollowActionBusy ? 'Working…' : isFollowingTarget ? 'Following' : 'Follow'}
-                </button>
-                <button type="button" className="ghost-btn" onClick={isBlockedTarget ? handleUnblockUser : handleBlockUser} disabled={isFollowActionBusy}>
-                  {isFollowActionBusy ? 'Working…' : isBlockedTarget ? 'Unblock' : 'Block'}
-                </button>
-                <button type="button" className="ghost-btn" onClick={handleReportUser} disabled={isFollowActionBusy}>
-                  {isFollowActionBusy ? 'Working…' : 'Report'}
-                </button>
-                {followsYou && <span className="follow-note">Follows you</span>}
-                {isBlockedTarget && <span className="follow-note">Blocked</span>}
+                <div className="follow-actions-row follow-actions-row-primary">
+                  <button type="button" className={`follow-action-btn ${isFollowingTarget ? 'follow-action-btn-following' : 'follow-action-btn-follow'}`} onClick={isFollowingTarget ? handleUnfollow : handleFollow} disabled={isFollowActionBusy || isBlockedTarget}>
+                    {isFollowActionBusy ? 'Working…' : isFollowingTarget ? 'Following' : 'Follow'}
+                  </button>
+                  {followsYou && <span className="follow-note follow-note-compact">Follows you</span>}
+                </div>
+                {!isNativeIOS && (
+                  <div className="follow-actions-row follow-actions-row-secondary">
+                    <button type="button" className="moderation-action-btn" onClick={isBlockedTarget ? handleUnblockUser : handleBlockUser} disabled={isFollowActionBusy}>
+                      {isFollowActionBusy ? 'Working…' : isBlockedTarget ? 'Unblock' : 'Block'}
+                    </button>
+                    <button type="button" className="moderation-action-btn moderation-action-btn-danger" onClick={handleReportUser} disabled={isFollowActionBusy}>
+                      {isFollowActionBusy ? 'Working…' : 'Report'}
+                    </button>
+                    {isBlockedTarget && <span className="follow-note follow-note-compact">Blocked</span>}
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
       </div>
 
       <div className="profile-stats">
-        <button type="button" className="stat-item stat-button" onClick={() => setConnectionListType((prev) => prev === 'followers' ? null : 'followers')} aria-expanded={connectionListType === 'followers'}>
+        <button type="button" className="stat-item stat-button" onClick={() => handleOpenConnections('followers')}>
           <div className="stat-value">{targetFollowerIds.length}</div><div className="stat-label">Followers</div>
         </button>
-        <button type="button" className="stat-item stat-button" onClick={() => setConnectionListType((prev) => prev === 'following' ? null : 'following')} aria-expanded={connectionListType === 'following'}>
+        <button type="button" className="stat-item stat-button" onClick={() => handleOpenConnections('following')}>
           <div className="stat-value">{targetFollowingIds.length}</div><div className="stat-label">Following</div>
         </button>
       </div>
-
-      {connectionListType && (
-        <div className="connection-panel">
-          <div className="connection-panel-head">
-            <div>
-              <h2>{connectionListType === 'followers' ? (viewingOwnProfile ? 'Your followers' : `Followers of ${connectionHeadingName}`) : (viewingOwnProfile ? 'People you follow' : `People ${connectionHeadingName} follows`)}</h2>
-            </div>
-            <button type="button" className="close-button" onClick={() => setConnectionListType(null)}>Close</button>
-          </div>
-          {connectionLoading ? (
-            <div className="connection-panel-placeholder loading-slot"><LoadingIndicator label="Fetching dreamers…" size="sm" /></div>
-          ) : connectionProfiles.length === 0 ? (
-            <p className="connection-panel-placeholder">{connectionListType === 'followers' ? (viewingOwnProfile ? 'No followers yet.' : 'No followers to show yet.') : (viewingOwnProfile ? 'You are not following anyone yet.' : 'No following info to show yet.')}</p>
-          ) : (
-            <div className="connection-list">
-              {connectionProfiles.map((connection) => (
-                <button type="button" key={connection.id} className="connection-card" onClick={() => handleProfileNavigation(connection)}>
-                  <div className="connection-avatar" style={{ background: connection.avatarBackground || DEFAULT_AVATAR_BACKGROUND }}>
-                    <FontAwesomeIcon icon={getAvatarIconById(connection.avatarIcon)} style={{ color: connection.avatarColor || DEFAULT_AVATAR_COLOR }} />
-                  </div>
-                  <div className="connection-meta">
-                    <div className="connection-name">{connection.displayName || 'Dreamer'}</div>
-                    {connection.username && <div className="connection-username">@{connection.username}</div>}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="profile-dreams">
         <div className="profile-dreams-head">
@@ -646,8 +541,46 @@ export default function Profile({ user }) {
           </div>
         </div>
       )}
+
+      {profileMenuOpen && !viewingOwnProfile && isNativeIOS && (
+        <div className="report-modal-backdrop" onClick={() => setProfileMenuOpen(false)}>
+          <div className="report-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>User actions</h3>
+            <div className="report-modal-actions">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => {
+                  setProfileMenuOpen(false);
+                  if (isBlockedTarget) handleUnblockUser();
+                  else handleBlockUser();
+                }}
+                disabled={isFollowActionBusy}
+              >
+                {isFollowActionBusy ? 'Working…' : isBlockedTarget ? 'Unblock user' : 'Block user'}
+              </button>
+              <button
+                type="button"
+                className="danger-btn"
+                onClick={() => {
+                  setProfileMenuOpen(false);
+                  handleReportUser();
+                }}
+                disabled={isFollowActionBusy}
+              >
+                Report user
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => setProfileMenuOpen(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-Profile.propTypes = { user: appUserPropType };
+Profile.propTypes = {
+  user: appUserPropType
+};

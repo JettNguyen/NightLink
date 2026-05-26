@@ -20,6 +20,8 @@ import ConfirmModal from '../components/ConfirmModal';
 import './DreamDetail.css';
 import { appUserPropType } from '../propTypes';
 import { COMMON_EMOJI_REACTIONS, filterEmojiInput } from '../constants/emojiOptions';
+import { useRcCustomerInfo } from '../contexts/SubscriptionContext';
+import { isProFromCustomerInfo, IS_RC_SUPPORTED } from '../utils/purchases';
 
 const PROMPT_TEMPLATES = {
   balanced: 'You\'re here to break down dreams in a way that actually helps. Pick out 1-2 symbols that stand out and explain what they might mean, then drop a reflection question and one small thing they can actually do about it. Keep it real and useful—3-6 sentences max. Be warm but don\'t overcomplicate it.',
@@ -159,6 +161,7 @@ const canAccess = (dream, uid, author) => {
 };
 
 export default function DreamDetail({ user }) {
+  const { rcCustomerInfo } = useRcCustomerInfo();
   const { dreamId } = useParams();
   const navigate = useNavigate();
   const [dream, setDream] = useState(null);
@@ -631,7 +634,11 @@ export default function DreamDetail({ user }) {
         setViewerProfile(data);
         setUserSettings(data?.settings || null);
         if (data) {
-          const tier = data?.subscription?.tier || 'free';
+          const supabaseTier = data?.subscription?.tier || 'free';
+          // RC is authoritative on iOS — prefer live RC state over potentially
+          // stale Supabase data so users are never falsely shown as 'free'.
+          const rcIsPro = IS_RC_SUPPORTED && isProFromCustomerInfo(rcCustomerInfo);
+          const tier = supabaseTier === 'premium' || rcIsPro ? 'premium' : 'free';
           const usage = data?.aiUsage || {};
           const thisMonth = new Date().toISOString().slice(0, 7);
           const monthlyCount = (usage.monthYear || '') === thisMonth ? (usage.monthlyCount || 0) : 0;
@@ -655,6 +662,20 @@ export default function DreamDetail({ user }) {
       cancelled = true;
     };
   }, [viewerId]);
+
+  // When RC CustomerInfo arrives (async, after profile load), upgrade the tier
+  // in aiQuota if RC says the user is Pro but Supabase was still stale.
+  useEffect(() => {
+    if (!IS_RC_SUPPORTED || !rcCustomerInfo) return;
+    const rcIsPro = isProFromCustomerInfo(rcCustomerInfo);
+    if (!rcIsPro) return;
+    setAiQuota((prev) => {
+      if (!prev || prev.tier === 'premium') return prev;
+      const tierLimit = 30;
+      const used = tierLimit - prev.remainingFree;
+      return { ...prev, tier: 'premium', remainingFree: Math.max(0, tierLimit - used) };
+    });
+  }, [rcCustomerInfo]);
 
   useEffect(() => {
     if (!dreamId) {

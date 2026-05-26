@@ -24,6 +24,7 @@ import {
 } from '../utils/purchases';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
+import { useRcCustomerInfo } from '../contexts/SubscriptionContext';
 import './Settings.css';
 
 const DEFAULT_SETTINGS = {
@@ -179,8 +180,7 @@ export default function Settings({ user }) {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteInput, setDeleteInput] = useState('');
   const [toast, setToast] = useState(null);
-  const [rcCustomerInfo, setRcCustomerInfo] = useState(null);
-  const [rcLoading, setRcLoading] = useState(false);
+  const { rcCustomerInfo, setRcCustomerInfo } = useRcCustomerInfo();
   const savedRef = useRef(JSON.stringify(DEFAULT_SETTINGS));
   const uid = user?.uid || null;
   const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
@@ -406,17 +406,6 @@ export default function Settings({ user }) {
     };
   }, [isNativeIOS, loading]);
 
-  // Load RC customer info when Settings opens on iOS.
-  // App.jsx handles the background listener; this gives the billing section
-  // an up-to-date snapshot as soon as the user navigates here.
-  useEffect(() => {
-    if (!IS_RC_SUPPORTED || !uid) return;
-    setRcLoading(true);
-    getCustomerInfo()
-      .then((info) => setRcCustomerInfo(info))
-      .catch((err) => console.error('RC customer info fetch failed:', err?.message || err))
-      .finally(() => setRcLoading(false));
-  }, [uid]);
 
   const hasChanges = useMemo(() => JSON.stringify(settings) !== savedRef.current, [settings]);
   const update = useCallback((key, value) => setSettings((prev) => ({ ...prev, [key]: value })), []);
@@ -874,7 +863,7 @@ export default function Settings({ user }) {
               <div className="settings-section-body">
                 <div className="notification-support">
                   <span className={`notification-chip${tier === 'premium' ? ' success' : ''}`}>
-                    {rcLoading ? 'Checking plan…' : `Plan: ${tier === 'premium' ? 'Pro' : 'Free'}`}
+                    {IS_RC_SUPPORTED && !rcCustomerInfo ? 'Checking plan…' : `Plan: ${tier === 'premium' ? 'Pro' : 'Free'}`}
                   </span>
                   {tier === 'premium' ? (
                     <span className="notification-chip success">Analyses left: {proRemaining}</span>
@@ -890,7 +879,7 @@ export default function Settings({ user }) {
                       type="button"
                       className="primary-btn"
                       onClick={handlePresentPaywall}
-                      disabled={checkoutBusy || rcLoading}
+                      disabled={checkoutBusy || IS_RC_SUPPORTED && !rcCustomerInfo}
                     >
                       {checkoutBusy ? 'Opening…' : 'Upgrade to Pro'}
                     </button>
@@ -908,7 +897,7 @@ export default function Settings({ user }) {
                     type="button"
                     className="ghost-btn"
                     onClick={handleBuyCredits}
-                    disabled={checkoutBusy || rcLoading}
+                    disabled={checkoutBusy || IS_RC_SUPPORTED && !rcCustomerInfo}
                   >
                     {checkoutBusy ? 'Opening…' : 'Buy 10 AI Credits'}
                   </button>

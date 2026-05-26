@@ -1,0 +1,117 @@
+.connections-header {
+  margin-bottom: 0.9rem;
+  animation: fadeIn 0.35s ease;
+}
+
+.connections-header h1 {
+  margin-bottom: 0.35rem;
+}
+
+.connections-tab-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.connections-tab {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-height: 48px;
+  padding: 0.7rem 0.85rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 0.92rem;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.connections-tab:hover {
+  border-color: rgba(90, 200, 250, 0.4);
+  color: var(--text);
+}
+
+.connections-tab.active {
+  background: rgba(90, 200, 250, 0.15);
+  border-color: rgba(90, 200, 250, 0.55);
+  color: var(--text);
+  box-shadow: var(--shadow-light);
+}
+
+.connections-list {
+  margin-top: 0.35rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+}
+
+.connections-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.connections-card:hover {
+  box-shadow: var(--shadow-soft);
+  border-color: rgba(90, 200, 250, 0.5);
+  background: rgba(90, 200, 250, 0.06);
+}
+
+.connections-card:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.connections-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+}
+
+.connections-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.connections-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.connections-username {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.connections-empty {
+  color: var(--text-secondary);
+  margin-top: 0.6rem;
+}
+
+.connections-loading {
+  margin-top: 1rem;
+}
+
+@media (max-width: 520px) {
+  .connections-tab-group {
+    gap: 0.5rem;
+  }
+
+  .connections-tab {
+    min-height: 44px;
+    font-size: 0.86rem;
+  }
+}

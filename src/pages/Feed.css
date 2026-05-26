@@ -31,6 +31,7 @@
 }
 
 .feed-card {
+  position: relative;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.03) 100%);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -53,6 +54,77 @@
   align-items: flex-start;
   gap: 0.75rem;
   margin-bottom: 0.65rem;
+}
+
+.feed-card-actions {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-left: auto;
+  align-self: center;
+}
+
+.feed-card-menu-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.feed-card-menu-btn:hover {
+  border-color: rgba(90, 200, 250, 0.38);
+  background: rgba(90, 200, 250, 0.08);
+  color: var(--text);
+}
+
+.feed-card-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 3;
+  min-width: 200px;
+  padding: 0.45rem;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: rgba(10, 14, 22, 0.98);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.feed-card-menu-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  border-radius: 12px;
+  padding: 0.75rem 0.85rem;
+  font-weight: 600;
+  min-height: 44px;
+}
+
+.feed-card-menu-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.feed-card-menu-item-danger {
+  color: #ff9fb1;
+}
+
+.feed-card-menu-item-danger:hover {
+  background: rgba(255, 138, 171, 0.12);
 }
 
 .feed-author-block {
@@ -84,13 +156,6 @@
   gap: 0.15rem;
 }
 
-.feed-author {
-  color: var(--text);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  font-size: 1rem;
-}
-
 .feed-author-handle {
   color: var(--primary);
   font-size: 0.8rem;
@@ -99,19 +164,6 @@
   padding: 0.2rem 0.6rem;
   border-radius: 100px;
   width: fit-content;
-}
-
-.feed-author-link {
-  border: none;
-  background: none;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  padding: 1px 5px;
-}
-
-.feed-author-link:hover {
-  text-decoration: underline;
 }
 
 .feed-author-handle.feed-author-link {
@@ -131,6 +183,7 @@
 .feed-date {
   color: var(--text-secondary);
   font-size: 0.95rem;
+  height: 38px;
 }
 
 .feed-title {
@@ -154,37 +207,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-}
-
-.feed-safety-actions {
-  margin-top: 0.8rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.feed-safety-btn {
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--text-secondary);
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 0.3rem 0.65rem;
-  cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
-}
-
-.feed-safety-btn:hover {
-  border-color: rgba(90, 200, 250, 0.45);
-  color: var(--text);
-  background: rgba(90, 200, 250, 0.08);
-}
-
-.feed-safety-btn.danger:hover {
-  border-color: rgba(239, 68, 68, 0.45);
-  color: #ffdede;
-  background: rgba(239, 68, 68, 0.14);
 }
 
 .feed-reactions {
@@ -218,6 +240,10 @@
 @media (max-width: 640px) {
   .feed-list {
     grid-template-columns: 1fr;
+  }
+
+  .feed-card-menu {
+    min-width: 184px;
   }
 
   .feed-actions {
