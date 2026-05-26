@@ -25,7 +25,17 @@ jobs:
           cache: npm
 
       - name: Install
-        run: npm ci
+        run: npm ci --include=optional
+
+      - name: Ensure Linux native optional deps
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! node -e "require.resolve('@rollup/rollup-linux-x64-gnu'); require.resolve('lightningcss-linux-x64-gnu')"; then
+            echo "Optional native modules missing; installing fallback packages"
+            npm i --no-save @rollup/rollup-linux-x64-gnu lightningcss-linux-x64-gnu
+          fi
 
       - name: Build
         env:
