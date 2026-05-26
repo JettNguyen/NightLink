@@ -28,6 +28,12 @@ export default function EditProfile({ user }) {
   const [avatarIcon, setAvatarIcon] = useState(AVATAR_ICONS[0].id);
   const [avatarBackground, setAvatarBackground] = useState(AVATAR_BACKGROUNDS[0]);
   const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0]);
+  const [accountVisibility, setAccountVisibility] = useState('private');
+  const privateAccountEnabled = accountVisibility === 'private';
+
+  const handleAccountVisibilityToggle = (event) => {
+    setAccountVisibility(event.target.checked ? 'private' : 'public');
+  };
 
   useEffect(() => {
     if (!user?.uid) { navigate('/profile', { replace: true }); return; }
@@ -42,6 +48,7 @@ export default function EditProfile({ user }) {
         setAvatarIcon(p.avatarIcon || AVATAR_ICONS[0].id);
         setAvatarBackground(p.avatarBackground || AVATAR_BACKGROUNDS[0]);
         setAvatarColor(p.avatarColor || AVATAR_COLORS[0]);
+        setAccountVisibility(p.accountVisibility || p.settings?.accountVisibility || 'private');
         setPageLoading(false);
       });
   }, [user?.uid, navigate]);
@@ -58,7 +65,8 @@ export default function EditProfile({ user }) {
         avatar_icon:         avatarIcon,
         avatar_background:   avatarBackground,
         avatar_color:        avatarColor,
-        settings:            { ...(userData.settings || {}), bio: bio.trim() || null },
+        account_visibility:  accountVisibility,
+        settings:            { ...(userData.settings || {}), bio: bio.trim() || null, accountVisibility },
       }).eq('id', user.uid);
       if (error) throw error;
       void triggerMediumHaptic();
@@ -86,7 +94,12 @@ export default function EditProfile({ user }) {
         </button>
       )}
 
-      <h1 style={{ marginBottom: '1.5rem' }}>Edit Profile</h1>
+      <div className="page-header search-header">
+        <div>
+          <h1>Edit Profile</h1>
+          <p className="page-subtitle">Customize your appearance.</p>
+        </div>
+      </div>
 
       <form onSubmit={handleSave} className="profile-edit-form">
         <div className="profile-field">
@@ -112,6 +125,19 @@ export default function EditProfile({ user }) {
             className="profile-input"
           />
         </div>
+        {userData?.email && (
+          <div className="profile-field">
+            <label htmlFor="ep-email" className="profile-field-label">Email</label>
+            <input
+              id="ep-email"
+              type="email"
+              value={userData.email}
+              className="profile-input"
+              readOnly
+              disabled
+            />
+          </div>
+        )}
         <div className="profile-field">
           <label htmlFor="ep-bio" className="profile-field-label">Bio</label>
           <textarea
@@ -122,6 +148,23 @@ export default function EditProfile({ user }) {
             rows={4}
             className="profile-textarea"
           />
+        </div>
+
+        <div className="profile-field">
+          <label htmlFor="ep-private-account" className="profile-field-label">Private account</label>
+          <div className="profile-toggle-row">
+            <label className="profile-toggle-switch" htmlFor="ep-private-account">
+              <input
+                id="ep-private-account"
+                type="checkbox"
+                checked={privateAccountEnabled}
+                onChange={handleAccountVisibilityToggle}
+                aria-label="Private account"
+              />
+              <span className="profile-toggle-track" />
+            </label>
+            <span className="profile-toggle-label">Require follow approval for non-public profile access</span>
+          </div>
         </div>
 
         <div className="avatar-customizer">

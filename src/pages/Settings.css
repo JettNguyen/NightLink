@@ -153,6 +153,24 @@ html[data-native-platform='ios'] .settings-save-bar {
   padding-bottom: 0;
 }
 
+.settings-time-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.45rem 0.65rem;
+  font-size: 0.9rem;
+  min-width: 108px;
+  text-align: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.settings-time-input:focus {
+  outline: none;
+  border-color: rgba(90, 200, 250, 0.45);
+}
+
 .toggle-row:first-child {
   padding-top: 0;
 }

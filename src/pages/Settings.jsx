@@ -32,6 +32,7 @@ const DEFAULT_SETTINGS = {
   aiPromptCustom: '',
   notificationsEnabled: false,
   notifyDreamReminders: true,
+  reminderHour: 9,
   notifyFeedUpdates: true,
   notifyActivityAlerts: true
 };
@@ -1030,6 +1031,21 @@ export default function Settings({ user }) {
                 <div className="toggle-label"><strong>Dream reminders</strong><span>Morning nudges to capture your dream journal while it is fresh.</span></div>
                 <Toggle id="notifyDreamReminders" checked={settings.notifyDreamReminders} onChange={() => toggle('notifyDreamReminders')} disabled={!settings.notificationsEnabled} />
               </div>
+              {settings.notificationsEnabled && settings.notifyDreamReminders && (
+                <div className="toggle-row">
+                  <div className="toggle-label"><strong>Reminder time</strong><span>When should we nudge you to log your dream?</span></div>
+                  <input
+                    type="time"
+                    className="settings-time-input"
+                    value={`${String(settings.reminderHour ?? 9).padStart(2, '0')}:00`}
+                    step={3600}
+                    onChange={(e) => {
+                      const hour = parseInt(e.target.value?.split(':')?.[0] ?? '9', 10);
+                      if (!Number.isNaN(hour)) update('reminderHour', hour);
+                    }}
+                  />
+                </div>
+              )}
               <div className="toggle-row">
                 <div className="toggle-label"><strong>New feed drops</strong><span>Alerts when people you follow share new dreams or journal entries.</span></div>
                 <Toggle id="notifyFeedUpdates" checked={settings.notifyFeedUpdates} onChange={() => toggle('notifyFeedUpdates')} disabled={!settings.notificationsEnabled} />

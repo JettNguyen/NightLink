@@ -66,6 +66,11 @@
   gap: 0.9rem;
 }
 
+.activity-swipe-outer {
+  overflow: hidden;
+  border-radius: 0.9rem;
+}
+
 .activity-card {
   display: flex;
   border: 1px solid var(--border);

@@ -11,7 +11,6 @@ import { sendApns } from '../_shared/apns.ts';
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY')!;
-const REMINDER_HOUR    = 9; // 9:00 AM local time
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
@@ -65,7 +64,10 @@ Deno.serve(async (req) => {
       continue; // Invalid timezone string — skip.
     }
 
-    if (localHour !== REMINDER_HOUR) continue;
+    const reminderHour = typeof settings.reminderHour === 'number'
+      ? Math.max(0, Math.min(23, settings.reminderHour))
+      : 9;
+    if (localHour !== reminderHour) continue;
 
     const results = await Promise.all(
       tokens.map(t =>

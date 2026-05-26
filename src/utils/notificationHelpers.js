@@ -251,7 +251,7 @@ export function getNotificationPermission() {
   return Notification.permission;
 }
 
-export async function syncDailyDreamReminder(enabled) {
+export async function syncDailyDreamReminder(enabled, hour = 9) {
   if (!isNative()) return;
 
   await LocalNotifications.cancel({ notifications: [{ id: DREAM_REMINDER_ID }] });
@@ -263,13 +263,14 @@ export async function syncDailyDreamReminder(enabled) {
     if (requested.display !== 'granted') return;
   }
 
+  const safeHour = Math.max(0, Math.min(23, Math.round(hour)));
   await LocalNotifications.schedule({
     notifications: [{
       id: DREAM_REMINDER_ID,
       title: 'Did you have a dream?',
       body: 'Log it in Nightlink before it fades.',
       schedule: {
-        on: { hour: 9, minute: 0 },
+        on: { hour: safeHour, minute: 0 },
         repeats: true,
       },
       extra: { type: 'dream-reminder' },

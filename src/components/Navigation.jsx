@@ -33,7 +33,23 @@ function Navigation({ user, activityPreview }) {
 
   // Show settings gear in header right slot when on own profile tab
   const showHeaderSettings = isNativeIOS && location.pathname === '/profile';
-  const showHeaderProfileMenu = isNativeIOS && /^\/profile\/[^/]+$/.test(location.pathname);
+  const showHeaderProfileMenu = useMemo(() => {
+    if (!isNativeIOS) return false;
+
+    const parts = location.pathname.split('/').filter(Boolean);
+    if (parts.length !== 2 || parts[0] !== 'profile') return false;
+
+    const handle = (parts[1] || '').toLowerCase();
+    if (!handle) return false;
+
+    const reserved = new Set(['edit', 'connections', 'settings']);
+    if (reserved.has(handle)) return false;
+
+    const ownUid = (user?.uid || '').toLowerCase();
+    if (ownUid && handle === ownUid) return false;
+
+    return true;
+  }, [location.pathname, user?.uid]);
 
   const handleBack = useCallback(() => {
     void triggerLightHaptic();
@@ -268,7 +284,6 @@ function Navigation({ user, activityPreview }) {
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faBook} className="nav-icon" />
             </span>
-            <span className="nav-tab-label">Journal</span>
           </Link>
           <Link to="/feed" aria-label="Feed" className={`nav-ios-tab${isActive('/feed') ? ' active' : ''}`} onClick={handleNavTap('/feed', markFeedSeen)}>
             <span className="nav-icon-wrapper">
@@ -279,13 +294,11 @@ function Navigation({ user, activityPreview }) {
                 </span>
               )}
             </span>
-            <span className="nav-tab-label">Feed</span>
           </Link>
           <Link to="/search" aria-label="Search" className={`nav-ios-tab${isActive('/search') ? ' active' : ''}`} onClick={handleNavTap('/search')}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faSearch} className="nav-icon" />
             </span>
-            <span className="nav-tab-label">Search</span>
           </Link>
           <Link to="/activity" aria-label="Activity" className={`nav-ios-tab${isActive('/activity') ? ' active' : ''}`} onClick={handleNavTap('/activity')}>
             <span className="nav-icon-wrapper">
@@ -296,13 +309,11 @@ function Navigation({ user, activityPreview }) {
                 </span>
               )}
             </span>
-            <span className="nav-tab-label">Activity</span>
           </Link>
           <Link to="/profile" aria-label="Profile" className={`nav-ios-tab${isActive('/profile') ? ' active' : ''}`} onClick={handleNavTap('/profile')}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faUser} className="nav-icon" />
             </span>
-            <span className="nav-tab-label">Profile</span>
           </Link>
         </nav>
       </>

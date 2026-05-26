@@ -9,7 +9,7 @@
 
 .connections-tab-group {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 0.6rem;
   margin-top: 0.8rem;
   margin-bottom: 1rem;
@@ -52,11 +52,34 @@
   padding: 0.75rem;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.75rem;
   background: var(--surface);
   cursor: pointer;
   text-align: left;
   transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.connections-card-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+.connections-card-request {
+  cursor: default;
+  justify-content: space-between;
+}
+
+.connections-card-request:hover {
+  transform: none;
 }
 
 .connections-card:hover {
@@ -84,6 +107,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  min-width: 0;
 }
 
 .connections-name {
@@ -94,6 +118,39 @@
 .connections-username {
   color: var(--text-secondary);
   font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.connections-request-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.request-btn {
+  border-radius: 10px;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border);
+  font-weight: 700;
+  font-size: 0.8rem;
+  min-width: 72px;
+}
+
+.request-btn-accept {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.45);
+  background: rgba(52, 211, 153, 0.08);
+}
+
+.request-btn-decline {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.request-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
 }
 
 .connections-empty {
@@ -113,5 +170,18 @@
   .connections-tab {
     min-height: 44px;
     font-size: 0.86rem;
+  }
+
+  .connections-card-request {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .connections-request-actions {
+    width: 100%;
+  }
+
+  .request-btn {
+    flex: 1;
   }
 }

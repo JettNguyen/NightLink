@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
@@ -15,14 +15,16 @@ import { appUserPropType } from '../propTypes';
 const VISIBILITY_LABELS = {
   private: 'Private',
   public: 'Public',
-  following: 'Followers only',
+  followers: 'Followers only',
+  mutuals: 'Mutuals only',
   anonymous: 'Anonymous'
 };
 
 const VISIBILITY_OPTIONS = [
   { value: 'private',   label: 'Private',              helper: 'Only you can view this entry.' },
   { value: 'public',    label: 'Public',               helper: 'Appears on your profile and Following feed.' },
-  { value: 'following', label: 'People you follow',    helper: 'Only people you follow can view it.' },
+  { value: 'followers', label: 'Followers',            helper: 'Only people following you can view it.' },
+  { value: 'mutuals',   label: 'Mutuals',              helper: 'Only people you follow back can view it.' },
   { value: 'anonymous', label: 'Anonymous',            helper: 'Shared publicly but your name and profile are hidden.' },
 ];
 
@@ -31,7 +33,8 @@ const CONTENT_PREVIEW_LIMIT = 240;
 const CARD_VISIBILITY_LABELS = {
   private:   'Private',
   public:    'Public',
-  following: 'Followers',
+  followers: 'Followers',
+  mutuals:   'Mutuals',
   anonymous: 'Anon',
 };
 
@@ -78,7 +81,10 @@ export default function DreamJournal({ user }) {
   const [taggingStatus, setTaggingStatus] = useState('');
   const [taggingBusy, setTaggingBusy] = useState(false);
   const [viewerProfile, setViewerProfile] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCalendarDateKey, setSelectedCalendarDateKey] = useState(null);
+  const formScrollRef = useRef(null);
+  const [scrollEdge, setScrollEdge] = useState({ top: true, bottom: false });
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -94,6 +100,23 @@ export default function DreamJournal({ user }) {
       return () => { document.body.style.overflow = prev; };
     }
   }, [showNewDream]);
+
+  const checkScrollEdge = useCallback(() => {
+    const el = formScrollRef.current;
+    if (!el) return;
+    const top = el.scrollTop <= 2;
+    const bottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 2;
+    setScrollEdge((prev) => (prev.top === top && prev.bottom === bottom ? prev : { top, bottom }));
+  }, []);
+
+  // Re-check edges whenever the modal opens (content may or may not overflow)
+  useEffect(() => {
+    if (showNewDream) {
+      // Defer one frame so the form has rendered and scrollHeight is accurate
+      const id = requestAnimationFrame(checkScrollEdge);
+      return () => cancelAnimationFrame(id);
+    }
+  }, [showNewDream, checkScrollEdge]);
 
   // Real-time dreams subscription
   useEffect(() => {
@@ -188,6 +211,16 @@ export default function DreamJournal({ user }) {
     if (!text) return '';
     return text.length > limit ? `${text.slice(0, limit)}…` : text;
   };
+
+  const filteredDreams = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return dreams;
+    return dreams.filter((d) => {
+      const inTitle = (d.title || '').toLowerCase().includes(q);
+      const inContent = (d.content || '').toLowerCase().includes(q);
+      return inTitle || inContent;
+    });
+  }, [dreams, searchQuery]);
 
   const normalizeHandle = (value = '') => value.replace(/^@/, '').trim().toLowerCase();
 
@@ -535,12 +568,25 @@ export default function DreamJournal({ user }) {
 
       {listenError && <div className="alert-banner">{listenError}</div>}
 
+      {!initialLoading && dreams.length > 0 && (
+        <div className="journal-search-row">
+          <input
+            type="search"
+            className="journal-search-input"
+            placeholder="Search your dreams…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search dreams"
+          />
+        </div>
+      )}
+
       {initialLoading ? (
         <ListSkeleton count={4} />
-      ) : dreams.length ? (
+      ) : filteredDreams.length ? (
         viewMode === 'list' ? (
           <div className="dreams-list">
-            {dreams.map((dream) => renderDreamCard(dream))}
+            {filteredDreams.map((dream) => renderDreamCard(dream))}
           </div>
         ) : (
           <div className="journal-calendar-shell">
@@ -598,6 +644,8 @@ export default function DreamJournal({ user }) {
             </div>
           </div>
         )
+      ) : dreams.length && searchQuery.trim() ? (
+        <p className="empty-state">No dreams match your search.</p>
       ) : (
         <p className="empty-state">No dreams yet. Log your dreams here!</p>
       )}
@@ -616,7 +664,8 @@ export default function DreamJournal({ user }) {
               <h2 id="new-dream-heading">New Dream</h2>
               <button type="button" className="close-btn" onClick={closeModal} aria-label="Close modal">×</button>
             </div>
-            <form onSubmit={handleSaveDream}>
+            <div className={`modal-form-wrap${scrollEdge.top ? ' at-top' : ''}${scrollEdge.bottom ? ' at-bottom' : ''}`}>
+            <form ref={formScrollRef} onScroll={checkScrollEdge} onSubmit={handleSaveDream}>
               <input
                 type="text"
                 className="dream-title-input"
@@ -786,6 +835,7 @@ export default function DreamJournal({ user }) {
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}

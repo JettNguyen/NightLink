@@ -1,4 +1,5 @@
 // Converts snake_case Supabase rows to the camelCase shape the rest of the app expects.
+import { normalizeDreamVisibility } from './privacy';
 
 export const mapProfile = (row) => {
   if (!row) return null;
@@ -13,6 +14,7 @@ export const mapProfile = (row) => {
     avatarBackground: row.avatar_background || null,
     avatarColor: row.avatar_color || null,
     isAnonymous: row.is_anonymous || false,
+    accountVisibility: row.account_visibility || row.settings?.accountVisibility || 'private',
     settings: row.settings || {},
     subscription: row.subscription || { tier: 'free' },
     aiUsage: row.ai_usage || {},
@@ -36,7 +38,7 @@ export const mapDream = (row) => {
     userId: row.user_id,
     title: row.title || '',
     content: row.content || '',
-    visibility: row.visibility || 'private',
+    visibility: normalizeDreamVisibility(row.visibility || 'private'),
     aiGenerated: row.ai_generated || false,
     aiTitle: row.ai_title || null,
     aiInsights: row.ai_insights || null,

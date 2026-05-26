@@ -159,7 +159,7 @@ export default function Feed({ user }) {
         .from('dreams')
         .select('*')
         .in('user_id', followingIds)
-        .in('visibility', ['public', 'anonymous', 'following', 'followers'])
+        .in('visibility', ['public', 'anonymous', 'followers', 'mutuals'])
         .order('created_at', { ascending: false })
         .limit(60);
       if (cancelled) return;
@@ -191,8 +191,11 @@ export default function Feed({ user }) {
       if (vis === 'public' || vis === 'anonymous') return true;
       if (!viewerId) return false;
       const authorProfile = dream.userId ? followingProfiles[dream.userId] : null;
-      if (vis === 'following') return (authorProfile?.followingIds || []).includes(viewerId);
       if (vis === 'followers') return (authorProfile?.followerIds || []).includes(viewerId);
+      if (vis === 'mutuals') {
+        return (authorProfile?.followerIds || []).includes(viewerId)
+          && (authorProfile?.followingIds || []).includes(viewerId);
+      }
       return false;
     });
     return filtered.sort((a, b) => {
@@ -511,8 +514,8 @@ export default function Feed({ user }) {
     <div className="page-container">
       <div className="page-header feed-header">
         <div>
-          <h1>Following Feed</h1>
-          <p className="page-subtitle">Dreams that are public, anonymous, and from people you follow.</p>
+          <h1>Feed</h1>
+          <p className="page-subtitle">Dreams that are public, anonymous, and from mutuals.</p>
         </div>
         <div className="feed-actions">
           <span className="pill">Following {followingIds.length}</span>
@@ -549,7 +552,13 @@ export default function Feed({ user }) {
             const avatarColor = profile?.avatarColor || DEFAULT_AVATAR_COLOR;
             const dateLabel = dream.createdAt ? formatDreamDate(dream.createdAt) : 'Just now';
             const snippet = dream.content ? (dream.content.length > 240 ? `${dream.content.slice(0, 240)}…` : dream.content) : 'No entry text yet.';
-            const visibilityLabel = dream.visibility === 'anonymous' ? 'Anonymous dream' : dream.visibility === 'following' || dream.visibility === 'followers' ? 'Shared with people they follow' : 'Public dream';
+            const visibilityLabel = dream.visibility === 'anonymous'
+              ? 'Anonymous dream'
+              : dream.visibility === 'followers'
+                ? 'Followers only'
+                : dream.visibility === 'mutuals'
+                  ? 'Mutuals only'
+                  : 'Public dream';
             const showProfileLink = !isAnonymous && Boolean(dream.userId);
             const isOwnerDream = Boolean(viewerId && dream.userId === viewerId);
             const isMenuOpen = feedMenuOpenDreamId === dream.id;
@@ -564,7 +573,7 @@ export default function Feed({ user }) {
               <div key={dream.id} className="feed-card" role="button" tabIndex={0} onClick={openDreamDetail} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDreamDetail(); } }}>
                 <div className="feed-card-head">
                   <div className="feed-author-block">
-                    <div className="feed-avatar" style={{ background: avatarBackground, color: avatarColor }}>
+                    <div className={`feed-avatar${isAnonymous ? ' feed-avatar--anon' : ''}`} style={{ background: avatarBackground, color: avatarColor }}>
                       <FontAwesomeIcon icon={avatarIcon} />
                     </div>
                     <div className="feed-author-meta">

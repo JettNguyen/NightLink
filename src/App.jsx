@@ -138,7 +138,7 @@ function AppContent({ user, loading, ready }) {
       if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"]')) return;
       if (isInsideScrollable(target)) return;
       // Don't activate pull-to-refresh when a bottom-sheet / modal overlay is open.
-      if (document.querySelector('.report-modal-backdrop')) return;
+      if (document.querySelector('.report-modal-backdrop, .modal-overlay')) return;
       if (window.scrollY > 0) return;
       if (!event.touches || event.touches.length !== 1) return;
       pullStartYRef.current = event.touches[0].clientY;
@@ -149,7 +149,7 @@ function AppContent({ user, loading, ready }) {
 
     const onTouchMove = (event) => {
       if (!pullActiveRef.current) return;
-      if (document.querySelector('.report-modal-backdrop')) {
+      if (document.querySelector('.report-modal-backdrop, .modal-overlay')) {
         pullActiveRef.current = false;
         setDistanceSafely(0);
         return;
@@ -203,10 +203,11 @@ function AppContent({ user, loading, ready }) {
   useEffect(() => {
     const settings = activity?.viewerProfile?.settings || {};
     const enabled = Boolean(settings.notificationsEnabled && settings.notifyDreamReminders);
+    const hour = settings.reminderHour ?? 9;
 
     const delay = startupBusyRef.current ? 900 : 0;
     const timer = setTimeout(() => {
-      syncDailyDreamReminder(enabled).catch((error) => {
+      syncDailyDreamReminder(enabled, hour).catch((error) => {
         console.error('Dream reminder sync failed', error);
       });
     }, delay);
@@ -215,6 +216,7 @@ function AppContent({ user, loading, ready }) {
   }, [
     activity?.viewerProfile?.settings?.notificationsEnabled,
     activity?.viewerProfile?.settings?.notifyDreamReminders,
+    activity?.viewerProfile?.settings?.reminderHour,
   ]);
 
   useEffect(() => {
@@ -448,6 +450,8 @@ const ensureProfile = async (session) => {
     username,
     normalized_username: username.toLowerCase(),
     is_anonymous:       false,
+    account_visibility: 'private',
+    settings:           { accountVisibility: 'private' },
     following_ids:      [],
     follower_ids:       [],
   });

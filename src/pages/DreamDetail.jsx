@@ -56,7 +56,8 @@ const FREE_ALLOWED_PROMPT_KEYS = new Set(['balanced', 'coach', 'therapist']);
 const VISIBILITY_OPTIONS = [
   { value: 'private', label: 'Private', helper: 'Only you can see this.' },
   { value: 'public', label: 'Public', helper: 'Visible on your profile and feed.' },
-  { value: 'following', label: 'Followers only', helper: 'People you follow can see it.' }
+  { value: 'followers', label: 'Followers', helper: 'People following you can see it.' },
+  { value: 'mutuals', label: 'Mutuals', helper: 'Only people you follow back can see it.' }
 ];
 
 const DEFAULT_API_ORIGIN = 'https://www.nightlink.dev';
@@ -132,8 +133,8 @@ const normalizeAnchorRect = (rect) => {
 const visibilityLabel = (v = 'private') => ({
   public: 'Public dream',
   anonymous: 'Anonymous dream',
-  following: 'Shared with followers',
-  followers: 'Shared with followers'
+  followers: 'Shared with followers',
+  mutuals: 'Shared with mutuals',
 }[v] || 'Private dream');
 
 const canAccess = (dream, uid, author) => {
@@ -155,8 +156,8 @@ const canAccess = (dream, uid, author) => {
   const following = author?.followingIds || [];
   const followers = author?.followerIds || [];
   
-  if (vis === 'following') return following.includes(uid);
   if (vis === 'followers') return followers.includes(uid);
+  if (vis === 'mutuals') return followers.includes(uid) && following.includes(uid);
   return false;
 };
 
@@ -2469,7 +2470,7 @@ export default function DreamDetail({ user }) {
                       <button
                         key={option.value}
                         type="button"
-                        className={(dream.visibility === option.value || (option.value === 'following' && dream.visibility === 'followers')) ? 'pill pill-active' : 'pill'}
+                        className={(dream.visibility === option.value || (option.value === 'mutuals' && dream.visibility === 'following')) ? 'pill pill-active' : 'pill'}
                         onClick={() => handleVisibilityChange(option.value)}
                         disabled={updatingVisibility}
                       >

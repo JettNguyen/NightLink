@@ -12,25 +12,35 @@ import { appUserPropType } from '../propTypes';
 
 const TAB_FOLLOWERS = 'followers';
 const TAB_FOLLOWING = 'following';
+const TAB_REQUESTS = 'requests';
 
-const normalizeTab = (value) => (value === TAB_FOLLOWING ? TAB_FOLLOWING : TAB_FOLLOWERS);
+const normalizeTab = (value, allowRequests) => {
+  if (value === TAB_FOLLOWING) return TAB_FOLLOWING;
+  if (allowRequests && value === TAB_REQUESTS) return TAB_REQUESTS;
+  return TAB_FOLLOWERS;
+};
 
 export default function Connections({ user }) {
   const { handle: routeHandle } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(() => normalizeTab(searchParams.get('tab')));
+  const [activeTab, setActiveTab] = useState(() => normalizeTab(searchParams.get('tab'), !routeHandle));
   const [targetUserId, setTargetUserId] = useState(() => (routeHandle ? null : (user?.uid || null)));
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileNotFound, setProfileNotFound] = useState(false);
   const [userData, setUserData] = useState(null);
   const [connectionProfiles, setConnectionProfiles] = useState([]);
   const [connectionLoading, setConnectionLoading] = useState(false);
+  const [requestProfiles, setRequestProfiles] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [requestActionId, setRequestActionId] = useState(null);
   const navigate = useNavigate();
 
+  const viewingOwnProfile = Boolean(user?.uid && targetUserId && targetUserId === user.uid);
+
   useEffect(() => {
-    const next = normalizeTab(searchParams.get('tab'));
+    const next = normalizeTab(searchParams.get('tab'), viewingOwnProfile);
     setActiveTab(next);
-  }, [searchParams]);
+  }, [searchParams, viewingOwnProfile]);
 
   useEffect(() => {
     if (!routeHandle) {
@@ -140,10 +150,13 @@ export default function Connections({ user }) {
 
   const followersCount = userData?.followerIds?.length || 0;
   const followingCount = userData?.followingIds?.length || 0;
-  const viewingOwnProfile = Boolean(user?.uid && targetUserId && targetUserId === user.uid);
+  const requestCount = requestProfiles.length;
   const profileLabel = userData?.displayName || userData?.username || 'Dreamer';
 
   const tabDescription = useMemo(() => {
+    if (activeTab === TAB_REQUESTS) {
+      return 'Pending follow requests awaiting your approval';
+    }
     if (activeTab === TAB_FOLLOWERS) {
       return viewingOwnProfile ? 'People following you' : `People following ${profileLabel}`;
     }
@@ -151,17 +164,119 @@ export default function Connections({ user }) {
   }, [activeTab, profileLabel, viewingOwnProfile]);
 
   const handleTabSelect = useCallback((tab) => {
-    const nextTab = normalizeTab(tab);
+    const nextTab = normalizeTab(tab, viewingOwnProfile);
     setActiveTab(nextTab);
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set('tab', nextTab);
     setSearchParams(nextParams, { replace: true });
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, viewingOwnProfile]);
 
   const handleProfileNavigation = useCallback((profile) => {
     if (!profile) return;
     navigate(buildProfilePath(profile.username, profile.id));
   }, [navigate]);
+
+  useEffect(() => {
+    if (!viewingOwnProfile || activeTab !== TAB_REQUESTS) {
+      setRequestProfiles([]);
+      setRequestsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const fetchRequests = async () => {
+      setRequestsLoading(true);
+      try {
+        const { data: requestRows } = await supabase
+          .from('follow_requests')
+          .select('id, requester_id, status, created_at')
+          .eq('target_id', user.uid)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false });
+
+        if (cancelled) return;
+
+        const requesterIds = (requestRows || []).map((row) => row.requester_id).filter(Boolean);
+        if (!requesterIds.length) {
+          setRequestProfiles([]);
+          setRequestsLoading(false);
+          return;
+        }
+
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, display_name, username, avatar_icon, avatar_background, avatar_color')
+          .in('id', requesterIds);
+
+        if (cancelled) return;
+
+        const byId = new Map((profiles || []).map((p) => [p.id, mapProfile(p)]));
+        const merged = (requestRows || [])
+          .map((row) => {
+            const profile = byId.get(row.requester_id);
+            if (!profile) return null;
+            return {
+              requestId: row.id,
+              requesterId: row.requester_id,
+              createdAt: row.created_at,
+              ...profile,
+            };
+          })
+          .filter(Boolean);
+
+        setRequestProfiles(merged);
+      } catch {
+        if (!cancelled) setRequestProfiles([]);
+      } finally {
+        if (!cancelled) setRequestsLoading(false);
+      }
+    };
+
+    fetchRequests();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, user?.uid, viewingOwnProfile]);
+
+  const handleRequestDecision = useCallback(async (requesterId, decision) => {
+    if (!requesterId || !viewingOwnProfile || !user?.uid) return;
+    const actionKey = `${decision}:${requesterId}`;
+    setRequestActionId(actionKey);
+
+    try {
+      const rpcName = decision === 'accept' ? 'accept_follow_request' : 'decline_follow_request';
+      let handled = false;
+      try {
+        const { error } = await supabase.rpc(rpcName, { requester_id: requesterId });
+        if (!error) handled = true;
+      } catch {
+        handled = false;
+      }
+
+      if (!handled) {
+        const status = decision === 'accept' ? 'accepted' : 'declined';
+        const { error: updateError } = await supabase
+          .from('follow_requests')
+          .update({ status })
+          .eq('requester_id', requesterId)
+          .eq('target_id', user.uid)
+          .eq('status', 'pending');
+        if (updateError) throw updateError;
+      }
+
+      setRequestProfiles((prev) => prev.filter((item) => item.requesterId !== requesterId));
+      if (decision === 'accept') {
+        setUserData((prev) => prev ? {
+          ...prev,
+          followerIds: Array.from(new Set([...(prev.followerIds || []), requesterId]))
+        } : prev);
+      }
+    } catch {
+      // No-op: keep the request row visible if the action fails.
+    } finally {
+      setRequestActionId(null);
+    }
+  }, [user?.uid, viewingOwnProfile]);
 
   if (!targetUserId) return <div className="page-container">Connections unavailable.</div>;
   if (profileNotFound) return <div className="page-container">We could not find that dreamer.</div>;
@@ -199,9 +314,59 @@ export default function Connections({ user }) {
         >
           Following {followingCount}
         </button>
+        {viewingOwnProfile && (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === TAB_REQUESTS}
+            className={`connections-tab${activeTab === TAB_REQUESTS ? ' active' : ''}`}
+            onClick={() => handleTabSelect(TAB_REQUESTS)}
+          >
+            Requests {requestCount}
+          </button>
+        )}
       </div>
 
-      {connectionLoading ? (
+      {activeTab === TAB_REQUESTS ? (
+        requestsLoading ? (
+          <div className="connections-empty loading-slot"><LoadingIndicator label="Loading requests…" size="sm" /></div>
+        ) : requestProfiles.length === 0 ? (
+          <p className="connections-empty">No pending requests right now.</p>
+        ) : (
+          <div className="connections-list">
+            {requestProfiles.map((profile) => {
+              const accepting = requestActionId === `accept:${profile.requesterId}`;
+              const declining = requestActionId === `decline:${profile.requesterId}`;
+              const busy = Boolean(requestActionId);
+              return (
+                <div key={profile.requesterId} className="connections-card connections-card-request">
+                  <button
+                    type="button"
+                    className="connections-card-main"
+                    onClick={() => handleProfileNavigation(profile)}
+                  >
+                    <div className="connections-avatar" style={{ background: profile.avatarBackground || DEFAULT_AVATAR_BACKGROUND }}>
+                      <FontAwesomeIcon icon={getAvatarIconById(profile.avatarIcon)} style={{ color: profile.avatarColor || DEFAULT_AVATAR_COLOR }} />
+                    </div>
+                    <div className="connections-meta">
+                      <div className="connections-name">{profile.displayName || 'Dreamer'}</div>
+                      {profile.username && <div className="connections-username">@{profile.username}</div>}
+                    </div>
+                  </button>
+                  <div className="connections-request-actions">
+                    <button type="button" className="request-btn request-btn-accept" disabled={busy} onClick={() => handleRequestDecision(profile.requesterId, 'accept')}>
+                      {accepting ? 'Accepting…' : 'Accept'}
+                    </button>
+                    <button type="button" className="request-btn request-btn-decline" disabled={busy} onClick={() => handleRequestDecision(profile.requesterId, 'decline')}>
+                      {declining ? 'Declining…' : 'Decline'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      ) : connectionLoading ? (
         <div className="connections-empty loading-slot"><LoadingIndicator label="Fetching dreamers…" size="sm" /></div>
       ) : connectionProfiles.length === 0 ? (
         <p className="connections-empty">

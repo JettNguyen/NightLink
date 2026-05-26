@@ -24,11 +24,13 @@ const canViewerSeeDream = (entry, ownerProfile, viewerId) => {
   if (entry.userId === viewerId) return true;
   const vis = entry.visibility || 'private';
   if (vis === 'public' || vis === 'anonymous') return true;
-  if (vis === 'following') {
-    return viewerId ? (ownerProfile?.followingIds || []).includes(viewerId) : false;
-  }
   if (vis === 'followers') {
     return viewerId ? (ownerProfile?.followerIds || []).includes(viewerId) : false;
+  }
+  if (vis === 'mutuals') {
+    if (!viewerId) return false;
+    return (ownerProfile?.followerIds || []).includes(viewerId)
+      && (ownerProfile?.followingIds || []).includes(viewerId);
   }
   return false;
 };
@@ -127,7 +129,7 @@ export default function useActivityPreview(viewerId, options = {}) {
         .from('dreams')
         .select('*, profiles!user_id(following_ids, follower_ids)')
         .in('user_id', followingIds)
-        .in('visibility', ['public', 'anonymous', 'following', 'followers'])
+        .in('visibility', ['public', 'anonymous', 'followers', 'mutuals'])
         .order('created_at', { ascending: false })
         .limit(50);
 

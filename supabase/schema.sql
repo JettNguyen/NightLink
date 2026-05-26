@@ -27,11 +27,22 @@ create table if not exists public.profiles (
   fcm_tokens           text[] not null default '{}',
   following_ids        uuid[] not null default '{}',
   follower_ids         uuid[] not null default '{}',
+  account_visibility   text not null default 'private'
+                         check (account_visibility in ('private','public')),
   allow_anonymous_sharing boolean not null default true,
   premium_emails       text[] not null default '{}',
   created_at           timestamptz not null default now(),
   updated_at           timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists account_visibility text;
+update public.profiles set account_visibility = coalesce(account_visibility, 'private');
+alter table public.profiles alter column account_visibility set default 'private';
+alter table public.profiles alter column account_visibility set not null;
+alter table public.profiles drop constraint if exists profiles_account_visibility_check;
+alter table public.profiles
+  add constraint profiles_account_visibility_check
+  check (account_visibility in ('private','public'));
 
 -- ============================================================
 -- DREAMS
@@ -42,7 +53,7 @@ create table if not exists public.dreams (
   title                text not null default '',
   content              text not null default '',
   visibility           text not null default 'private'
-                         check (visibility in ('private','public','following','anonymous')),
+                         check (visibility in ('private','public','followers','mutuals','anonymous')),
   ai_generated         boolean not null default false,
   ai_title             text,
   ai_insights          text,
@@ -96,7 +107,7 @@ create table if not exists public.activity (
   actor_display_name   text,
   actor_username       text,
   type                 text not null
-                         check (type in ('reaction','commentReaction','mention','reply','comment','dreamUpdate')),
+                         check (type in ('reaction','commentReaction','mention','reply','comment','dreamUpdate','follow','tag')),
   emoji                text,
   dream_id             uuid references public.dreams(id),
   dream_owner_id       uuid references public.profiles(id),
@@ -109,11 +120,56 @@ create table if not exists public.activity (
 
 create index if not exists activity_target_user_id_created_at_idx on public.activity (target_user_id, created_at desc);
 
+-- ============================================================
+-- FOLLOW REQUESTS
+-- ============================================================
+create table if not exists public.follow_requests (
+  id                   uuid primary key default gen_random_uuid(),
+  requester_id         uuid not null references public.profiles(id) on delete cascade,
+  target_id            uuid not null references public.profiles(id) on delete cascade,
+  status               text not null default 'pending'
+                         check (status in ('pending','accepted','declined','cancelled')),
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now(),
+  unique (requester_id, target_id),
+  check (requester_id <> target_id)
+);
+
+create index if not exists follow_requests_target_status_idx on public.follow_requests (target_id, status, created_at desc);
+create index if not exists follow_requests_requester_status_idx on public.follow_requests (requester_id, status, created_at desc);
+
 -- keep activity type constraint in sync on existing databases
+update public.activity
+set type = 'mention'
+where type not in ('reaction','commentReaction','mention','reply','comment','dreamUpdate','follow','tag');
+
 alter table public.activity drop constraint if exists activity_type_check;
 alter table public.activity
   add constraint activity_type_check
-  check (type in ('reaction','commentReaction','mention','reply','comment','dreamUpdate'));
+  check (type in ('reaction','commentReaction','mention','reply','comment','dreamUpdate','follow','tag'));
+
+-- keep dreams visibility constraint in sync on existing databases
+-- Step 1: temporarily allow both legacy and new visibility values.
+alter table public.dreams drop constraint if exists dreams_visibility_check;
+alter table public.dreams
+  add constraint dreams_visibility_check
+  check (visibility in ('private','public','following','followers','mutuals','anonymous'));
+
+-- Step 2: migrate legacy values.
+update public.dreams
+set visibility = 'mutuals'
+where visibility = 'following';
+
+-- Step 3: normalize any unexpected legacy values to private.
+update public.dreams
+set visibility = 'private'
+where visibility not in ('private','public','followers','mutuals','anonymous');
+
+-- Step 4: enforce final visibility set.
+alter table public.dreams drop constraint if exists dreams_visibility_check;
+alter table public.dreams
+  add constraint dreams_visibility_check
+  check (visibility in ('private','public','followers','mutuals','anonymous'));
 
 -- ============================================================
 -- ROW LEVEL SECURITY
@@ -122,6 +178,7 @@ alter table public.profiles enable row level security;
 alter table public.dreams    enable row level security;
 alter table public.comments  enable row level security;
 alter table public.activity  enable row level security;
+alter table public.follow_requests enable row level security;
 
 -- profiles: anyone can read (needed for usernames, search); only owner can update
 drop policy if exists "profiles_read" on public.profiles;
@@ -135,7 +192,21 @@ create policy "profiles_update" on public.profiles for update using (auth.uid() 
 drop policy if exists "dreams_owner" on public.dreams;
 drop policy if exists "dreams_read" on public.dreams;
 create policy "dreams_owner"    on public.dreams for all    using (auth.uid() = user_id);
-create policy "dreams_read"     on public.dreams for select using (visibility != 'private');
+create policy "dreams_read" on public.dreams for select using (
+  auth.uid() = user_id
+  or visibility in ('public','anonymous')
+  or (
+    auth.uid() is not null
+    and visibility = 'followers'
+    and auth.uid() = any(coalesce((select p.follower_ids from public.profiles p where p.id = public.dreams.user_id), '{}'::uuid[]))
+  )
+  or (
+    auth.uid() is not null
+    and visibility = 'mutuals'
+    and auth.uid() = any(coalesce((select p.follower_ids from public.profiles p where p.id = public.dreams.user_id), '{}'::uuid[]))
+    and auth.uid() = any(coalesce((select p.following_ids from public.profiles p where p.id = public.dreams.user_id), '{}'::uuid[]))
+  )
+);
 
 -- comments: owner or dream-owner can delete; anyone authed can read/insert
 drop policy if exists "comments_read" on public.comments;
@@ -156,9 +227,31 @@ create policy "activity_insert" on public.activity for insert with check (auth.u
 create policy "activity_update" on public.activity for update using (auth.uid() = target_user_id);
 create policy "activity_delete" on public.activity for delete using (auth.uid() = target_user_id);
 
+drop policy if exists "follow_requests_read" on public.follow_requests;
+drop policy if exists "follow_requests_insert" on public.follow_requests;
+drop policy if exists "follow_requests_update" on public.follow_requests;
+drop policy if exists "follow_requests_delete" on public.follow_requests;
+create policy "follow_requests_read" on public.follow_requests
+  for select using (auth.uid() = requester_id or auth.uid() = target_id);
+create policy "follow_requests_insert" on public.follow_requests
+  for insert with check (auth.uid() = requester_id and requester_id <> target_id and status = 'pending');
+create policy "follow_requests_update" on public.follow_requests
+  for update using (auth.uid() = target_id)
+  with check (auth.uid() = target_id and status in ('accepted','declined'));
+create policy "follow_requests_delete" on public.follow_requests
+  for delete using (auth.uid() = requester_id or auth.uid() = target_id);
+
 -- ============================================================
 -- PL/pgSQL FUNCTIONS
 -- ============================================================
+
+-- Ensure follow RPCs can be recreated even if legacy return types differ.
+drop function if exists public.request_follow(uuid);
+drop function if exists public.follow_user(uuid);
+drop function if exists public.unfollow_user(uuid);
+drop function if exists public.cancel_follow_request(uuid);
+drop function if exists public.accept_follow_request(uuid);
+drop function if exists public.decline_follow_request(uuid);
 
 -- Atomically toggle a dream reaction and update counts
 create or replace function toggle_dream_reaction(
@@ -213,6 +306,223 @@ begin
   where  id = p_dream_id;
 
   return jsonb_build_object('prev', v_prev, 'next', v_next, 'changed', true);
+end;
+$$;
+
+-- Request to follow a user. Private targets create a pending request;
+-- public targets create a direct follow relationship.
+create or replace function request_follow(p_target_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_requester_id uuid := auth.uid();
+  v_target_visibility text;
+begin
+  if v_requester_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_target_id is null or p_target_id = v_requester_id then
+    raise exception 'Invalid target user';
+  end if;
+
+  select account_visibility into v_target_visibility
+  from public.profiles
+  where id = p_target_id;
+
+  if not found then
+    raise exception 'Target profile not found';
+  end if;
+
+  if coalesce(v_target_visibility, 'private') = 'private' then
+    insert into public.follow_requests (requester_id, target_id, status)
+    values (v_requester_id, p_target_id, 'pending')
+    on conflict (requester_id, target_id)
+    do update set status = 'pending', updated_at = now();
+    return jsonb_build_object('status', 'pending');
+  end if;
+
+  update public.profiles
+  set following_ids = array(
+        select distinct elem
+        from unnest(coalesce(following_ids, '{}'::uuid[]) || p_target_id) as elem
+      )
+  where id = v_requester_id;
+
+  update public.profiles
+  set follower_ids = array(
+        select distinct elem
+        from unnest(coalesce(follower_ids, '{}'::uuid[]) || v_requester_id) as elem
+      )
+  where id = p_target_id;
+
+  delete from public.follow_requests
+  where requester_id = v_requester_id
+    and target_id = p_target_id;
+
+  return jsonb_build_object('status', 'following');
+end;
+$$;
+
+create or replace function follow_user(p_target_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_requester_id uuid := auth.uid();
+begin
+  if v_requester_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_target_id is null or p_target_id = v_requester_id then
+    raise exception 'Invalid target user';
+  end if;
+
+  update public.profiles
+  set following_ids = array(
+        select distinct elem
+      from unnest(coalesce(following_ids, '{}'::uuid[]) || p_target_id) as elem
+      )
+  where id = v_requester_id;
+
+  update public.profiles
+  set follower_ids = array(
+        select distinct elem
+        from unnest(coalesce(follower_ids, '{}'::uuid[]) || v_requester_id) as elem
+      )
+  where id = p_target_id;
+
+  delete from public.follow_requests
+  where requester_id = v_requester_id
+    and target_id = p_target_id;
+
+  return jsonb_build_object('status', 'following');
+end;
+$$;
+
+create or replace function unfollow_user(p_target_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_requester_id uuid := auth.uid();
+begin
+  if v_requester_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_target_id is null or p_target_id = v_requester_id then
+    raise exception 'Invalid target user';
+  end if;
+
+  update public.profiles
+  set following_ids = array_remove(coalesce(following_ids, '{}'::uuid[]), p_target_id)
+  where id = v_requester_id;
+
+  update public.profiles
+  set follower_ids = array_remove(coalesce(follower_ids, '{}'::uuid[]), v_requester_id)
+  where id = p_target_id;
+
+  delete from public.follow_requests
+  where requester_id = v_requester_id
+    and target_id = p_target_id;
+
+  return jsonb_build_object('status', 'unfollowed');
+end;
+$$;
+
+create or replace function cancel_follow_request(p_target_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_requester_id uuid := auth.uid();
+begin
+  if v_requester_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  update public.follow_requests
+  set status = 'cancelled', updated_at = now()
+  where requester_id = v_requester_id
+    and target_id = p_target_id
+    and status = 'pending';
+
+  return jsonb_build_object('status', 'cancelled');
+end;
+$$;
+
+create or replace function accept_follow_request(p_requester_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_target_id uuid := auth.uid();
+begin
+  if v_target_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  update public.follow_requests
+  set status = 'accepted', updated_at = now()
+  where requester_id = p_requester_id
+    and target_id = v_target_id
+    and status = 'pending';
+
+  if not found then
+    return jsonb_build_object('status', 'missing_request');
+  end if;
+
+  update public.profiles
+  set following_ids = array(
+        select distinct elem
+        from unnest(coalesce(following_ids, '{}'::uuid[]) || v_target_id) as elem
+      )
+  where id = p_requester_id;
+
+  update public.profiles
+  set follower_ids = array(
+        select distinct elem
+      from unnest(coalesce(follower_ids, '{}'::uuid[]) || p_requester_id) as elem
+      )
+  where id = v_target_id;
+
+  return jsonb_build_object('status', 'accepted');
+end;
+$$;
+
+create or replace function decline_follow_request(p_requester_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_target_id uuid := auth.uid();
+begin
+  if v_target_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  update public.follow_requests
+  set status = 'declined', updated_at = now()
+  where requester_id = p_requester_id
+    and target_id = v_target_id
+    and status = 'pending';
+
+  return jsonb_build_object('status', 'declined');
 end;
 $$;
 

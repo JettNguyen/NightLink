@@ -145,6 +145,10 @@
   flex-shrink: 0;
 }
 
+.feed-avatar--anon {
+  filter: grayscale(1);
+}
+
 .feed-avatar svg {
   width: 1.1em;
   height: 1.1em;
@@ -184,6 +188,8 @@
   color: var(--text-secondary);
   font-size: 0.95rem;
   height: 38px;
+  display: flex;
+  align-items: center;
 }
 
 .feed-title {

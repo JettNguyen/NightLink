@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPencil, faGear } from '@fortawesome/free-solid-svg-icons';
+import { faPencil, faGear, faLock } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
@@ -14,6 +14,7 @@ import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import { triggerLightHaptic } from '../utils/haptics';
 import { logActivityEvent } from '../services/ActivityService';
 import Toast from '../components/Toast';
+import { ACCOUNT_VISIBILITY, canViewerSeeDream, normalizeAccountVisibility } from '../utils/privacy';
 import './Profile.css';
 import { appUserPropType } from '../propTypes';
 
@@ -53,6 +54,7 @@ export default function Profile({ user }) {
   const [reportModal, setReportModal] = useState(false);
   const [reportReason, setReportReason] = useState('');
   const [reportBusy, setReportBusy] = useState(false);
+  const [followRequestState, setFollowRequestState] = useState('none');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const viewerId = user?.uid || null;
@@ -127,6 +129,7 @@ export default function Profile({ user }) {
     setTaggedDreams([]);
     setTaggedDreamsLoading(true);
     setDreamTab('authored');
+    setFollowRequestState('none');
     setProfileMenuOpen(false);
 
     supabase.from('profiles').select('*').eq('id', targetUserId).single()
@@ -141,12 +144,43 @@ export default function Profile({ user }) {
   useEffect(() => {
     if (!targetUserId) return;
     let q = supabase.from('dreams').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false });
-    if (!viewingOwnProfile) q = q.in('visibility', ['public', 'anonymous', 'following', 'followers']);
+    if (!viewingOwnProfile) q = q.in('visibility', ['public', 'anonymous', 'followers', 'mutuals']);
     q.then(({ data }) => {
       setDreams((data || []).map(mapDream));
       setDreamsLoading(false);
     });
   }, [targetUserId, viewingOwnProfile]);
+
+  useEffect(() => {
+    if (!viewerId || !targetUserId || viewingOwnProfile) {
+      setFollowRequestState('none');
+      return;
+    }
+
+    let cancelled = false;
+    const fetchFollowRequestState = async () => {
+      try {
+        const { data } = await supabase
+          .from('follow_requests')
+          .select('status')
+          .eq('requester_id', viewerId)
+          .eq('target_id', targetUserId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!cancelled) {
+          setFollowRequestState(data?.status === 'pending' ? 'pending' : 'none');
+        }
+      } catch {
+        if (!cancelled) setFollowRequestState('none');
+      }
+    };
+
+    fetchFollowRequestState();
+    return () => {
+      cancelled = true;
+    };
+  }, [targetUserId, viewerId, viewingOwnProfile]);
 
   // Load tagged dreams
   useEffect(() => {
@@ -171,10 +205,37 @@ export default function Profile({ user }) {
     if (!user?.uid || !targetUserId || viewingOwnProfile || followAction.type) return;
     setFollowAction({ type: 'follow' });
     try {
+      const targetAccountVisibility = normalizeAccountVisibility(userData);
+      if (targetAccountVisibility === ACCOUNT_VISIBILITY.PRIVATE && !(viewerData?.followingIds || []).includes(targetUserId)) {
+        let requested = false;
+        try {
+          const { error: requestError } = await supabase.rpc('request_follow', { target_id: targetUserId });
+          if (!requestError) requested = true;
+        } catch {
+          requested = false;
+        }
+
+        if (!requested) {
+          const { error: insertError } = await supabase
+            .from('follow_requests')
+            .upsert({
+              requester_id: user.uid,
+              target_id: targetUserId,
+              status: 'pending',
+            }, { onConflict: 'requester_id,target_id' });
+          if (insertError) throw insertError;
+        }
+
+        setFollowRequestState('pending');
+        setToast('Follow request sent.');
+        return;
+      }
+
       const { error } = await supabase.rpc('follow_user', { target_id: targetUserId });
       if (error) throw error;
       setViewerData((prev) => prev ? { ...prev, followingIds: [...new Set([...(prev.followingIds || []), targetUserId])] } : prev);
       setUserData((prev) => prev ? { ...prev, followerIds: [...new Set([...(prev.followerIds || []), user.uid])] } : prev);
+      setFollowRequestState('none');
       void triggerLightHaptic();
       void logActivityEvent(targetUserId, {
         actorId: user.uid,
@@ -188,6 +249,34 @@ export default function Profile({ user }) {
 
   const handleUnfollow = async () => {
     if (!user?.uid || !targetUserId || viewingOwnProfile || followAction.type) return;
+    if (followRequestState === 'pending') {
+      setFollowAction({ type: 'cancelRequest' });
+      try {
+        let cancelled = false;
+        try {
+          const { error: cancelError } = await supabase.rpc('cancel_follow_request', { target_id: targetUserId });
+          if (!cancelError) cancelled = true;
+        } catch {
+          cancelled = false;
+        }
+        if (!cancelled) {
+          const { error: deleteError } = await supabase
+            .from('follow_requests')
+            .delete()
+            .eq('requester_id', user.uid)
+            .eq('target_id', targetUserId)
+            .eq('status', 'pending');
+          if (deleteError) throw deleteError;
+        }
+        setFollowRequestState('none');
+      } catch {
+        setToast('Unable to cancel request right now.');
+      } finally {
+        setFollowAction({ type: null });
+      }
+      return;
+    }
+
     setFollowAction({ type: 'unfollow' });
     try {
       const { error } = await supabase.rpc('unfollow_user', { target_id: targetUserId });
@@ -316,6 +405,10 @@ export default function Profile({ user }) {
   const targetFollowerIds   = userData?.followerIds  || [];
   const targetFollowingIds  = userData?.followingIds || [];
   const isFollowingTarget   = !viewingOwnProfile && viewerFollowingIds.includes(targetUserId);
+  const hasPendingFollowRequest = !isFollowingTarget && followRequestState === 'pending';
+  const targetAccountVisibility = normalizeAccountVisibility(userData);
+  const isPrivateAccount = targetAccountVisibility === ACCOUNT_VISIBILITY.PRIVATE;
+  const isLockedProfileView = !viewingOwnProfile && isPrivateAccount && !isFollowingTarget;
   const isBlockedTarget = !viewingOwnProfile && viewerBlockedIds.includes(targetUserId);
   const followsYou          = !viewingOwnProfile && targetFollowingIds.includes(user?.uid);
   const viewerFollowedByTarget = useMemo(() => !viewingOwnProfile && !!viewerId && targetFollowingIds.includes(viewerId), [viewerId, viewingOwnProfile, targetFollowingIds]);
@@ -335,24 +428,26 @@ export default function Profile({ user }) {
     if (viewerId && (dream.taggedUserIds || []).includes(viewerId)) return true;
     if (viewerId === targetUserId) return true;
     if (vis === 'public' || vis === 'anonymous') return true;
+    if (vis === 'followers') return !!viewerId && (dream.authorProfile?.followerIds || []).includes(viewerId);
+    if (vis === 'mutuals') {
+      return !!viewerId
+        && (dream.authorProfile?.followerIds || []).includes(viewerId)
+        && (dream.authorProfile?.followingIds || []).includes(viewerId);
+    }
     return false;
   }, [viewerId, targetUserId]);
 
   const displayedDreams = useMemo(() => {
-    if (viewingOwnProfile) return dreams;
+    if (viewingOwnProfile) return dreams.filter((d) => d && d.visibility !== 'private' && d.visibility !== 'anonymous');
     // Hide all dreams if the profile owner is blocked.
     if (isBlockedTarget) return [];
-    return dreams.filter((d) => {
-      if (!d) return false;
-      const vis = d.visibility || 'private';
-      if (vis === 'private') return viewerId && d.userId === viewerId;
-      if (viewerId && (d.excludedViewerIds || []).includes(viewerId)) return false;
-      if (viewerId && (d.taggedUserIds || []).includes(viewerId)) return true;
-      if (vis === 'public') return true;
-      if ((vis === 'following' || vis === 'followers') && viewerFollowedByTarget) return true;
-      return false;
-    });
-  }, [dreams, viewingOwnProfile, viewerFollowedByTarget, viewerId, isBlockedTarget]);
+    return dreams.filter((d) => d && canViewerSeeDream({
+      dream: d,
+      viewerId,
+      ownerProfile: userData,
+      isPending: hasPendingFollowRequest,
+    }));
+  }, [dreams, viewingOwnProfile, viewerId, isBlockedTarget, userData, hasPendingFollowRequest]);
 
   const taggedDreamsForProfile = useMemo(() => {
     if (!targetUserId) return [];
@@ -385,7 +480,15 @@ export default function Profile({ user }) {
     const title = dream.title || (dream.aiGenerated ? dream.aiTitle?.trim() : '');
     const snippet = dream.content?.length > 180 ? `${dream.content.slice(0, 180)}…` : dream.content;
     const dateLabel = dream.createdAt ? formatDreamDate(dream.createdAt, 'MMM d') : 'Pending';
-    const visLabel = dream.visibility === 'anonymous' ? 'Anon' : dream.visibility === 'public' ? 'Public' : dream.visibility === 'following' || dream.visibility === 'followers' ? 'Followers' : 'Private';
+    const visLabel = dream.visibility === 'anonymous'
+      ? 'Anon'
+      : dream.visibility === 'public'
+        ? 'Public'
+        : dream.visibility === 'followers'
+          ? 'Followers'
+          : dream.visibility === 'mutuals'
+            ? 'Mutuals'
+            : 'Private';
     const hasAi = Boolean(dream.aiGenerated && dream.aiInsights);
     const tagCount = dream.tags?.length || 0;
     const taggedCount = Array.isArray(dream.taggedUsers) ? dream.taggedUsers.length : 0;
@@ -454,7 +557,6 @@ export default function Profile({ user }) {
             <h1>{userData.displayName || 'Dreamer'}</h1>
             {userData.username && <p className="profile-username">@{userData.username}</p>}
             {userData.settings?.bio && <p className="profile-bio">{userData.settings.bio}</p>}
-            {viewingOwnProfile && userData.email && !userData.isAnonymous && <p className="profile-email">{userData.email}</p>}
             {viewingOwnProfile && (
               <div className="profile-btn-row">
                 <button type="button" onClick={() => navigate('/profile/edit')} className="edit-profile-btn"><FontAwesomeIcon icon={faPencil} /><span>Edit Profile</span></button>
@@ -466,11 +568,22 @@ export default function Profile({ user }) {
             {!viewingOwnProfile && (
               <div className="follow-actions">
                 <div className="follow-actions-row follow-actions-row-primary">
-                  <button type="button" className={`follow-action-btn ${isFollowingTarget ? 'follow-action-btn-following' : 'follow-action-btn-follow'}`} onClick={isFollowingTarget ? handleUnfollow : handleFollow} disabled={isFollowActionBusy || isBlockedTarget}>
-                    {isFollowActionBusy ? 'Working…' : isFollowingTarget ? 'Following' : 'Follow'}
+                  <button
+                    type="button"
+                    className={`follow-action-btn ${(isFollowingTarget || hasPendingFollowRequest) ? 'follow-action-btn-following' : 'follow-action-btn-follow'}`}
+                    onClick={(isFollowingTarget || hasPendingFollowRequest) ? handleUnfollow : handleFollow}
+                    disabled={isFollowActionBusy || isBlockedTarget}
+                  >
+                    {isFollowActionBusy ? 'Working…' : isFollowingTarget ? 'Following' : hasPendingFollowRequest ? 'Requested' : 'Follow'}
                   </button>
                   {followsYou && <span className="follow-note follow-note-compact">Follows you</span>}
                 </div>
+                {isLockedProfileView && (
+                  <div className="profile-lock-note" role="status" aria-live="polite">
+                    <FontAwesomeIcon icon={faLock} />
+                    <span>This is a private profile. Follow approval is required for full access.</span>
+                  </div>
+                )}
                 {!isNativeIOS && (
                   <div className="follow-actions-row follow-actions-row-secondary">
                     <button type="button" className="moderation-action-btn" onClick={isBlockedTarget ? handleUnblockUser : handleBlockUser} disabled={isFollowActionBusy}>

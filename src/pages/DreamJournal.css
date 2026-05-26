@@ -286,7 +286,8 @@
 }
 
 .dream-vis--public    { color: #34d399; border-color: rgba(52, 211, 153, 0.3); }
-.dream-vis--following { color: #a78bfa; border-color: rgba(167, 139, 250, 0.3); }
+.dream-vis--followers { color: #a78bfa; border-color: rgba(167, 139, 250, 0.3); }
+.dream-vis--mutuals   { color: #60a5fa; border-color: rgba(96, 165, 250, 0.3); }
 .dream-vis--anonymous { color: #f59e0b; border-color: rgba(245, 158, 11, 0.3); }
 .dream-vis--private   { color: #f87171; border-color: rgba(248, 113, 113, 0.3); }
 
@@ -444,30 +445,65 @@
   justify-content: center;
   z-index: 1000;
   backdrop-filter: blur(8px);
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-}
-
-@media (max-width: 768px) {
-  .modal-overlay {
-    align-items: flex-end;
-    padding: 0;
-  }
+  padding: 1.25rem;
+  touch-action: none;
 }
 
 .modal-content {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
-  border-radius: 18px;
+  background: #161921;
+  border-radius: 20px;
   padding: 1.85rem;
-  width: 92%;
-  max-width: 640px;
-  max-height: 92dvh;
-  padding-bottom: calc(1.85rem + env(safe-area-inset-bottom));
+  width: 100%;
+  max-width: 580px;
+  max-height: calc(100dvh - 2.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  padding-bottom: 1.85rem;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(16px);
+  touch-action: pan-y;
+}
+
+/* Wrapper that holds the fade gradients outside the scrollable form */
+.modal-form-wrap {
+  flex: 1 1 auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.modal-form-wrap::before,
+.modal-form-wrap::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3rem;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.modal-form-wrap::before {
+  top: 0;
+  background: linear-gradient(to bottom, #161921, transparent);
+}
+
+.modal-form-wrap::after {
+  bottom: 0;
+  background: linear-gradient(to top, #161921, transparent);
+}
+
+.modal-form-wrap.at-top::before {
+  opacity: 0;
+}
+
+.modal-form-wrap.at-bottom::after {
+  opacity: 0;
 }
 
 /* The form scrolls internally; the page behind never scrolls while modal is open */
@@ -479,6 +515,12 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  touch-action: pan-y;
+  scrollbar-width: none;
+}
+
+.modal-content form::-webkit-scrollbar {
+  display: none;
 }
 
 .modal-header {
@@ -558,11 +600,18 @@
   box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.15);
 }
 
-.visibility-chip.active[data-vis='following'] {
+.visibility-chip.active[data-vis='followers'] {
   color: #a78bfa;
   border-color: rgba(167, 139, 250, 0.5);
   background: rgba(167, 139, 250, 0.1);
   box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.15);
+}
+
+.visibility-chip.active[data-vis='mutuals'] {
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.5);
+  background: rgba(96, 165, 250, 0.1);
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.15);
 }
 
 .visibility-chip.active[data-vis='anonymous'] {
@@ -746,17 +795,39 @@
   animation: fadeIn 0.5s ease 0.2s both;
 }
 
+.journal-search-row {
+  animation: fadeIn 0.4s ease 0.18s both;
+}
+
+.journal-search-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.7rem 1rem;
+  color: var(--text);
+  font-size: 0.95rem;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+  box-sizing: border-box;
+}
+
+.journal-search-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.journal-search-input:focus {
+  outline: none;
+  border-color: rgba(90, 200, 250, 0.45);
+  background: rgba(255, 255, 255, 0.07);
+}
+
 .dream-card {
   animation: slideInUp 0.4s ease both;
 }
 
 @media (max-width: 768px) {
-  .modal-content {
-    width: 100%;
-    max-width: 100%;
-    max-height: 92dvh;
-    border-radius: 20px 20px 0 0;
-    padding-bottom: calc(1.85rem + env(safe-area-inset-bottom));
+  .modal-overlay {
+    padding: 1rem;
   }
 }
 
@@ -803,7 +874,6 @@
 
   .modal-content {
     padding: 1.25rem;
-    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
   }
 
   .modal-actions {
