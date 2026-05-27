@@ -446,8 +446,8 @@
   display: flex;
   align-items: flex-start;
   background: rgba(8, 11, 19, 0.72);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
   border-top: 1px solid rgba(255, 255, 255, 0.07);
   z-index: 100;
   transform: translateZ(0);

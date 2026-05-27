@@ -154,25 +154,61 @@ export default function Feed({ user }) {
     setError('');
     let cancelled = false;
 
-    const fetchFeed = async () => {
-      const { data, error: fetchErr } = await supabase
-        .from('dreams')
-        .select('*')
-        .in('user_id', followingIds)
-        .in('visibility', ['public', 'anonymous', 'followers', 'mutuals'])
-        .order('created_at', { ascending: false })
-        .limit(60);
-      if (cancelled) return;
-      if (fetchErr) { setError('Unable to load your following feed right now.'); setLoading(false); return; }
-      setRawDreams((data || []).map(mapDream));
-      setLoading(false);
-    };
+    const FEED_VISIBILITIES = new Set(['public', 'anonymous', 'followers', 'mutuals']);
+    const followingSet = new Set(followingIds);
 
-    fetchFeed();
+    supabase
+      .from('dreams')
+      .select('*')
+      .in('user_id', followingIds)
+      .in('visibility', [...FEED_VISIBILITIES])
+      .order('created_at', { ascending: false })
+      .limit(60)
+      .then(({ data, error: fetchErr }) => {
+        if (cancelled) return;
+        if (fetchErr) { setError('Unable to load your following feed right now.'); setLoading(false); return; }
+        setRawDreams((data || []).map(mapDream));
+        setLoading(false);
+      });
+
+    // Scope the subscription to followed users when the list is small enough for
+    // a server-side filter (Supabase realtime `in` filter works well up to ~50 ids).
+    // For larger lists we subscribe unfiltered but discard irrelevant rows client-side.
+    // Either way we do surgical state updates — no full re-fetch on every change.
+    const realtimeFilter = followingIds.length <= 50
+      ? { filter: `user_id=in.(${followingIds.join(',')})` }
+      : {};
 
     const channel = supabase
       .channel(`feed-dreams:${viewerId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'dreams' }, () => fetchFeed())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dreams', ...realtimeFilter },
+        (payload) => {
+          const dream = mapDream(payload.new);
+          if (!followingSet.has(dream.userId)) return;
+          if (!FEED_VISIBILITIES.has(dream.visibility)) return;
+          setRawDreams((prev) => [dream, ...prev]);
+        })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dreams', ...realtimeFilter },
+        (payload) => {
+          const dream = mapDream(payload.new);
+          if (!followingSet.has(dream.userId)) return;
+          setRawDreams((prev) => {
+            const idx = prev.findIndex((d) => d.id === dream.id);
+            if (idx === -1) {
+              // Dream became visible (visibility changed to a feed-visible value)
+              return FEED_VISIBILITIES.has(dream.visibility) ? [dream, ...prev] : prev;
+            }
+            // Dream became private/invisible — remove it
+            if (!FEED_VISIBILITIES.has(dream.visibility)) return prev.filter((d) => d.id !== dream.id);
+            const next = [...prev];
+            next[idx] = dream;
+            return next;
+          });
+        })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'dreams', ...realtimeFilter },
+        (payload) => {
+          setRawDreams((prev) => prev.filter((d) => d.id !== payload.old.id));
+        })
       .subscribe();
 
     return () => { cancelled = true; supabase.removeChannel(channel); };
