@@ -670,6 +670,77 @@
   }
 }
 
+/* Photo upload section in EditProfile */
+.photo-upload-section {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.photo-upload-body {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.photo-upload-preview {
+  flex-shrink: 0;
+}
+
+.photo-upload-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.photo-upload-btn,
+.photo-remove-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.photo-remove-btn {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.photo-remove-btn:hover {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.5);
+  background-color: rgba(248, 113, 113, 0.08);
+}
+
+.photo-upload-error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #f87171;
+}
+
+.photo-avatar-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.photo-avatar-divider::before,
+.photo-avatar-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 .avatar-customizer {
   border: 1px solid var(--border);
   border-radius: 12px;

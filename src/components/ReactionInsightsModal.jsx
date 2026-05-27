@@ -2,7 +2,8 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHeart } from '@fortawesome/free-solid-svg-icons';
-import { getAvatarIconById, DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR } from '../constants/avatarOptions';
+import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR } from '../constants/avatarOptions';
+import AvatarDisplay from './AvatarDisplay';
 import './ReactionInsightsModal.css';
 
 const VIEWPORT_MARGIN = 16;
@@ -169,18 +170,16 @@ export default function ReactionInsightsModal({
         ) : (
           <ul className="reaction-popover-list">
             {safeEntries.map((entry) => {
-              const avatarIcon = entry.avatarIcon ? getAvatarIconById(entry.avatarIcon) : null;
-              const background = entry.avatarBackground || DEFAULT_AVATAR_BACKGROUND;
-              const color = entry.avatarColor || DEFAULT_AVATAR_COLOR;
               return (
                 <li key={entry.id} className="reaction-popover-row">
-                  <div className="reaction-popover-avatar" style={{ background, color }}>
-                    {avatarIcon ? (
-                      <FontAwesomeIcon icon={avatarIcon} />
-                    ) : (
-                      <span aria-hidden="true">{entry.displayName?.[0] || '?'}</span>
-                    )}
-                  </div>
+                  <AvatarDisplay
+                    photoURL={entry.photoURL || null}
+                    avatarIcon={entry.avatarIcon}
+                    avatarBackground={entry.avatarBackground || DEFAULT_AVATAR_BACKGROUND}
+                    avatarColor={entry.avatarColor || DEFAULT_AVATAR_COLOR}
+                    fallbackText={entry.displayName?.[0] || '?'}
+                    className="reaction-popover-avatar"
+                  />
                   <div className="reaction-popover-meta">
                     <span className="reaction-popover-name">{entry.displayName || 'Dreamer'}</span>
                     {entry.username && (

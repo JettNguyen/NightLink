@@ -10,6 +10,7 @@ const normalizeProfile = (row) => {
     id: p.id,
     displayName: p.displayName,
     username: p.username,
+    photoURL: p.photoURL,
     avatarIcon: p.avatarIcon,
     avatarBackground: p.avatarBackground,
     avatarColor: p.avatarColor,
@@ -25,7 +26,7 @@ export const fetchUserSummaries = async (rawIds = []) => {
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('id, display_name, username, avatar_icon, avatar_background, avatar_color')
+        .select('id, display_name, username, photo_url, avatar_icon, avatar_background, avatar_color')
         .in('id', pending);
       (data || []).forEach((row) => {
         userSummaryCache.set(row.id, normalizeProfile(row));

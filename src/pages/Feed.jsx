@@ -7,6 +7,7 @@ import { faHeart, faPlus, faComment, faEllipsisVertical } from '@fortawesome/fre
 import { supabase } from '../supabase';
 import { mapDream, mapProfile } from '../utils/mappers';
 import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
+import AvatarDisplay from '../components/AvatarDisplay';
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Feed.css';
@@ -366,14 +367,24 @@ export default function Feed({ user }) {
 
   useEffect(() => {
     setReactionState((prev) => {
-      const next = {};
+      const visibleIds = new Set(visibleDreams.map((d) => d?.id).filter(Boolean));
+      // Remove entries for dreams no longer in view
+      const pruned = Object.fromEntries(
+        Object.entries(prev).filter(([id]) => visibleIds.has(id))
+      );
+      let changed = Object.keys(pruned).length !== Object.keys(prev).length;
+      const next = { ...pruned };
       visibleDreams.forEach((dream) => {
         if (!dream?.id) return;
-        const counts = dream.reactionCounts || prev[dream.id]?.counts || {};
-        const viewerReaction = dream.viewerReactions?.[viewerId] || prev[dream.id]?.viewerReaction || null;
-        next[dream.id] = { counts, viewerReaction };
+        // Only initialise — don't overwrite existing optimistic state
+        if (next[dream.id]) return;
+        changed = true;
+        const counts = dream.reactionCounts || {};
+        const raw = dream.viewerReactions?.[viewerId] ?? [];
+        const viewerReactions = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+        next[dream.id] = { counts, viewerReactions };
       });
-      return next;
+      return changed ? next : prev;
     });
   }, [visibleDreams, viewerId]);
 
@@ -402,29 +413,41 @@ export default function Feed({ user }) {
   const handleReactionSelection = useCallback(async (dream, emoji) => {
     if (!viewerId) { setToast('Sign in to react to dreams.'); return; }
     const currentState = reactionState[dream.id];
-    const currentReaction = currentState?.viewerReaction || null;
-    const nextReaction = emoji === currentReaction ? null : emoji;
+    const prevReactions = currentState?.viewerReactions || [];
+    const isRemoving = emoji === null || prevReactions.includes(emoji);
+
     setReactionState((prev) => {
       const counts = { ...(prev[dream.id]?.counts || dream.reactionCounts || {}) };
-      if (currentReaction) counts[currentReaction] = Math.max((counts[currentReaction] || 1) - 1, 0);
-      if (nextReaction) counts[nextReaction] = (counts[nextReaction] || 0) + 1;
-      return { ...prev, [dream.id]: { counts, viewerReaction: nextReaction } };
+      let nextReactions;
+      if (emoji === null) {
+        // Clear all
+        prevReactions.forEach((e) => { counts[e] = Math.max((counts[e] || 1) - 1, 0); });
+        nextReactions = [];
+      } else if (isRemoving) {
+        counts[emoji] = Math.max((counts[emoji] || 1) - 1, 0);
+        nextReactions = prevReactions.filter((e) => e !== emoji);
+      } else {
+        counts[emoji] = (counts[emoji] || 0) + 1;
+        nextReactions = [...prevReactions, emoji];
+      }
+      return { ...prev, [dream.id]: { counts, viewerReactions: nextReactions } };
     });
+
     try {
       await updateDreamReaction({
         dreamId: dream.id,
         dreamOwnerId: dream.userId,
         dreamTitleSnapshot: dream.title || dream.aiTitle || 'Dream',
         userId: viewerId,
-        emoji: nextReaction,
+        emoji: emoji ?? null,
         actorDisplayName: user?.displayName || user?.email || 'Nightlink dreamer',
-        actorUsername: user?.username || null
+        actorUsername: user?.username || null,
       });
     } catch (err) {
       console.error('Failed to update dream reaction', err);
       setReactionState((prev) => ({
         ...prev,
-        [dream.id]: { counts: currentState?.counts || dream.reactionCounts || {}, viewerReaction: currentReaction }
+        [dream.id]: { counts: currentState?.counts || dream.reactionCounts || {}, viewerReactions: prevReactions },
       }));
     }
   }, [reactionState, user, viewerId]);
@@ -470,9 +493,10 @@ export default function Feed({ user }) {
       id,
       displayName: userSummaries[id]?.displayName || 'Dreamer',
       username: userSummaries[id]?.username || '',
+      photoURL: userSummaries[id]?.photoURL || null,
       avatarIcon: userSummaries[id]?.avatarIcon || null,
       avatarBackground: userSummaries[id]?.avatarBackground || undefined,
-      avatarColor: userSummaries[id]?.avatarColor || undefined
+      avatarColor: userSummaries[id]?.avatarColor || undefined,
     }));
   }, [reactionInsightState.userIds, userSummaries]);
 
@@ -582,9 +606,10 @@ export default function Feed({ user }) {
             const isAnonymous = dream.visibility === 'anonymous';
             const authorUsername = !isAnonymous ? (profile?.username || dream.authorUsername || '') : '';
             const authorHandle = authorUsername ? `@${authorUsername}` : null;
-            const avatarIcon = getAvatarIconById(isAnonymous ? 'ghost' : profile?.avatarIcon);
+            const avatarIcon = isAnonymous ? 'ghost' : profile?.avatarIcon;
             const avatarBackground = profile?.avatarBackground || DEFAULT_AVATAR_BACKGROUND;
             const avatarColor = profile?.avatarColor || DEFAULT_AVATAR_COLOR;
+            const avatarPhotoURL = isAnonymous ? null : (profile?.photoURL || null);
             const dateLabel = dream.createdAt ? formatDreamDate(dream.createdAt) : 'Just now';
             const snippet = dream.content ? (dream.content.length > 240 ? `${dream.content.slice(0, 240)}…` : dream.content) : 'No entry text yet.';
             const visibilityLabel = dream.visibility === 'anonymous'
@@ -600,7 +625,9 @@ export default function Feed({ user }) {
             const profilePath = showProfileLink ? buildProfilePath(authorUsername, dream.userId) : null;
             const handleAuthorNavigation = (event) => { if (!showProfileLink) return; event.stopPropagation(); event.preventDefault(); if (profilePath) navigate(profilePath); };
             const openDreamDetail = () => { const path = isAnonymous ? `/dream/${dream.id}` : buildDreamPath(authorUsername, dream.userId, dream.id); navigate(path, { state: { fromNav: '/feed' } }); };
-            const reactionSnapshot = reactionState[dream.id] || { counts: dream.reactionCounts || {}, viewerReaction: dream.viewerReactions?.[viewerId] || null };
+            const _rawReactions = dream.viewerReactions?.[viewerId] ?? [];
+            const _normalizedReactions = Array.isArray(_rawReactions) ? _rawReactions : (_rawReactions ? [_rawReactions] : []);
+            const reactionSnapshot = reactionState[dream.id] || { counts: dream.reactionCounts || {}, viewerReactions: _normalizedReactions };
             const totalReactions = Object.values(reactionSnapshot.counts || {}).reduce((sum, v) => sum + (v || 0), 0);
             const reactionEntries = Object.entries(reactionSnapshot.counts || {}).filter(([emoji, count]) => typeof emoji === 'string' && emoji.trim().length && count > 0).sort((a, b) => b[1] - a[1]);
 
@@ -608,9 +635,13 @@ export default function Feed({ user }) {
               <div key={dream.id} className="feed-card" role="button" tabIndex={0} onClick={openDreamDetail} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDreamDetail(); } }}>
                 <div className="feed-card-head">
                   <div className="feed-author-block">
-                    <div className={`feed-avatar${isAnonymous ? ' feed-avatar--anon' : ''}`} style={{ background: avatarBackground, color: avatarColor }}>
-                      <FontAwesomeIcon icon={avatarIcon} />
-                    </div>
+                    <AvatarDisplay
+                      photoURL={avatarPhotoURL}
+                      avatarIcon={avatarIcon}
+                      avatarBackground={avatarBackground}
+                      avatarColor={avatarColor}
+                      className={`feed-avatar${isAnonymous ? ' feed-avatar--anon' : ''}`}
+                    />
                     <div className="feed-author-meta">
                       {authorHandle && (showProfileLink ? <button type="button" className="feed-author-handle feed-author-link" onClick={handleAuthorNavigation}>{authorHandle}</button> : <div className="feed-author-handle">{authorHandle}</div>)}
                       <div className="feed-visibility">{visibilityLabel}</div>
@@ -653,12 +684,12 @@ export default function Feed({ user }) {
                 )}
                 <div className="activity-reactions feed-reactions">
                   <div className="reaction-buttons">
-                    <button type="button" className={`reaction-button${reactionSnapshot.viewerReaction === defaultReaction ? ' active' : ''}`} onClick={(e) => { if (consumeSuppressedClick(e)) return; handleReactionClick(e, dream, defaultReaction); }} aria-label="React with a heart">
+                    <button type="button" className={`reaction-button${reactionSnapshot.viewerReactions?.includes(defaultReaction) ? ' active' : ''}`} onClick={(e) => { if (consumeSuppressedClick(e)) return; handleReactionClick(e, dream, defaultReaction); }} aria-label="React with a heart">
                       <FontAwesomeIcon icon={faHeart} className="reaction-icon" />
                       <span className="reaction-count">{reactionSnapshot.counts?.[defaultReaction] || 0}</span>
                     </button>
                     {(() => {
-                      const customEmoji = reactionSnapshot.viewerReaction && reactionSnapshot.viewerReaction !== defaultReaction ? reactionSnapshot.viewerReaction : null;
+                      const customEmoji = reactionSnapshot.viewerReactions?.find((e) => e !== defaultReaction) || null;
                       return (
                         <button type="button" className={`reaction-button${customEmoji ? ' active' : ' custom-emoji-trigger'}`} onClick={(e) => openCustomReactionPicker(e, dream)} aria-label="Add emoji reaction">
                           {customEmoji
@@ -676,7 +707,7 @@ export default function Feed({ user }) {
                     <div className="custom-emoji-popover" onClick={(e) => e.stopPropagation()} role="group" aria-label="Add an emoji reaction">
                       <div className="emoji-picker-grid">
                         {COMMON_EMOJI_REACTIONS.map((emoji) => (
-                          <button key={`${dream.id}-picker-${emoji}`} type="button" className="emoji-option" onClick={(e) => { e.preventDefault(); handleReactionSelection(dream, emoji); closeCustomReactionPicker(); }}>
+                          <button key={`${dream.id}-picker-${emoji}`} type="button" className={`emoji-option${reactionSnapshot.viewerReactions?.includes(emoji) ? ' selected' : ''}`} onClick={(e) => { e.preventDefault(); handleReactionSelection(dream, emoji); closeCustomReactionPicker(); }}>
                             <span aria-hidden="true">{emoji}</span>
                             <span className="sr-only">React with {emoji}</span>
                           </button>
@@ -694,9 +725,9 @@ export default function Feed({ user }) {
                         <button type="submit" className="primary-btn" disabled={!filterEmojiInput(customReactionValue)}>Add</button>
                         <button type="button" className="ghost-btn" onClick={(e) => { e.preventDefault(); e.stopPropagation(); closeCustomReactionPicker(); }}>Cancel</button>
                       </form>
-                      {reactionSnapshot.viewerReaction && reactionSnapshot.viewerReaction !== defaultReaction && (
-                        <button type="button" className="emoji-clear-btn" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleReactionClick(e, dream, null); closeCustomReactionPicker(); }}>
-                          Clear reaction
+                      {reactionSnapshot.viewerReactions?.some((e) => e !== defaultReaction) && (
+                        <button type="button" className="emoji-clear-btn" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleReactionClick(e, dream, reactionSnapshot.viewerReactions.find((e2) => e2 !== defaultReaction)); closeCustomReactionPicker(); }}>
+                          Clear emoji reaction
                         </button>
                       )}
                     </div>

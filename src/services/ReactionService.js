@@ -15,13 +15,13 @@ export const updateDreamReaction = async ({
   if (error) throw error;
 
   const result = data || {};
-  if (result.changed && result.next && dreamOwnerId && dreamOwnerId !== userId) {
+  if (result.changed && result.added && result.emoji && dreamOwnerId && dreamOwnerId !== userId) {
     await logActivityEvent(dreamOwnerId, {
       type: 'reaction',
       actorId: userId,
       actorDisplayName,
       actorUsername,
-      emoji: result.next,
+      emoji: result.emoji,
       dreamId,
       dreamOwnerId,
       dreamTitleSnapshot

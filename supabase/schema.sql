@@ -71,6 +71,12 @@ create table if not exists public.dreams (
 
 alter table public.dreams add column if not exists comment_count integer not null default 0;
 
+-- Backfill comment_count for any dreams that had comments before the trigger was created
+update public.dreams d
+set comment_count = (select count(*) from public.comments c where c.dream_id = d.id)
+where comment_count = 0
+  and exists (select 1 from public.comments c where c.dream_id = d.id);
+
 create index if not exists dreams_user_id_created_at_idx on public.dreams (user_id, created_at desc);
 create index if not exists dreams_visibility_created_at_idx on public.dreams (visibility, created_at desc);
 
@@ -274,21 +280,29 @@ drop function if exists public.cancel_follow_request(uuid);
 drop function if exists public.accept_follow_request(uuid);
 drop function if exists public.decline_follow_request(uuid);
 
--- Atomically toggle a dream reaction and update counts
+-- Atomically toggle a single emoji reaction for a user.
+-- viewer_reactions stores { userId: [emoji, ...] } — an array so users can
+-- simultaneously hold a heart AND a custom emoji reaction.
+-- Legacy single-string values are transparently migrated on first touch.
+-- Pass p_emoji = null to clear ALL reactions for the user.
 create or replace function toggle_dream_reaction(
   p_dream_id uuid,
   p_user_id  uuid,
-  p_emoji    text  -- pass null to remove existing reaction
+  p_emoji    text
 )
 returns jsonb
 language plpgsql
 security definer
 as $$
 declare
-  v_reactions jsonb;
-  v_counts    jsonb;
-  v_prev      text;
-  v_next      text;
+  v_reactions  jsonb;
+  v_counts     jsonb;
+  v_user_key   text  := p_user_id::text;
+  v_prev_raw   jsonb;
+  v_prev_arr   jsonb;
+  v_next_arr   jsonb;
+  v_was_in     boolean;
+  v_e          text;
 begin
   select viewer_reactions, reaction_counts
   into   v_reactions, v_counts
@@ -302,22 +316,49 @@ begin
 
   v_reactions := coalesce(v_reactions, '{}'::jsonb);
   v_counts    := coalesce(v_counts,    '{}'::jsonb);
-  v_prev      := v_reactions ->> p_user_id::text;
+  v_prev_raw  := v_reactions -> v_user_key;
 
-  -- Remove previous reaction
-  if v_prev is not null then
-    v_reactions := v_reactions - p_user_id::text;
-    v_counts    := jsonb_set(v_counts, array[v_prev],
-      to_jsonb(greatest(0, coalesce((v_counts ->> v_prev)::int, 0) - 1)));
+  -- Normalise legacy single-string value to array
+  if v_prev_raw is null then
+    v_prev_arr := '[]'::jsonb;
+  elsif jsonb_typeof(v_prev_raw) = 'string' then
+    v_prev_arr := jsonb_build_array(v_prev_raw #>> '{}');
+  elsif jsonb_typeof(v_prev_raw) = 'array' then
+    v_prev_arr := v_prev_raw;
+  else
+    v_prev_arr := '[]'::jsonb;
   end if;
 
-  -- Add new reaction
-  v_next := null;
-  if p_emoji is not null and p_emoji != '' then
-    v_reactions := jsonb_set(v_reactions, array[p_user_id::text], to_jsonb(p_emoji));
-    v_counts    := jsonb_set(v_counts, array[p_emoji],
-      to_jsonb(coalesce((v_counts ->> p_emoji)::int, 0) + 1));
-    v_next := p_emoji;
+  if p_emoji is null or p_emoji = '' then
+    -- Clear all reactions for this user
+    for v_e in select jsonb_array_elements_text(v_prev_arr) loop
+      v_counts := jsonb_set(v_counts, array[v_e],
+        to_jsonb(greatest(0, coalesce((v_counts ->> v_e)::int, 0) - 1)));
+    end loop;
+    v_next_arr := '[]'::jsonb;
+  else
+    v_was_in := v_prev_arr @> jsonb_build_array(p_emoji);
+    if v_was_in then
+      -- Remove this emoji from the array
+      select coalesce(jsonb_agg(elem), '[]'::jsonb)
+      into   v_next_arr
+      from   jsonb_array_elements_text(v_prev_arr) as elem
+      where  elem != p_emoji;
+      v_counts := jsonb_set(v_counts, array[p_emoji],
+        to_jsonb(greatest(0, coalesce((v_counts ->> p_emoji)::int, 0) - 1)));
+    else
+      -- Add this emoji to the array
+      v_next_arr := v_prev_arr || jsonb_build_array(p_emoji);
+      v_counts   := jsonb_set(v_counts, array[p_emoji],
+        to_jsonb(coalesce((v_counts ->> p_emoji)::int, 0) + 1));
+    end if;
+  end if;
+
+  -- Store: remove key entirely when array is empty
+  if jsonb_array_length(v_next_arr) = 0 then
+    v_reactions := v_reactions - v_user_key;
+  else
+    v_reactions := jsonb_set(v_reactions, array[v_user_key], v_next_arr);
   end if;
 
   update public.dreams
@@ -326,7 +367,11 @@ begin
          updated_at       = now()
   where  id = p_dream_id;
 
-  return jsonb_build_object('prev', v_prev, 'next', v_next, 'changed', true);
+  return jsonb_build_object(
+    'emoji',   p_emoji,
+    'added',   not coalesce(v_was_in, true),
+    'changed', true
+  );
 end;
 $$;
 
@@ -697,4 +742,50 @@ $$;
 -- alter publication supabase_realtime add table public.comments;
 -- alter publication supabase_realtime add table public.activity;
 -- alter publication supabase_realtime add table public.profiles;
+
+-- ============================================================
+-- STORAGE — avatars bucket
+-- Create this bucket manually in Supabase Dashboard → Storage,
+-- then run the RLS policies below in the SQL editor.
+--
+-- Bucket name : avatars
+-- Public      : true
+-- Max size    : 2097152  (2 MB)
+-- Allowed MIME: image/jpeg, image/webp, image/png
+-- ============================================================
+
+-- Allow authenticated users to upload/replace their own avatar.
+-- Files are stored at {userId}/avatar.jpg
+drop policy if exists "Users can upload own avatar" on storage.objects;
+create policy "Users can upload own avatar"
+on storage.objects for insert
+to authenticated
+with check (
+  bucket_id = 'avatars'
+  and auth.uid()::text = (storage.foldername(name))[1]
+);
+
+drop policy if exists "Users can update own avatar" on storage.objects;
+create policy "Users can update own avatar"
+on storage.objects for update
+to authenticated
+using (
+  bucket_id = 'avatars'
+  and auth.uid()::text = (storage.foldername(name))[1]
+);
+
+drop policy if exists "Users can delete own avatar" on storage.objects;
+create policy "Users can delete own avatar"
+on storage.objects for delete
+to authenticated
+using (
+  bucket_id = 'avatars'
+  and auth.uid()::text = (storage.foldername(name))[1]
+);
+
+-- Public read for all avatar images (bucket is public, but belt-and-suspenders)
+drop policy if exists "Public avatar read" on storage.objects;
+create policy "Public avatar read"
+on storage.objects for select
+using ( bucket_id = 'avatars' );
 -- ============================================================

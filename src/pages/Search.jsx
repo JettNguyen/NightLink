@@ -3,8 +3,8 @@ import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import { mapDream } from '../utils/mappers';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
+import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR } from '../constants/avatarOptions';
+import AvatarDisplay from '../components/AvatarDisplay';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
@@ -42,7 +42,7 @@ export default function Search({ user }) {
       if (filter === 'people') {
         const { data } = await supabase
           .from('profiles')
-          .select('id, display_name, username, avatar_icon, avatar_background, avatar_color')
+          .select('id, display_name, username, photo_url, avatar_icon, avatar_background, avatar_color')
           .or(`display_name.ilike.${lower},username.ilike.${lower}`)
           .neq('id', currentUserId || '00000000-0000-0000-0000-000000000000')
           .limit(15);
@@ -50,6 +50,7 @@ export default function Search({ user }) {
           id: r.id,
           displayName: r.display_name || 'Dreamer',
           username: r.username || '',
+          photoURL: r.photo_url || null,
           avatarIcon: r.avatar_icon,
           avatarBackground: r.avatar_background,
           avatarColor: r.avatar_color,
@@ -157,9 +158,13 @@ export default function Search({ user }) {
                     <div className="person-card" key={u.id} role="button" tabIndex={0}
                       onClick={() => handleProfileNavigation(u)}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleProfileNavigation(u); } }}>
-                      <div className="person-avatar" style={{ background: u.avatarBackground || DEFAULT_AVATAR_BACKGROUND }}>
-                        <FontAwesomeIcon icon={getAvatarIconById(u.avatarIcon)} style={{ color: u.avatarColor || DEFAULT_AVATAR_COLOR }} />
-                      </div>
+                      <AvatarDisplay
+                        photoURL={u.photoURL}
+                        avatarIcon={u.avatarIcon}
+                        avatarBackground={u.avatarBackground || DEFAULT_AVATAR_BACKGROUND}
+                        avatarColor={u.avatarColor || DEFAULT_AVATAR_COLOR}
+                        className="person-avatar"
+                      />
                       <div>
                         <div className="person-name">{u.displayName || 'Dreamer'}</div>
                         {u.username && <div className="person-username">@{u.username}</div>}

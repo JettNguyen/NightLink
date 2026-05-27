@@ -1,14 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronLeft } from '@fortawesome/free-solid-svg-icons';
+import { faChevronLeft, faCamera, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '../supabase';
 import { mapProfile } from '../utils/mappers';
-import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS } from '../constants/avatarOptions';
+import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
 import LoadingIndicator from '../components/LoadingIndicator';
 import Toast from '../components/Toast';
+import PhotoCropModal from '../components/PhotoCropModal';
+import AvatarDisplay from '../components/AvatarDisplay';
+import { uploadAvatar, removeAvatar } from '../utils/uploadAvatar';
+import { clearUserSummaryCache } from '../services/UserService';
 import { triggerMediumHaptic } from '../utils/haptics';
 import { appUserPropType } from '../propTypes';
 import './Profile.css';
@@ -29,6 +33,15 @@ export default function EditProfile({ user }) {
   const [avatarBackground, setAvatarBackground] = useState(AVATAR_BACKGROUNDS[0]);
   const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0]);
   const [accountVisibility, setAccountVisibility] = useState('private');
+
+  // Photo upload state
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoBlob, setPhotoBlob] = useState(null);
+  const [photoPreviewURL, setPhotoPreviewURL] = useState(null);
+  const [removePhotoFlag, setRemovePhotoFlag] = useState(false);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef(null);
   const privateAccountEnabled = accountVisibility === 'private';
 
   const handleAccountVisibilityToggle = (event) => {
@@ -49,15 +62,61 @@ export default function EditProfile({ user }) {
         setAvatarBackground(p.avatarBackground || AVATAR_BACKGROUNDS[0]);
         setAvatarColor(p.avatarColor || AVATAR_COLORS[0]);
         setAccountVisibility(p.accountVisibility || p.settings?.accountVisibility || 'private');
+        setPhotoPreviewURL(p.photoURL || null);
         setPageLoading(false);
       });
   }, [user?.uid, navigate]);
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { setUploadError('Please select an image file.'); return; }
+    if (file.size > 10 * 1024 * 1024) { setUploadError('Image must be under 10 MB.'); return; }
+    setUploadError('');
+    setPhotoFile(file);
+    setCropModalOpen(true);
+    // Reset input so selecting the same file again still fires onChange
+    e.target.value = '';
+  };
+
+  const handleCropConfirm = (blob) => {
+    const previewURL = URL.createObjectURL(blob);
+    // Revoke previous preview URL to avoid memory leaks
+    if (photoPreviewURL && photoPreviewURL !== userData?.photoURL) {
+      URL.revokeObjectURL(photoPreviewURL);
+    }
+    setPhotoBlob(blob);
+    setPhotoPreviewURL(previewURL);
+    setRemovePhotoFlag(false);
+    setCropModalOpen(false);
+    setPhotoFile(null);
+  };
+
+  const handleRemovePhoto = () => {
+    if (photoPreviewURL && photoPreviewURL !== userData?.photoURL) {
+      URL.revokeObjectURL(photoPreviewURL);
+    }
+    setPhotoPreviewURL(null);
+    setPhotoBlob(null);
+    setRemovePhotoFlag(true);
+    setUploadError('');
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
     if (!user?.uid || !userData) return;
     setSaving(true);
+    setUploadError('');
     try {
+      // Handle photo operations first
+      if (photoBlob) {
+        await uploadAvatar({ userId: user.uid, blob: photoBlob });
+        clearUserSummaryCache();
+      } else if (removePhotoFlag && userData.photoURL) {
+        await removeAvatar({ userId: user.uid });
+        clearUserSummaryCache();
+      }
+
       const { error } = await supabase.from('profiles').update({
         display_name:        displayName.trim(),
         username:            username.trim() || userData.username,
@@ -167,6 +226,56 @@ export default function EditProfile({ user }) {
           </div>
         </div>
 
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          style={{ display: 'none' }}
+          aria-hidden="true"
+        />
+
+        <div className="photo-upload-section">
+          <p className="customizer-label">Profile photo</p>
+          <div className="photo-upload-body">
+            <AvatarDisplay
+              photoURL={removePhotoFlag ? null : photoPreviewURL}
+              avatarIcon={avatarIcon}
+              avatarBackground={avatarBackground}
+              avatarColor={avatarColor}
+              className="avatar-circle photo-upload-preview"
+              aria-label="Profile photo preview"
+            />
+            <div className="photo-upload-actions">
+              <button
+                type="button"
+                className="ghost-btn photo-upload-btn"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <FontAwesomeIcon icon={faCamera} />
+                {photoPreviewURL && !removePhotoFlag ? 'Change photo' : 'Upload photo'}
+              </button>
+              {(photoPreviewURL && !removePhotoFlag) && (
+                <button
+                  type="button"
+                  className="ghost-btn photo-remove-btn"
+                  onClick={handleRemovePhoto}
+                  aria-label="Remove photo"
+                >
+                  <FontAwesomeIcon icon={faTrash} />
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+          {uploadError && <p className="photo-upload-error">{uploadError}</p>}
+        </div>
+
+        <div className="photo-avatar-divider">
+          <span>or customize avatar</span>
+        </div>
+
         <div className="avatar-customizer">
           <p className="customizer-label">Avatar icon</p>
           <div className="avatar-option-grid">
@@ -222,6 +331,14 @@ export default function EditProfile({ user }) {
       </form>
 
       <Toast message={toast} onDismiss={() => setToast('')} />
+
+      {cropModalOpen && photoFile && (
+        <PhotoCropModal
+          file={photoFile}
+          onConfirm={handleCropConfirm}
+          onCancel={() => { setCropModalOpen(false); setPhotoFile(null); }}
+        />
+      )}
     </div>
   );
 }

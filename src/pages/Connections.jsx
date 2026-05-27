@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { supabase } from '../supabase';
 import { mapProfile } from '../utils/mappers';
-import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
+import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR } from '../constants/avatarOptions';
+import AvatarDisplay from '../components/AvatarDisplay';
 import { buildProfilePath } from '../utils/urlHelpers';
 import LoadingIndicator from '../components/LoadingIndicator';
 import './Connections.css';
@@ -345,9 +345,13 @@ export default function Connections({ user }) {
                     className="connections-card-main"
                     onClick={() => handleProfileNavigation(profile)}
                   >
-                    <div className="connections-avatar" style={{ background: profile.avatarBackground || DEFAULT_AVATAR_BACKGROUND }}>
-                      <FontAwesomeIcon icon={getAvatarIconById(profile.avatarIcon)} style={{ color: profile.avatarColor || DEFAULT_AVATAR_COLOR }} />
-                    </div>
+                    <AvatarDisplay
+                      photoURL={profile.photoURL || null}
+                      avatarIcon={profile.avatarIcon}
+                      avatarBackground={profile.avatarBackground || DEFAULT_AVATAR_BACKGROUND}
+                      avatarColor={profile.avatarColor || DEFAULT_AVATAR_COLOR}
+                      className="connections-avatar"
+                    />
                     <div className="connections-meta">
                       <div className="connections-name">{profile.displayName || 'Dreamer'}</div>
                       {profile.username && <div className="connections-username">@{profile.username}</div>}
@@ -383,9 +387,13 @@ export default function Connections({ user }) {
               className="connections-card"
               onClick={() => handleProfileNavigation(profile)}
             >
-              <div className="connections-avatar" style={{ background: profile.avatarBackground || DEFAULT_AVATAR_BACKGROUND }}>
-                <FontAwesomeIcon icon={getAvatarIconById(profile.avatarIcon)} style={{ color: profile.avatarColor || DEFAULT_AVATAR_COLOR }} />
-              </div>
+              <AvatarDisplay
+                photoURL={profile.photoURL || null}
+                avatarIcon={profile.avatarIcon}
+                avatarBackground={profile.avatarBackground || DEFAULT_AVATAR_BACKGROUND}
+                avatarColor={profile.avatarColor || DEFAULT_AVATAR_COLOR}
+                className="connections-avatar"
+              />
               <div className="connections-meta">
                 <div className="connections-name">{profile.displayName || 'Dreamer'}</div>
                 {profile.username && <div className="connections-username">@{profile.username}</div>}

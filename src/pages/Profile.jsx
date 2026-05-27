@@ -8,6 +8,7 @@ import { Capacitor } from '@capacitor/core';
 import { supabase } from '../supabase';
 import { mapProfile, mapDream } from '../utils/mappers';
 import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
+import AvatarDisplay from '../components/AvatarDisplay';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
@@ -548,9 +549,15 @@ export default function Profile({ user }) {
     <div className="page-container">
       <div className="profile-header">
         <div className="profile-avatar">
-          <div className="avatar-circle" style={{ background: displayAvatarBackground }} aria-label="Profile avatar">
-            <FontAwesomeIcon icon={selectedIcon} style={{ color: displayAvatarColor, fontSize: '2.4rem' }} />
-          </div>
+          <AvatarDisplay
+            photoURL={userData.photoURL}
+            avatarIcon={displayAvatarIconId}
+            avatarBackground={displayAvatarBackground}
+            avatarColor={displayAvatarColor}
+            className="avatar-circle"
+            style={{ fontSize: '2.4rem' }}
+            aria-label="Profile avatar"
+          />
         </div>
 
         <div className="profile-info">
