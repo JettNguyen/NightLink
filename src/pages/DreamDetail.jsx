@@ -2077,7 +2077,7 @@ export default function DreamDetail({ user }) {
                   </div>
                 ) : null}
                 {isOwner && (
-                  <button type="button" className="ghost-btn" onClick={() => {
+                  <button type="button" className="ghost-btn" style={{ marginTop: '0.5rem' }} onClick={() => {
                     setEditingContent(true);
                     setContentInput(dream.content || '');
                     setEditableTags(Array.isArray(dream.tags) ? dream.tags : []);
@@ -2089,7 +2089,7 @@ export default function DreamDetail({ user }) {
             )}
           </div>
 
-        <div className="activity-reactions detail-reactions" aria-label="Dream reactions">
+        {dream.visibility !== 'private' && <div className="activity-reactions detail-reactions" aria-label="Dream reactions">
           <div className="reaction-buttons">
             <button
               type="button"
@@ -2175,7 +2175,7 @@ export default function DreamDetail({ user }) {
                 ))}
             </div>
           ) : null}
-        </div>
+        </div>}
 
         {statusMessage && (
           <p className="detail-status-message">{statusMessage}</p>
@@ -2357,6 +2357,7 @@ export default function DreamDetail({ user }) {
             <button
               type="button"
               className="ghost-btn"
+              style={{ marginTop: '0.5rem' }}
               onClick={handleApplyAiTitle}
               disabled={applyingAiTitle}
             >
@@ -2365,7 +2366,7 @@ export default function DreamDetail({ user }) {
           </div>
         ) : null}
 
-        <div className="detail-comments">
+        {dream.visibility !== 'private' && <div className="detail-comments">
           <div className="detail-section-head">
             <p className="detail-label">Comments{commentCountLabel}</p>
           </div>
@@ -2426,7 +2427,7 @@ export default function DreamDetail({ user }) {
           ) : (
             <p className="detail-hint">Sign in to add your take.</p>
           )}
-        </div>
+        </div>}
 
         {isOwner && (
           <div className="detail-share-accordion">

@@ -586,7 +586,23 @@ export default function DreamJournal({ user }) {
       ) : filteredDreams.length ? (
         viewMode === 'list' ? (
           <div className="dreams-list">
-            {filteredDreams.map((dream) => renderDreamCard(dream))}
+            {(() => {
+              const items = [];
+              let lastYear = null;
+              for (const dream of filteredDreams) {
+                const year = dream.createdAt ? new Date(dream.createdAt).getFullYear() : null;
+                if (year && year !== lastYear) {
+                  items.push(
+                    <div key={`year-${year}`} className="dreams-year-header">
+                      <span>{year}</span>
+                    </div>
+                  );
+                  lastYear = year;
+                }
+                items.push(renderDreamCard(dream));
+              }
+              return items;
+            })()}
           </div>
         ) : (
           <div className="journal-calendar-shell">
