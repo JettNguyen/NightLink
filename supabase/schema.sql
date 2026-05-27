@@ -35,6 +35,7 @@ create table if not exists public.profiles (
   updated_at           timestamptz not null default now()
 );
 
+alter table public.profiles add column if not exists dream_memory text;
 alter table public.profiles add column if not exists account_visibility text;
 update public.profiles set account_visibility = coalesce(account_visibility, 'private');
 alter table public.profiles alter column account_visibility set default 'private';
@@ -68,6 +69,8 @@ create table if not exists public.dreams (
   updated_at           timestamptz not null default now()
 );
 
+alter table public.dreams add column if not exists comment_count integer not null default 0;
+
 create index if not exists dreams_user_id_created_at_idx on public.dreams (user_id, created_at desc);
 create index if not exists dreams_visibility_created_at_idx on public.dreams (visibility, created_at desc);
 
@@ -96,6 +99,24 @@ create table if not exists public.comments (
 );
 
 create index if not exists comments_dream_id_created_at_idx on public.comments (dream_id, created_at asc);
+
+-- Trigger: keep dreams.comment_count in sync with comments table
+create or replace function public.update_dream_comment_count()
+returns trigger language plpgsql as $$
+begin
+  if tg_op = 'INSERT' then
+    update public.dreams set comment_count = comment_count + 1 where id = NEW.dream_id;
+  elsif tg_op = 'DELETE' then
+    update public.dreams set comment_count = greatest(comment_count - 1, 0) where id = OLD.dream_id;
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_dream_comment_count on public.comments;
+create trigger trg_dream_comment_count
+after insert or delete on public.comments
+for each row execute function public.update_dream_comment_count();
 
 -- ============================================================
 -- ACTIVITY (inbox per user)

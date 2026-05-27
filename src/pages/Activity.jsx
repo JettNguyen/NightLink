@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -14,8 +14,6 @@ export default function Activity({ user, activityPreview }) {
   const viewerId = user?.uid || null;
   const navigate = useNavigate();
   const [clearingEntries, setClearingEntries] = useState(() => new Set());
-  const swipeTouchRef = useRef(null);
-  const cardElRefs = useRef({});
 
   const {
     inboxEntries = [],
@@ -91,44 +89,6 @@ export default function Activity({ user, activityPreview }) {
     });
   }, [viewerId]);
 
-  const onCardTouchStart = useCallback((e, entry) => {
-    const t = e.touches[0];
-    swipeTouchRef.current = { entry, startX: t.clientX, startY: t.clientY, direction: null, dx: 0 };
-  }, []);
-
-  const onCardTouchMove = useCallback((e, entryId) => {
-    const s = swipeTouchRef.current;
-    if (!s || s.entry.id !== entryId) return;
-    const t = e.touches[0];
-    const dx = t.clientX - s.startX;
-    const dy = t.clientY - s.startY;
-    if (!s.direction) {
-      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
-        s.direction = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
-      }
-      return;
-    }
-    if (s.direction !== 'h') return;
-    const clamped = Math.min(0, dx);
-    s.dx = clamped;
-    const el = cardElRefs.current[entryId];
-    if (el) { el.style.transform = `translateX(${clamped}px)`; el.style.transition = 'none'; }
-  }, []);
-
-  const onCardTouchEnd = useCallback(async (entryId) => {
-    const s = swipeTouchRef.current;
-    swipeTouchRef.current = null;
-    if (!s || s.entry.id !== entryId || s.direction !== 'h') return;
-    const el = cardElRefs.current[entryId];
-    if (s.dx < -80) {
-      if (el) { el.style.transition = 'transform 0.22s ease'; el.style.transform = 'translateX(-110%)'; }
-      await new Promise((r) => setTimeout(r, 180));
-      await handleNotificationClear({ preventDefault() {}, stopPropagation() {} }, s.entry);
-    } else {
-      if (el) { el.style.transition = 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1)'; el.style.transform = 'translateX(0)'; }
-    }
-  }, [handleNotificationClear]);
-
   const renderNotificationCard = (entry) => {
     const entryType = entry.type || 'mention';
     const relativeTime = entry.createdAt ? formatDistanceToNow(entry.createdAt, { addSuffix: true }) : 'moments ago';
@@ -178,14 +138,10 @@ export default function Activity({ user, activityPreview }) {
     const handleInteraction = () => handleNotificationInteraction(entry, onPress);
 
     return (
-      <div key={entry.id} className="activity-swipe-outer">
-        <article
-          ref={(el) => { if (el) cardElRefs.current[entry.id] = el; else delete cardElRefs.current[entry.id]; }}
-          className={cardClassName}
-          onTouchStart={(e) => onCardTouchStart(e, entry)}
-          onTouchMove={(e) => onCardTouchMove(e, entry.id)}
-          onTouchEnd={() => onCardTouchEnd(entry.id)}
-        >
+      <article
+        key={entry.id}
+        className={cardClassName}
+      >
           <button
             type="button"
             className="activity-card-main"
@@ -212,8 +168,7 @@ export default function Activity({ user, activityPreview }) {
               Clear
             </button>
           </div>
-        </article>
-      </div>
+      </article>
     );
   };
 

@@ -477,6 +477,50 @@ html[data-native-platform='ios'] .profile-ai-badge {
   outline: none;
 }
 
+.reaction-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.reaction-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.reaction-summary-item .reaction-emoji-icon {
+  font-size: 0.85rem;
+}
+
+.emoji-clear-btn {
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 100, 100, 0.25);
+  background: rgba(255, 100, 100, 0.06);
+  color: #ff9fb1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.emoji-clear-btn:hover {
+  background: rgba(255, 100, 100, 0.12);
+  border-color: rgba(255, 100, 100, 0.45);
+}
+
+.reaction-emoji-text {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

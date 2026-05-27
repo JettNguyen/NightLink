@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHeart, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faHeart, faPlus } from '@fortawesome/free-solid-svg-icons'; // faPlus kept for emoji picker trigger
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Capacitor } from '@capacitor/core';
@@ -555,13 +555,6 @@ export default function DreamDetail({ user }) {
     };
 
     const currentReaction = previousSnapshot.viewerReaction;
-    if (currentReaction && emoji && emoji !== currentReaction) {
-      setStatusMessage('Clear your current reaction before choosing another emoji.');
-      setCustomEmojiPickerOpen(false);
-      setCustomEmojiValue('');
-      return;
-    }
-
     const nextReaction = emoji === currentReaction ? null : emoji;
     void triggerLightHaptic();
     const optimisticCounts = { ...previousSnapshot.counts };
@@ -2110,49 +2103,22 @@ export default function DreamDetail({ user }) {
               <FontAwesomeIcon icon={faHeart} className="reaction-icon" />
               <span className="reaction-count">{reactionSnapshot.counts?.[DEFAULT_EMOJI] || 0}</span>
             </button>
-            <button
-              type="button"
-              className="reaction-button custom-emoji-trigger"
-              onClick={openCustomEmojiPicker}
-              aria-label="Add a custom emoji reaction"
-            >
-              <FontAwesomeIcon icon={faPlus} className="reaction-icon" />
-              <span className="reaction-count">Emoji</span>
-            </button>
-            <button
-              type="button"
-              className="reaction-button clear-reaction"
-              disabled={!reactionSnapshot.viewerReaction}
-              onClick={() => handleDreamReactionSelection(null)}
-            >
-              Clear
-            </button>
-          </div>
-          {reactionEntries.length > 0 && (
-            <div className="reaction-chip-row" aria-label="Existing reactions">
-              {reactionEntries.map(([emoji, count]) => (
+            {(() => {
+              const customEmoji = reactionSnapshot.viewerReaction && reactionSnapshot.viewerReaction !== DEFAULT_EMOJI ? reactionSnapshot.viewerReaction : null;
+              return (
                 <button
-                  key={`${dream.id}-reaction-${emoji}`}
                   type="button"
-                  className={`reaction-chip${reactionSnapshot.viewerReaction === emoji ? ' active' : ''}`}
-                  onClick={(event) => {
-                    if (consumeSuppressedClick(event)) return;
-                    handleDreamReactionSelection(emoji);
-                  }}
-                  aria-label={`React with ${emoji}`}
-                  onMouseEnter={(event) => handleDreamReactionHoverStart(event, emoji)}
-                  onMouseLeave={scheduleModalAutoClose}
-                  onTouchStart={(event) => handleDreamReactionTouchStart(event, emoji)}
-                  onTouchEnd={handleTouchEndInteraction}
-                  onTouchCancel={handleTouchEndInteraction}
-                  onTouchMove={handleTouchMoveInteraction}
+                  className={`reaction-button${customEmoji ? ' active' : ' custom-emoji-trigger'}`}
+                  onClick={openCustomEmojiPicker}
+                  aria-label="Add emoji reaction"
                 >
-                  {renderReactionSymbol(emoji)}
-                  <span className="reaction-count">{count}</span>
+                  {customEmoji
+                    ? <span className="reaction-emoji-text" aria-hidden="true">{customEmoji}</span>
+                    : <FontAwesomeIcon icon={faPlus} className="reaction-icon" />}
                 </button>
-              ))}
-            </div>
-          )}
+              );
+            })()}
+          </div>
           {customEmojiPickerOpen && (
             <div className="custom-emoji-popover">
               <div className="emoji-picker-grid" role="listbox" aria-label="Emoji suggestions">
@@ -2189,11 +2155,26 @@ export default function DreamDetail({ user }) {
                   Cancel
                 </button>
               </form>
+              {reactionSnapshot.viewerReaction && reactionSnapshot.viewerReaction !== DEFAULT_EMOJI && (
+                <button type="button" className="emoji-clear-btn" onClick={() => { handleDreamReactionSelection(null); closeCustomEmojiPicker(); }}>
+                  Clear reaction
+                </button>
+              )}
             </div>
           )}
-          <span className="reaction-total">
-            {totalDreamReactions ? `${totalDreamReactions} reaction${totalDreamReactions === 1 ? '' : 's'}` : 'Be the first to react'}
-          </span>
+          {Object.entries(reactionSnapshot.counts || {}).some(([e, c]) => c > 0 && e !== DEFAULT_EMOJI) ? (
+            <div className="reaction-summary">
+              {Object.entries(reactionSnapshot.counts || {})
+                .filter(([emoji, count]) => count > 0 && emoji !== DEFAULT_EMOJI)
+                .sort(([, a], [, b]) => b - a)
+                .map(([emoji, count]) => (
+                  <span key={emoji} className="reaction-summary-item">
+                    <span aria-hidden="true">{emoji}</span>
+                    <span className="reaction-count">{count}</span>
+                  </span>
+                ))}
+            </div>
+          ) : null}
         </div>
 
         {statusMessage && (

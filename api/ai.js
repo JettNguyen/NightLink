@@ -189,27 +189,71 @@ const getUserTier = async (uid) => {
   return 'free';
 };
 
-// Fetch the user's last 10 AI-analyzed dreams for premium pattern context
-const buildPremiumContext = async (uid, excludeDreamId) => {
+// Read the user's persistent dream memory file
+const getDreamMemory = async (uid) => {
   const admin = getSupabaseAdmin();
-  let query = admin
-    .from('dreams')
-    .select('id, ai_title, title, ai_insights')
-    .eq('user_id', uid)
-    .eq('ai_generated', true)
-    .order('created_at', { ascending: false })
-    .limit(12);
-  const { data } = await query;
-  const analyzed = (data || [])
-    .filter((r) => r.id !== excludeDreamId)
-    .slice(0, 10);
-  if (!analyzed.length) return null;
-  const lines = analyzed.map((r) => {
-    const title = (r.ai_title || r.title || 'Untitled').trim();
-    const insights = (r.ai_insights || '').slice(0, 200).trim();
-    return `- "${title}": ${insights}`;
-  });
-  return `[Your recent dream history — use this to identify recurring symbols, names, places, and themes]\n${lines.join('\n')}`;
+  const { data } = await admin
+    .from('profiles')
+    .select('dream_memory')
+    .eq('id', uid)
+    .single();
+  return data?.dream_memory || null;
+};
+
+// Fire-and-forget: update the dream memory file after a successful analysis
+const updateDreamMemory = async (uid, dreamText, aiTitle, aiInsights, currentMemory, apiKey) => {
+  const systemPrompt = `You maintain a private dream memory file for a single user. After each analyzed dream, update the file by merging in new patterns, symbols, and themes.
+
+Use only the headings that have content (omit empty ones):
+## Recurring symbols
+## Recurring figures & people
+## Emotional patterns
+## Life themes (inferred)
+## Notable narratives
+
+Rules:
+- Keep total length under 1200 words
+- Use concise note-style writing, not full prose sentences
+- Track rough occurrence counts where useful (e.g. "water: ~8 times")
+- Merge new information into existing entries — never duplicate
+- Add new entries only when genuinely novel
+- When nearing the length limit, consolidate or trim rare/low-signal entries
+- Never include raw dream text — only synthesized patterns and observations
+- Do not reference specific dates or dream IDs
+
+Return ONLY the updated memory file. No preamble or explanation.`;
+
+  const userContent = [
+    `Current memory:\n${currentMemory || '(empty — this is the first entry)'}`,
+    `---`,
+    `New dream title: ${aiTitle}`,
+    `Dream content: ${dreamText.slice(0, 2000)}`,
+    `AI analysis: ${aiInsights}`,
+  ].join('\n');
+
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent },
+        ],
+        max_tokens: 1200,
+        temperature: 0.3,
+      }),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const updatedMemory = data.choices?.[0]?.message?.content?.trim();
+    if (!updatedMemory) return;
+    const admin = getSupabaseAdmin();
+    await admin.from('profiles').update({ dream_memory: updatedMemory }).eq('id', uid);
+  } catch (e) {
+    console.error('Dream memory update failed:', e.message);
+  }
 };
 
 const buildSystemPrompt = (customPrompt, contextBlock) => {
@@ -218,7 +262,7 @@ const buildSystemPrompt = (customPrompt, contextBlock) => {
     ? `${customPrompt}\n\n${safetyInstruction}\n\nAlso generate a short poetic title (2-4 words). Return only minified JSON: {"title":"string","themes":"string"} where "themes" contains your full analysis.`
     : `You are a creative dream interpreter. ${safetyInstruction} Generate a short poetic title (2-4 words) and a brief themes paragraph. Use speculative language. Return only minified JSON: {"title":"string","themes":"string"}`;
   if (!contextBlock) return base;
-  return `${base}\n\n${contextBlock}\n\nReference the above history if relevant — note recurring symbols, names, or patterns when they appear in this dream too.`;
+  return `${base}\n\n${contextBlock}\n\nUse this memory when relevant — connect new symbols to recurring ones, note when patterns echo past dreams, and let what you know about this dreamer deepen your analysis.`;
 };
 
 const callOpenAI = async (text, apiKey, customPrompt, contextBlock) => {
@@ -334,11 +378,16 @@ module.exports = async function handler(req, res) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'AI not configured.' });
 
-  // Build premium context from prior analyzed dreams
+  // Load dream memory for premium users (used as analysis context)
   let contextBlock = null;
+  let currentMemory = null;
   if (quota.tier === 'premium') {
-    try { contextBlock = await buildPremiumContext(uid, dreamId || null); }
-    catch (e) { console.error('Premium context fetch failed:', e.message); }
+    try {
+      currentMemory = await getDreamMemory(uid);
+      if (currentMemory) {
+        contextBlock = `[Dream memory — this dreamer's recurring symbols, patterns, and themes]\n${currentMemory}`;
+      }
+    } catch (e) { console.error('Dream memory fetch failed:', e.message); }
   }
 
   let raw = '';
@@ -354,6 +403,11 @@ module.exports = async function handler(req, res) {
 
   const result = { title: safeTitle, themes: safeThemes, safetyFiltered };
   cache.set(cacheKey, result);
+
+  // Background: update dream memory after a clean analysis (premium only, not on filtered content)
+  if (quota.tier === 'premium' && !safetyFiltered) {
+    updateDreamMemory(uid, text, safeTitle, safeThemes, currentMemory, apiKey).catch(() => {});
+  }
 
   res.status(200).json({
     ...result,

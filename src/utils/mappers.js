@@ -45,6 +45,7 @@ export const mapDream = (row) => {
     tags: row.tags || [],
     reactionCounts: row.reaction_counts || {},
     viewerReactions: row.viewer_reactions || {},
+    commentCount: row.comment_count ?? 0,
     excludedViewerIds: row.excluded_viewer_ids || [],
     taggedUserIds: row.tagged_user_ids || [],
     taggedUsers: row.tagged_users || [],

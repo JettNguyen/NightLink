@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHeart, faPlus, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons';
+import { faHeart, faPlus, faComment, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../supabase';
 import { mapDream, mapProfile } from '../utils/mappers';
 import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
@@ -367,7 +367,6 @@ export default function Feed({ user }) {
     if (!viewerId) { setToast('Sign in to react to dreams.'); return; }
     const currentState = reactionState[dream.id];
     const currentReaction = currentState?.viewerReaction || null;
-    if (currentReaction && emoji && emoji !== currentReaction) { setToast('Clear your current reaction before choosing another.'); return; }
     const nextReaction = emoji === currentReaction ? null : emoji;
     setReactionState((prev) => {
       const counts = { ...(prev[dream.id]?.counts || dream.reactionCounts || {}) };
@@ -622,26 +621,21 @@ export default function Feed({ user }) {
                       <FontAwesomeIcon icon={faHeart} className="reaction-icon" />
                       <span className="reaction-count">{reactionSnapshot.counts?.[defaultReaction] || 0}</span>
                     </button>
-                    <button type="button" className="reaction-button custom-emoji-trigger" onClick={(e) => openCustomReactionPicker(e, dream)} aria-label="Add a custom emoji reaction">
-                      <FontAwesomeIcon icon={faPlus} className="reaction-icon" />
-                      <span className="reaction-count">Emoji</span>
-                    </button>
-                    <button type="button" className="reaction-button clear-reaction" disabled={!reactionSnapshot.viewerReaction} onClick={(e) => handleReactionClick(e, dream, null)}>Clear</button>
-                  </div>
-                  {reactionEntries.length > 0 && (
-                    <div className="reaction-chip-row" aria-label="Existing reactions">
-                      {reactionEntries.map(([emoji, count]) => (
-                        <button key={`${dream.id}-reaction-${emoji}`} type="button" className={`reaction-chip${reactionSnapshot.viewerReaction === emoji ? ' active' : ''}`}
-                          onClick={(e) => { if (consumeSuppressedClick(e)) return; handleReactionClick(e, dream, emoji); }}
-                          aria-label={`React with ${emoji}`}
-                          onMouseEnter={(e) => handleDreamReactionHoverStart(e, dream, emoji)} onMouseLeave={scheduleModalAutoClose}
-                          onTouchStart={(e) => handleDreamReactionTouchStart(e, dream, emoji)} onTouchEnd={handleTouchEndInteraction} onTouchCancel={handleTouchEndInteraction} onTouchMove={handleTouchMoveInteraction}>
-                          {renderReactionChipSymbol(emoji)}
-                          <span className="reaction-count">{count}</span>
+                    {(() => {
+                      const customEmoji = reactionSnapshot.viewerReaction && reactionSnapshot.viewerReaction !== defaultReaction ? reactionSnapshot.viewerReaction : null;
+                      return (
+                        <button type="button" className={`reaction-button${customEmoji ? ' active' : ' custom-emoji-trigger'}`} onClick={(e) => openCustomReactionPicker(e, dream)} aria-label="Add emoji reaction">
+                          {customEmoji
+                            ? <span className="reaction-emoji-text" aria-hidden="true">{customEmoji}</span>
+                            : <FontAwesomeIcon icon={faPlus} className="reaction-icon" />}
                         </button>
-                      ))}
-                    </div>
-                  )}
+                      );
+                    })()}
+                    <button type="button" className="reaction-button" onClick={(e) => { e.stopPropagation(); openDreamDetail(); }} aria-label="Comments">
+                      <FontAwesomeIcon icon={faComment} className="reaction-icon" />
+                      <span className="reaction-count">{dream.commentCount || 0}</span>
+                    </button>
+                  </div>
                   {customReactionTarget === dream.id && (
                     <div className="custom-emoji-popover" onClick={(e) => e.stopPropagation()} role="group" aria-label="Add an emoji reaction">
                       <div className="emoji-picker-grid">
@@ -664,9 +658,26 @@ export default function Feed({ user }) {
                         <button type="submit" className="primary-btn" disabled={!filterEmojiInput(customReactionValue)}>Add</button>
                         <button type="button" className="ghost-btn" onClick={(e) => { e.preventDefault(); e.stopPropagation(); closeCustomReactionPicker(); }}>Cancel</button>
                       </form>
+                      {reactionSnapshot.viewerReaction && reactionSnapshot.viewerReaction !== defaultReaction && (
+                        <button type="button" className="emoji-clear-btn" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleReactionClick(e, dream, null); closeCustomReactionPicker(); }}>
+                          Clear reaction
+                        </button>
+                      )}
                     </div>
                   )}
-                  <span className="reaction-total">{totalReactions ? `${totalReactions} reaction${totalReactions === 1 ? '' : 's'}` : 'Be the first to react'}</span>
+                  {Object.entries(reactionSnapshot.counts || {}).some(([e, c]) => c > 0 && e !== defaultReaction) ? (
+                    <div className="reaction-summary">
+                      {Object.entries(reactionSnapshot.counts || {})
+                        .filter(([emoji, count]) => count > 0 && emoji !== defaultReaction)
+                        .sort(([, a], [, b]) => b - a)
+                        .map(([emoji, count]) => (
+                          <span key={emoji} className="reaction-summary-item">
+                            <span aria-hidden="true">{emoji}</span>
+                            <span className="reaction-count">{count}</span>
+                          </span>
+                        ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             );

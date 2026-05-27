@@ -955,7 +955,7 @@ export default function Settings({ user }) {
           <section className="settings-section">
             <div className="settings-section-head">
               <h2>AI insight style</h2>
-              <p>Your dreams stay private. AI analysis never trains models or collects data. Free includes three styles. Upgrade to Pro to unlock all styles, custom instructions, and cross-dream pattern analysis.</p>
+              <p>Your dreams stay private. AI analysis never trains models or collects data. Free includes three styles. Upgrade to Pro to unlock all styles, custom instructions, and a persistent dream memory that deepens over time.</p>
             </div>
             <div className="settings-section-body">
               <div className="prompt-options">
@@ -997,8 +997,8 @@ export default function Settings({ user }) {
                 <p className="preview-label">Dream memory {tier !== 'premium' && <span className="preset-lock-pill">Pro</span>}</p>
                 <p className="preview-text">
                   {tier === 'premium'
-                    ? 'When you analyze a dream, the AI reads your last 10 analyzed dreams to spot recurring symbols, people, places, and themes across your journal.'
-                    : 'Upgrade to Pro and the AI will read across your dream history to recognize recurring symbols, people, and themes each time you run an analysis.'}
+                    ? 'Every analysis updates a private memory file of your recurring symbols, figures, emotional patterns, and themes. AI reads this memory when analyzing new dreams, so its insights grow sharper the more you journal.'
+                    : 'Upgrade to Pro to have AI maintain a private memory of your recurring symbols, figures, and patterns that deepens with every analysis you run.'}
                 </p>
               </div>
             </div>
