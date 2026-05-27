@@ -159,6 +159,12 @@
   gap: 0.15rem;
 }
 
+.feed-author-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .feed-author-handle {
   color: var(--primary);
   font-size: 0.8rem;

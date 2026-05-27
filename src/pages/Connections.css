@@ -113,6 +113,9 @@
 .connections-name {
   font-weight: 600;
   color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .connections-username {

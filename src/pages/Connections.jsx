@@ -5,6 +5,7 @@ import { supabase } from '../supabase';
 import { mapProfile } from '../utils/mappers';
 import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR } from '../constants/avatarOptions';
 import AvatarDisplay from '../components/AvatarDisplay';
+import ProBadge from '../components/ProBadge';
 import { buildProfilePath } from '../utils/urlHelpers';
 import LoadingIndicator from '../components/LoadingIndicator';
 import './Connections.css';
@@ -134,7 +135,7 @@ export default function Connections({ user }) {
     setConnectionLoading(true);
     supabase
       .from('profiles')
-      .select('id, display_name, username, avatar_icon, avatar_background, avatar_color')
+      .select('id, display_name, username, photo_url, avatar_icon, avatar_background, avatar_color, subscription')
       .in('id', ids)
       .then(({ data }) => {
         const mapped = (data || []).map(mapProfile);
@@ -205,7 +206,7 @@ export default function Connections({ user }) {
 
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, display_name, username, avatar_icon, avatar_background, avatar_color')
+          .select('id, display_name, username, photo_url, avatar_icon, avatar_background, avatar_color, subscription')
           .in('id', requesterIds);
 
         if (cancelled) return;
@@ -353,7 +354,10 @@ export default function Connections({ user }) {
                       className="connections-avatar"
                     />
                     <div className="connections-meta">
-                      <div className="connections-name">{profile.displayName || 'Dreamer'}</div>
+                      <div className="connections-name">
+                        {profile.displayName || 'Dreamer'}
+                        <ProBadge subscription={profile.subscription} />
+                      </div>
                       {profile.username && <div className="connections-username">@{profile.username}</div>}
                     </div>
                   </button>
@@ -395,7 +399,10 @@ export default function Connections({ user }) {
                 className="connections-avatar"
               />
               <div className="connections-meta">
-                <div className="connections-name">{profile.displayName || 'Dreamer'}</div>
+                <div className="connections-name">
+                  {profile.displayName || 'Dreamer'}
+                  <ProBadge subscription={profile.subscription} />
+                </div>
                 {profile.username && <div className="connections-username">@{profile.username}</div>}
               </div>
             </button>

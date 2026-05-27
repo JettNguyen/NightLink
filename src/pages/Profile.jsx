@@ -9,6 +9,7 @@ import { supabase } from '../supabase';
 import { mapProfile, mapDream } from '../utils/mappers';
 import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
 import AvatarDisplay from '../components/AvatarDisplay';
+import ProBadge from '../components/ProBadge';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
@@ -561,7 +562,7 @@ export default function Profile({ user }) {
         </div>
 
         <div className="profile-info">
-            <h1>{userData.displayName || 'Dreamer'}</h1>
+            <h1>{userData.displayName || 'Dreamer'} <ProBadge subscription={userData.subscription} /></h1>
             {userData.username && <p className="profile-username">@{userData.username}</p>}
             {userData.settings?.bio && <p className="profile-bio">{userData.settings.bio}</p>}
             {viewingOwnProfile && (

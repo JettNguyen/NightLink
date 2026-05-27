@@ -29,6 +29,32 @@ import {
   syncCustomerInfoToSupabase,
 } from './utils/purchases';
 
+const DEFAULT_API_ORIGIN = 'https://www.nightlink.dev';
+const resolveAccountEndpoint = () => {
+  const ep = (import.meta.env.VITE_ACCOUNT_ENDPOINT || '').trim();
+  if (ep) return ep;
+  const base = (import.meta.env.VITE_API_BASE_URL || '').trim();
+  if (base) return `${base.replace(/\/$/, '')}/api/account`;
+  if (Capacitor.isNativePlatform()) return `${DEFAULT_API_ORIGIN}/api/account`;
+  return '/api/account';
+};
+const ACCOUNT_ENDPOINT = resolveAccountEndpoint();
+
+const syncSubscriptionTier = async (session) => {
+  if (!session) return;
+  try {
+    const idToken = session.access_token;
+    if (!idToken) return;
+    await fetch(ACCOUNT_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({ action: 'sync_subscription_tier', uid: session.user.id }),
+    });
+  } catch {
+    // Non-critical — silently ignore network errors on startup
+  }
+};
+
 // Lazy load less critical pages
 const Profile = lazy(() => import('./pages/Profile'));
 const Connections = lazy(() => import('./pages/Connections'));
@@ -531,14 +557,20 @@ function App() {
   useEffect(() => {
     // Hydrate session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) ensureProfile(session).catch(console.error);
+      if (session) {
+        ensureProfile(session).catch(console.error);
+        syncSubscriptionTier(session).catch(console.error);
+      }
       setUser(buildNormalizedUser(session));
       setLoading(false);
       setReady(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) ensureProfile(session).catch(console.error);
+      if (session) {
+        ensureProfile(session).catch(console.error);
+        syncSubscriptionTier(session).catch(console.error);
+      }
       setUser(buildNormalizedUser(session));
       setLoading(false);
       setReady(true);

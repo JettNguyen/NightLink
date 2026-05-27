@@ -5,6 +5,7 @@ import { supabase } from '../supabase';
 import { mapDream } from '../utils/mappers';
 import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR } from '../constants/avatarOptions';
 import AvatarDisplay from '../components/AvatarDisplay';
+import ProBadge from '../components/ProBadge';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
@@ -42,7 +43,7 @@ export default function Search({ user }) {
       if (filter === 'people') {
         const { data } = await supabase
           .from('profiles')
-          .select('id, display_name, username, photo_url, avatar_icon, avatar_background, avatar_color')
+          .select('id, display_name, username, photo_url, avatar_icon, avatar_background, avatar_color, subscription')
           .or(`display_name.ilike.${lower},username.ilike.${lower}`)
           .neq('id', currentUserId || '00000000-0000-0000-0000-000000000000')
           .limit(15);
@@ -54,6 +55,7 @@ export default function Search({ user }) {
           avatarIcon: r.avatar_icon,
           avatarBackground: r.avatar_background,
           avatarColor: r.avatar_color,
+          subscription: r.subscription || { tier: 'free' },
         })));
         setDreamResults([]);
       } else {
@@ -166,7 +168,10 @@ export default function Search({ user }) {
                         className="person-avatar"
                       />
                       <div>
-                        <div className="person-name">{u.displayName || 'Dreamer'}</div>
+                        <div className="person-name">
+                          {u.displayName || 'Dreamer'}
+                          <ProBadge subscription={u.subscription} />
+                        </div>
                         {u.username && <div className="person-username">@{u.username}</div>}
                       </div>
                     </div>

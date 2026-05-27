@@ -178,6 +178,9 @@
 
 .person-name {
   font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .person-username {

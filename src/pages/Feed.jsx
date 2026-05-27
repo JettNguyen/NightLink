@@ -8,6 +8,7 @@ import { supabase } from '../supabase';
 import { mapDream, mapProfile } from '../utils/mappers';
 import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
 import AvatarDisplay from '../components/AvatarDisplay';
+import ProBadge from '../components/ProBadge';
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Feed.css';
@@ -643,7 +644,14 @@ export default function Feed({ user }) {
                       className={`feed-avatar${isAnonymous ? ' feed-avatar--anon' : ''}`}
                     />
                     <div className="feed-author-meta">
-                      {authorHandle && (showProfileLink ? <button type="button" className="feed-author-handle feed-author-link" onClick={handleAuthorNavigation}>{authorHandle}</button> : <div className="feed-author-handle">{authorHandle}</div>)}
+                      {authorHandle && (
+                        <div className="feed-author-name-row">
+                          {showProfileLink
+                            ? <button type="button" className="feed-author-handle feed-author-link" onClick={handleAuthorNavigation}>{authorHandle}</button>
+                            : <div className="feed-author-handle">{authorHandle}</div>}
+                          {!isAnonymous && <ProBadge subscription={profile?.subscription} />}
+                        </div>
+                      )}
                       <div className="feed-visibility">{visibilityLabel}</div>
                     </div>
                   </div>

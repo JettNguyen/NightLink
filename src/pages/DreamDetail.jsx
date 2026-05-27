@@ -17,6 +17,10 @@ import { formatDateInputValue, formatDreamDate, parseDateInputValue } from '../u
 import { getModerationFeedback, sanitizeAiGeneratedContent } from '../utils/contentModeration';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
+import AvatarDisplay from '../components/AvatarDisplay';
+import ProBadge from '../components/ProBadge';
+import { buildProfilePath } from '../utils/urlHelpers';
+import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR } from '../constants/avatarOptions';
 import './DreamDetail.css';
 import { appUserPropType } from '../propTypes';
 import { COMMON_EMOJI_REACTIONS, filterEmojiInput } from '../constants/emojiOptions';
@@ -2051,6 +2055,33 @@ export default function DreamDetail({ user }) {
             ) : null}
           </div>
         </div>
+
+        {!isOwner && dream.visibility !== 'anonymous' && authorProfile && (
+          <div className="detail-author-block">
+            <button
+              type="button"
+              className="detail-author-btn"
+              onClick={() => navigate(buildProfilePath(authorProfile.username, authorProfile.id))}
+            >
+              <AvatarDisplay
+                photoURL={authorProfile.photoURL || null}
+                avatarIcon={authorProfile.avatarIcon}
+                avatarBackground={authorProfile.avatarBackground || DEFAULT_AVATAR_BACKGROUND}
+                avatarColor={authorProfile.avatarColor || DEFAULT_AVATAR_COLOR}
+                className="detail-author-avatar"
+              />
+              <div className="detail-author-meta">
+                <span className="detail-author-name">
+                  {authorProfile.displayName || 'Dreamer'}
+                  <ProBadge subscription={authorProfile.subscription} />
+                </span>
+                {authorProfile.username && (
+                  <span className="detail-author-handle">@{authorProfile.username}</span>
+                )}
+              </div>
+            </button>
+          </div>
+        )}
 
         <div className="detail-body">
             {isOwner && editingContent ? (
