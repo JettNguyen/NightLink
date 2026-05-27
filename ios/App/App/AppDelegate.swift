@@ -75,6 +75,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             webView.scrollView.bounces = true
             webView.scrollView.alwaysBounceVertical = true
             webView.scrollView.alwaysBounceHorizontal = false
+
+            // Enable native iOS swipe-to-go-back gesture.
+            // React Router uses history.pushState so WKWebView tracks those entries;
+            // swiping back fires a popstate event that React Router responds to.
+            webView.allowsBackForwardNavigationGestures = true
         }
     }
 

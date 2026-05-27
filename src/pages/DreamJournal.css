@@ -343,7 +343,7 @@
 
 .dream-content {
   color: var(--text);
-  line-height: 1.55;
+  line-height: 1.5;
   font-size: 0.9rem;
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -422,7 +422,7 @@
   background: var(--surface);
   color: var(--text);
   font-size: 1rem;
-  line-height: 1.6;
+  line-height: 1.5;
   resize: vertical;
   min-height: 180px;
   transition: border-color 0.22s ease, box-shadow 0.22s ease;

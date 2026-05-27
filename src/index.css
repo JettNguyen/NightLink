@@ -43,7 +43,7 @@ body {
   background-attachment: scroll;
   position: relative;
   color: var(--text);
-  line-height: 1.6;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100dvh;
@@ -61,7 +61,7 @@ html[data-native-platform='ios'] body {
 
 .pull-refresh-indicator {
   position: fixed;
-  top: calc(52px + env(safe-area-inset-top) + 8px);
+  top: calc(52px + env(safe-area-inset-top) + 24px);
   left: 50%;
   transform: translate(-50%, calc(-18px + (var(--pull-progress, 0) * 18px)));
   opacity: 0;

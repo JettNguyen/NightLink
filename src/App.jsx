@@ -104,8 +104,12 @@ function AppContent({ user, loading, ready }) {
   useEffect(() => {
     if (!pullRefreshEnabled) return undefined;
 
+    // How far the user must drag before the indicator appears at all.
+    const GRAPHIC_DEAD_ZONE = 50;
+    // How far past the dead zone before refresh fires (total raw drag = dead zone + this).
     const PULL_THRESHOLD = 130;
-    const MAX_PULL_DISTANCE = 220;
+    // Maximum dampened travel shown to the indicator.
+    const MAX_PULL_DISTANCE = 180;
     const REFRESH_COOLDOWN_MS = 2000;
     const initialLastRefresh = Number(sessionStorage.getItem('nightlink_last_pull_refresh') || '0');
     if (initialLastRefresh > 0) {
@@ -117,12 +121,6 @@ function AppContent({ user, loading, ready }) {
       setPullDistance(value);
     };
 
-    // Walk up from the touch target — if any ancestor is a scrollable container
-    // (overflow auto/scroll with actual overflow content), don't activate pull-to-refresh.
-    // This prevents the handler from fighting modal/sheet scroll and triggering on upward flings.
-    // Any ancestor with overflow-y auto/scroll disables pull-to-refresh,
-    // regardless of whether it's currently overflowing. This prevents the
-    // handler from activating inside modals and sheet scroll containers.
     const isInsideScrollable = (el) => {
       let node = el instanceof Element ? el.parentElement : null;
       while (node && node !== document.body) {
@@ -137,9 +135,9 @@ function AppContent({ user, loading, ready }) {
       const target = event.target;
       if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"]')) return;
       if (isInsideScrollable(target)) return;
-      // Don't activate pull-to-refresh when a bottom-sheet / modal overlay is open.
       if (document.querySelector('.report-modal-backdrop, .modal-overlay')) return;
-      if (window.scrollY > 0) return;
+      // Only arm PTR when the page is truly at the top at touch-start.
+      if (window.scrollY > 2) return;
       if (!event.touches || event.touches.length !== 1) return;
       pullStartYRef.current = event.touches[0].clientY;
       pullActiveRef.current = true;
@@ -154,25 +152,48 @@ function AppContent({ user, loading, ready }) {
         setDistanceSafely(0);
         return;
       }
-      if (window.scrollY > 0) return;
+      // Cancel if the page has scrolled down — user is scrolling, not pulling.
+      // Use > 4 to tolerate iOS sub-pixel scroll jitter without false cancels.
+      if (window.scrollY > 4) {
+        pullActiveRef.current = false;
+        setDistanceSafely(0);
+        return;
+      }
       const currentY = event.touches?.[0]?.clientY ?? pullStartYRef.current;
       const rawDelta = currentY - pullStartYRef.current;
-      const clamped = Math.max(0, Math.min(MAX_PULL_DISTANCE, rawDelta));
-      const isReady = clamped >= PULL_THRESHOLD;
+      if (rawDelta <= 0) {
+        setDistanceSafely(0);
+        return;
+      }
+
+      // Dead zone: first GRAPHIC_DEAD_ZONE px of drag are invisible — no graphic,
+      // no haptic. This matches how Twitter/Instagram handle accidental micro-pulls.
+      const past = rawDelta - GRAPHIC_DEAD_ZONE;
+      if (past <= 0) {
+        setDistanceSafely(0);
+        return;
+      }
+
+      // Rubber-band damping: resistance increases the further you pull,
+      // exactly like iOS native PTR. Formula: progress^0.6 gives a
+      // natural decelerating feel without a hard cap feeling abrupt.
+      const progress = Math.min(1, past / PULL_THRESHOLD);
+      const dampened = Math.round(MAX_PULL_DISTANCE * Math.pow(progress, 0.6));
+      const isReady = past >= PULL_THRESHOLD;
 
       if (isReady !== pullReadyRef.current) {
         pullReadyRef.current = isReady;
-        if (isReady) {
-          void triggerMediumHaptic();
-        }
+        if (isReady) void triggerMediumHaptic();
       }
 
-      setDistanceSafely(clamped);
+      setDistanceSafely(dampened);
     };
 
     const onTouchEnd = () => {
       if (!pullActiveRef.current) return;
-      const shouldRefresh = pullDistanceRef.current >= PULL_THRESHOLD;
+      // Use the raw distance tracked via pullReadyRef — more reliable than
+      // checking pullDistanceRef which holds the dampened visual value.
+      const shouldRefresh = pullReadyRef.current;
       pullActiveRef.current = false;
       pullReadyRef.current = false;
       setDistanceSafely(0);
@@ -312,8 +333,8 @@ function AppContent({ user, loading, ready }) {
     <div className="app">
       {pullRefreshEnabled && (
         <div
-          className={`pull-refresh-indicator${pullDistance > 0 ? ' is-visible' : ''}${pullDistance >= 130 ? ' is-armed' : ''}`}
-          style={{ '--pull-progress': String(Math.min(1, pullDistance / 130)) }}
+          className={`pull-refresh-indicator${pullDistance >= 50 ? ' is-visible' : ''}${pullDistance >= 180 ? ' is-armed' : ''}`}
+          style={{ '--pull-progress': String(Math.min(1, pullDistance / 180)) }}
         >
           {pullDistance >= 250 ? 'Release to refresh' : 'Pull to refresh'}
         </div>

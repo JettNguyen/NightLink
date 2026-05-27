@@ -955,7 +955,7 @@ export default function Settings({ user }) {
           <section className="settings-section">
             <div className="settings-section-head">
               <h2>AI insight style</h2>
-              <p>Your dreams stay private. AI analysis never trains models or collects data. Free includes three styles. Upgrade to Pro to unlock all styles, custom instructions, and a persistent dream memory that deepens over time.</p>
+              <p>Your dreams stay private. AI never trains on or collects your data. Upgrade to Pro to unlock all styles, custom instructions, and a persistent dream memory that deepens over time.</p>
             </div>
             <div className="settings-section-body">
               <div className="prompt-options">
@@ -1129,7 +1129,7 @@ export default function Settings({ user }) {
               <p>Permanently remove your account and all associated data.</p>
             </div>
             <div className="settings-section-body">
-              <p className="settings-footnote">This action cannot be undone. You will be asked to type DELETE to confirm.</p>
+              <p className="settings-footnote-delete">This action cannot be undone. You will be asked to type DELETE to confirm.</p>
               <button type="button" className="danger-btn" onClick={handleDeleteAccount} disabled={deletingAccount}>
                 {deletingAccount ? 'Deleting account...' : 'Delete account permanently'}
               </button>

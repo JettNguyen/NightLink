@@ -622,7 +622,7 @@
   border-radius: 16px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.03);
-  line-height: 1.7;
+  line-height: 1.5;
   color: var(--text);
   white-space: pre-wrap;
 }
@@ -722,7 +722,7 @@
   color: var(--text);
   font-size: 1rem;
   padding: 0.9rem 1rem;
-  line-height: 1.6;
+  line-height: 1.5;
   margin-bottom: 1rem;
 }
 
@@ -844,7 +844,7 @@
   margin: 0.55rem 0 0;
   color: var(--text-secondary);
   font-size: 0.78rem;
-  line-height: 1.45;
+  line-height: 1.3;
 }
 
 .ai-privacy-notice {
@@ -855,7 +855,7 @@
   border-radius: 6px;
   color: var(--text-secondary);
   font-size: 0.78rem;
-  line-height: 1.5;
+  line-height: 1.3;
 }
 
 .detail-insight.muted {

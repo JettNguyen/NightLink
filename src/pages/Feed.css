@@ -24,9 +24,8 @@
 
 .feed-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 1.25rem;
-  margin-top: 1.5rem;
   animation: fadeIn 0.5s ease 0.2s both;
 }
 
@@ -205,7 +204,7 @@
 
 .feed-content {
   color: var(--text);
-  line-height: 1.7;
+  line-height: 1.5;
   margin: 0.35rem 0 0.75rem;
 }
 
@@ -243,7 +242,7 @@
   margin-top: 0.5rem;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .feed-list {
     grid-template-columns: 1fr;
   }

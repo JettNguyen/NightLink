@@ -44,7 +44,7 @@
 .legal-card p,
 .legal-card li {
   color: var(--text-secondary);
-  line-height: 1.55;
+  line-height: 1.5;
 }
 
 .legal-card ul {
