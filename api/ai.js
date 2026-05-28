@@ -35,10 +35,11 @@ const SAFE_AI_THEMES_FALLBACK = 'Some details were removed from this analysis as
 // Shared base: output contract, length, safety, and speculative-language rules.
 // All style deltas inherit this — never repeat format instructions inside a delta.
 const BASE_PROMPT = `You are a dream analysis assistant on NightLink, an 18+ dream journaling app.
-Analyze the dream through your assigned lens and return ONLY minified JSON: {"title":"string","themes":"string"}
+Analyze the dream through your assigned lens and return ONLY minified JSON: {"title":"string","themes":"string","connections":[]}
 
 - "title": a poetic, evocative 2–4 word phrase that names this specific dream (never generic)
-- "themes": your full analysis in your assigned voice, 3–5 sentences
+- "themes": your full analysis in your assigned voice
+- "connections": array of short strings (under 15 words each) for patterns explicitly recorded in the dreamer's memory file that also appear in this dream. Only cite a connection if it is stated in the memory — do not infer, guess, or hallucinate recurring themes. Return [] if no memory context was provided or no overlap exists.
 - Use speculative language ("may suggest", "could reflect", "seems to")
 - Engage thoughtfully with mature content as it naturally appears in dreams; never encourage self-harm or glorify real-world violence
 - If the dream touches on self-harm or suicidal themes, respond with warm, grounded support`;
@@ -46,7 +47,7 @@ Analyze the dream through your assigned lens and return ONLY minified JSON: {"ti
 // Per-style persona and interpretive methodology — no format instructions here.
 const STYLE_DELTAS = {
   balanced:
-    "You are a thoughtful, grounded dream interpreter — no mysticism, no jargon, just honest insight. Identify 1–2 standout symbols and explain what they may reveal about the dreamer's inner life right now. Ask one precise reflection question that could genuinely unlock something for them. Close with a single, concrete small action they could take today. Warm, clear, never condescending.",
+    "You are a thoughtful, grounded dream interpreter — no mysticism, no jargon, just honest insight. Identify 1-2 standout symbols and explain what they may reveal about the dreamer's inner life right now. Ask one precise reflection question that could genuinely unlock something for them. Close with a single, concrete small action they could take today. Warm, clear, never condescending.",
 
   coach:
     "You are a performance and recovery coach who specializes in sleep quality and stress physiology. Scan this dream for signals of cognitive overload, unresolved pressure, or avoidance patterns — name what you find specifically. Explain what the nervous system may be processing during this REM content. Deliver one targeted, practical suggestion the dreamer can implement tonight to reduce whatever stress this dream is mirroring. Supportive and direct, zero fluff.",
@@ -70,7 +71,7 @@ const STYLE_DELTAS = {
     "You are a sharp observational comedian who finds the genuine absurdity in how the subconscious works. Identify the most surreal, contradictory, or structurally ridiculous element of this dream and land a joke on it — the kind of humor that makes someone feel seen, not mocked. Still acknowledge the real emotional texture underneath; the best dream comedy is always at least a little true. Funny in a way that lands — warm, specific, never punching down.",
 
   astrology:
-    "You are a practicing astrologer fluent in natal interpretation, transits, and lunar wisdom. The sky context block in this prompt contains the exact planetary positions for the night this dream was recorded — treat this data as your primary interpretive layer. Connect specific dream symbols and emotions to the planets and signs listed: what story are these transits telling? What is the moon phase drawing inward or amplifying outward? Close with one brief spiritual directive — what this sky is asking the dreamer to do or release. If no sky context is present, work from seasonal and archetypal celestial patterns. Mystical but grounded, specific not generic."
+    "You are a practicing astrologer who reads dreams through the lens of the sky. Use the planetary positions in the sky context block — moon phase and sign, the sun, and the visible planets — as your source material. Don't work through each planet in sequence; instead, let the sky tell a coherent story. Lead with what feels most alive in the chart that night and connect it to what's most alive in the dream. Name specific planets and signs when they illuminate something, skip them when they don't. End with a brief, grounded sense of what this sky was asking of the dreamer — not a directive, just an honest read. Flowing prose, no headers. Precise where the chart is interesting, quiet where it isn't."
 };
 
 // Per-style temperature — higher for expressive/generative styles, lower for analytical ones.
@@ -83,7 +84,20 @@ const STYLE_TEMPERATURE = {
   creative:  0.88,
   director:  0.90,
   comedian:  0.85,
-  astrology: 0.82,
+  astrology: 0.75,
+};
+
+// Per-style token budget — astrology needs more room to cover every planet.
+const STYLE_MAX_TOKENS = {
+  balanced:  650,
+  coach:     650,
+  therapist: 650,
+  scientist: 700,
+  mystical:  680,
+  creative:  680,
+  director:  650,
+  comedian:  600,
+  astrology: 800,
 };
 
 // Keep PROMPT_TEMPLATES as an alias so the custom-style path and any callers still work.
@@ -354,7 +368,10 @@ Return ONLY the updated memory file. No preamble or explanation.`;
     const updatedMemory = data.choices?.[0]?.message?.content?.trim();
     if (!updatedMemory) return;
     const admin = getSupabaseAdmin();
-    await admin.from('profiles').update({ dream_memory: updatedMemory }).eq('id', uid);
+    await admin.from('profiles').update({
+      dream_memory: updatedMemory,
+      dream_memory_updated_at: new Date().toISOString(),
+    }).eq('id', uid);
   } catch (e) {
     console.error('Dream memory update failed:', e.message);
   }
@@ -363,12 +380,17 @@ Return ONLY the updated memory file. No preamble or explanation.`;
 const buildSystemPrompt = (styleDelta, contextBlock) => {
   const parts = [BASE_PROMPT, styleDelta || STYLE_DELTAS.balanced];
   if (contextBlock) {
-    parts.push(`${contextBlock}\n\nUse this memory when relevant — connect new symbols to recurring ones, note when patterns echo past dreams, and let what you know about this dreamer deepen your analysis.`);
+    parts.push(`${contextBlock}
+
+MEMORY DIRECTIVE: This dreamer has a recorded history. Use it honestly:
+- In your "themes" text, reference a memory pattern only if it genuinely appears in this dream — e.g. "Water has come up in your dreams before; here it shifts from still to rushing..." Never fabricate a connection that isn't supported by the memory file.
+- Populate the "connections" array ONLY with patterns that are (a) explicitly listed in the memory file AND (b) clearly present in this dream. If a symbol from this dream is not in the memory file, do not claim it recurs. Return [] if nothing overlaps.
+- Accuracy matters more than fullness. Fewer real connections are better than more invented ones.`);
   }
   return parts.join('\n\n');
 };
 
-const callOpenAI = async (text, apiKey, styleDelta, contextBlock, temperature = 0.7) => {
+const callOpenAI = async (text, apiKey, styleDelta, contextBlock, temperature = 0.7, maxTokens = 500) => {
   const sys = buildSystemPrompt(styleDelta, contextBlock);
   const res = await fetch(API_URL, {
     method: 'POST',
@@ -379,7 +401,7 @@ const callOpenAI = async (text, apiKey, styleDelta, contextBlock, temperature = 
         { role: 'system', content: sys },
         { role: 'user', content: `Dream:\n"""${text}"""` }
       ],
-      max_tokens: 500,
+      max_tokens: maxTokens,
       temperature
     })
   });
@@ -394,16 +416,22 @@ const callOpenAI = async (text, apiKey, styleDelta, contextBlock, temperature = 
 };
 
 const parse = (raw) => {
-  if (!raw) return { title: null, themes: null };
+  if (!raw) return { title: null, themes: null, connections: [] };
   const t = raw.trim();
-  let title = null, themes = null;
+  let title = null, themes = null, connections = [];
   if (t.startsWith('{')) {
-    try { const j = JSON.parse(t); title = j.title?.trim() || null; themes = j.themes?.trim() || null; }
-    catch (e) { console.error('JSON parse error:', e.message); }
+    try {
+      const j = JSON.parse(t);
+      title = j.title?.trim() || null;
+      themes = j.themes?.trim() || null;
+      connections = Array.isArray(j.connections)
+        ? j.connections.filter((s) => typeof s === 'string' && s.trim()).map((s) => s.trim())
+        : [];
+    } catch (e) { console.error('JSON parse error:', e.message); }
   }
   if (!title) { const m = raw.match(/"title"\s*:\s*"([^"]+)"/i); if (m) title = m[1].trim(); }
   if (!themes) { const m = raw.match(/"themes"\s*:\s*"([^"]+)"/i); if (m) themes = m[1].trim(); }
-  return { title, themes };
+  return { title, themes, connections };
 };
 
 module.exports = async function handler(req, res) {
@@ -417,7 +445,7 @@ module.exports = async function handler(req, res) {
   }
   body = body || {};
 
-  const { dreamText, idToken, dreamId, customPrompt, promptStyle, dreamDate } = body;
+  const { dreamText, idToken, dreamId, customPrompt, promptStyle, dreamDate, isReanalysis } = body;
   if (!dreamText || typeof dreamText !== 'string') return res.status(400).json({ error: 'Missing dreamText' });
   if (!idToken) return res.status(401).json({ error: 'Authentication required.' });
 
@@ -499,15 +527,16 @@ module.exports = async function handler(req, res) {
   }
 
   const temperature = STYLE_TEMPERATURE[normalizedStyle] ?? 0.7;
+  const maxTokens = STYLE_MAX_TOKENS[normalizedStyle] ?? 500;
 
   let raw = '';
-  try { raw = await callOpenAI(text, apiKey, effectivePrompt, contextBlock, temperature); }
+  try { raw = await callOpenAI(text, apiKey, effectivePrompt, contextBlock, temperature, maxTokens); }
   catch (e) {
     refundQuota(uid, quota.usedCredit).catch(() => {});
     return res.status(502).json({ error: e.message || 'AI failed.' });
   }
 
-  const { title, themes } = parse(raw);
+  const { title, themes, connections } = parse(raw);
   if (!title || !themes) {
     refundQuota(uid, quota.usedCredit).catch(() => {});
     return res.status(502).json({ error: 'Incomplete AI response.' });
@@ -517,16 +546,19 @@ module.exports = async function handler(req, res) {
   const safeThemes = containsTeenUnsafeText(themes) ? SAFE_AI_THEMES_FALLBACK : themes;
   const safetyFiltered = safeTitle !== title || safeThemes !== themes;
 
-  const result = { title: safeTitle, themes: safeThemes, safetyFiltered };
+  const result = { title: safeTitle, themes: safeThemes, connections, safetyFiltered };
   cache.set(cacheKey, result);
 
-  // Background: update dream memory after a clean analysis (premium only, not on filtered content)
-  if (quota.tier === 'premium' && !safetyFiltered) {
+  // Background: update dream memory only on first analysis — not on re-generations.
+  // Re-analysis refines the output but the dream was already counted; updating memory
+  // again would inflate occurrence counts and distort pattern tracking.
+  if (quota.tier === 'premium' && !safetyFiltered && !isReanalysis) {
     updateDreamMemory(uid, text, safeTitle, safeThemes, currentMemory, apiKey).catch(() => {});
   }
 
   res.status(200).json({
     ...result,
+    connections,
     tier: quota.tier,
     remainingFree: quota.remainingFree,
     creditBalance: quota.creditBalance,

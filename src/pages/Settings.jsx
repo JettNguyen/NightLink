@@ -408,7 +408,16 @@ export default function Settings({ user }) {
   }, [isNativeIOS, loading]);
 
 
-  const hasChanges = useMemo(() => JSON.stringify(settings) !== savedRef.current, [settings]);
+  const hasChanges = useMemo(() => {
+    if (loading) return false;
+    try {
+      // Sort keys before comparing so insertion-order differences don't cause false positives
+      const normalize = (obj) => JSON.stringify(obj, Object.keys(obj).sort());
+      return normalize(settings) !== normalize(JSON.parse(savedRef.current));
+    } catch {
+      return JSON.stringify(settings) !== savedRef.current;
+    }
+  }, [settings, loading]);
   const update = useCallback((key, value) => setSettings((prev) => ({ ...prev, [key]: value })), []);
   const toggle = (key) => {
     void triggerLightHaptic();
@@ -838,17 +847,19 @@ export default function Settings({ user }) {
         <h1>Settings</h1>
         <p>Customize your experience.</p>
       </header>
-      <div className="settings-save-bar">
-        <p>{hasChanges ? 'You have unsaved changes' : 'All changes saved'}</p>
-        <div className="btn-group">
-          {status === 'saved' && <span className="settings-status success">Saved</span>}
-          {status === 'error' && <span className="settings-status error">Failed</span>}
-          <button type="button" className="ghost-btn" onClick={handleReset} disabled={saving}>Reset</button>
-          <button type="button" className={`primary-btn${saving ? ' is-loading' : ''}`} onClick={handleSave} disabled={!canSave || saving} style={saving ? { cursor: 'wait' } : undefined}>
-            {saving ? 'Saving...' : 'Save'}
-          </button>
+      {!loading && (
+        <div className="settings-save-bar">
+          <p>{hasChanges ? 'You have unsaved changes' : 'All changes saved'}</p>
+          <div className="btn-group">
+            {status === 'saved' && <span className="settings-status success">Saved</span>}
+            {status === 'error' && <span className="settings-status error">Failed</span>}
+            <button type="button" className="ghost-btn" onClick={handleReset} disabled={saving}>Reset</button>
+            <button type="button" className={`primary-btn${saving ? ' is-loading' : ''}`} onClick={handleSave} disabled={!canSave || saving} style={saving ? { cursor: 'wait' } : undefined}>
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
       {loading ? (
         <div className="settings-loading-state"><LoadingIndicator label="Loading preferences..." /></div>
       ) : (
@@ -1000,6 +1011,11 @@ export default function Settings({ user }) {
                     ? 'Every analysis updates a private memory file of your recurring symbols, figures, emotional patterns, and themes. AI reads this memory when analyzing new dreams, so its insights grow sharper the more you journal.'
                     : 'Upgrade to Pro to have AI maintain a private memory of your recurring symbols, figures, and patterns that deepens with every analysis you run.'}
                 </p>
+                {tier === 'premium' && (
+                  <Link to="/insights" className="memory-patterns-link">
+                    View your dream patterns →
+                  </Link>
+                )}
               </div>
             </div>
           </section>

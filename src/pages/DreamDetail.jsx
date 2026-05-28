@@ -36,7 +36,7 @@ const PROMPT_TEMPLATES = {
   creative:  "You are a working fiction writer and story architect. Identify the latent narrative structure in this dream — the inciting wound, the archetypal character roles, the genre this world belongs to. Surface the story this dream is already telling and show the dreamer how it could become something real: a first scene, a character study, a world with its own rules. Give one sharp, specific writing prompt pulled directly from the dream's most vivid or strange detail. Energizing, craft-focused, never generic.",
   director:  "You are an auteur film director with a singular visual grammar. Write the pitch: open with the exact establishing shot, name the cinematographic style and emotional register, describe one pivotal image with sensory specificity, and state the thematic question this film would pose. This is a treatment, not a summary — make bold aesthetic choices. One tight, cinematic paragraph. Visually precise, tonally committed, occasionally unhinged in the best way.",
   comedian:  "You are a sharp observational comedian who finds the genuine absurdity in how the subconscious works. Identify the most surreal, contradictory, or structurally ridiculous element of this dream and land a joke on it — the kind of humor that makes someone feel seen, not mocked. Still acknowledge the real emotional texture underneath; the best dream comedy is always at least a little true. Funny in a way that lands — warm, specific, never punching down.",
-  astrology: "You are a practicing astrologer fluent in natal interpretation, transits, and lunar wisdom. The sky context block in this prompt contains the exact planetary positions for the night this dream was recorded — treat this data as your primary interpretive layer. Connect specific dream symbols and emotions to the planets and signs listed: what story are these transits telling? What is the moon phase drawing inward or amplifying outward? Close with one brief spiritual directive — what this sky is asking the dreamer to do or release. If no sky context is present, work from seasonal and archetypal celestial patterns. Mystical but grounded, specific not generic."
+  astrology: "You are a practicing astrologer who reads dreams through the lens of the sky. Use the planetary positions in the sky context block — moon phase and sign, the sun, and the visible planets — as your source material. Don't work through each planet in sequence; instead, let the sky tell a coherent story. Lead with what feels most alive in the chart that night and connect it to what's most alive in the dream. Name specific planets and signs when they illuminate something, skip them when they don't. End with a brief, grounded sense of what this sky was asking of the dreamer — not a directive, just an honest read. Flowing prose, no headers. Precise where the chart is interesting, quiet where it isn't."
 };
 
 const PROMPT_LABELS = {
@@ -1552,6 +1552,7 @@ export default function DreamDetail({ user }) {
         idToken,
         dreamId: dream.id,
         dreamDate: dream.createdAt instanceof Date ? dream.createdAt.toISOString() : (dream.createdAt || null),
+        isReanalysis: !!dream.aiGenerated,
       };
 
       let selectedPromptKey = promptKey;
@@ -1627,15 +1628,21 @@ export default function DreamDetail({ user }) {
         updates.aiInsights = sanitized.insights;
       }
 
+      const rawConnections = Array.isArray(payload?.connections) ? payload.connections : [];
+      if (rawConnections.length > 0) {
+        updates.aiConnections = rawConnections;
+      }
+
       if (!sanitized.title || !sanitized.insights) {
         throw new Error('AI response was incomplete.');
       }
 
       const dbUpdates = {};
-      if (updates.aiGenerated !== undefined) dbUpdates.ai_generated = updates.aiGenerated;
-      if (updates.aiTitle !== undefined)     dbUpdates.ai_title = updates.aiTitle;
-      if (updates.aiInsights !== undefined)  dbUpdates.ai_insights = updates.aiInsights;
-      if (updates.title !== undefined)       dbUpdates.title = updates.title;
+      if (updates.aiGenerated !== undefined)    dbUpdates.ai_generated = updates.aiGenerated;
+      if (updates.aiTitle !== undefined)        dbUpdates.ai_title = updates.aiTitle;
+      if (updates.aiInsights !== undefined)     dbUpdates.ai_insights = updates.aiInsights;
+      if (updates.aiConnections !== undefined)  dbUpdates.ai_connections = updates.aiConnections;
+      if (updates.title !== undefined)          dbUpdates.title = updates.title;
 
       const { error: saveErr } = await supabase.from('dreams').update(dbUpdates).eq('id', dream.id);
       if (saveErr) throw saveErr;
@@ -2256,6 +2263,16 @@ export default function DreamDetail({ user }) {
               {dream.aiGenerated && dream.aiInsights ? (
                 <>
                   <p className="detail-insight">{dream.aiInsights}</p>
+                  {Array.isArray(dream.aiConnections) && dream.aiConnections.length > 0 && (
+                    <div className="detail-connections">
+                      <p className="detail-connections-label">Pattern recognition</p>
+                      <ul className="detail-connections-list">
+                        {dream.aiConnections.map((c, i) => (
+                          <li key={i} className="detail-connections-item">{c}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <p className="ai-privacy-notice">🔒 Your dreams stay private. This analysis is not used for AI training and is deleted based on your privacy settings. <br/>AI insights are for reflection only and may be inaccurate. Do not use them as medical, mental health, legal, or safety advice.</p>
                 </>
               ) : (

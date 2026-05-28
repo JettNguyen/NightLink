@@ -36,6 +36,7 @@ create table if not exists public.profiles (
 );
 
 alter table public.profiles add column if not exists dream_memory text;
+alter table public.profiles add column if not exists dream_memory_updated_at timestamptz;
 alter table public.profiles add column if not exists account_visibility text;
 update public.profiles set account_visibility = coalesce(account_visibility, 'private');
 alter table public.profiles alter column account_visibility set default 'private';
@@ -70,6 +71,7 @@ create table if not exists public.dreams (
 );
 
 alter table public.dreams add column if not exists comment_count integer not null default 0;
+alter table public.dreams add column if not exists ai_connections jsonb;
 
 -- Backfill comment_count for any dreams that had comments before the trigger was created
 update public.dreams d

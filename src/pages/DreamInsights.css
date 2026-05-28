@@ -1,0 +1,216 @@
+.insights-page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 6rem;
+}
+
+/* ── Back button ────────────────────────────────────────── */
+
+.insights-back-btn {
+  margin-bottom: 1rem;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+
+.insights-header {
+  margin-bottom: 1.75rem;
+}
+
+.insights-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 0.3rem;
+  letter-spacing: -0.02em;
+}
+
+.insights-updated {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.insights-error {
+  color: var(--error);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+/* ── Pro gate ───────────────────────────────────────────── */
+
+.insights-gate {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface-muted);
+}
+
+.insights-gate-icon {
+  font-size: 2.5rem;
+  color: var(--primary);
+  margin-bottom: 1rem;
+  opacity: 0.7;
+}
+
+.insights-gate h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  color: var(--text);
+}
+
+.insights-gate p {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0 0 0.75rem;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.insights-gate-sub {
+  font-size: 0.83rem !important;
+  color: var(--primary) !important;
+  opacity: 0.85;
+}
+
+/* ── Empty state ────────────────────────────────────────── */
+
+.insights-empty {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+}
+
+.insights-empty-icon {
+  font-size: 2rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+  opacity: 0.5;
+}
+
+.insights-empty h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 0.5rem;
+}
+
+.insights-empty p {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+/* ── Section grid ───────────────────────────────────────── */
+
+.insights-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── Card ───────────────────────────────────────────────── */
+
+.insights-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+  transition: border-color 0.2s ease;
+}
+
+.insights-card:hover {
+  border-color: rgba(90, 200, 250, 0.2);
+}
+
+.insights-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+
+.insights-card-icon {
+  font-size: 1rem;
+  color: var(--primary);
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+
+.insights-card-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  flex: 1;
+  letter-spacing: -0.01em;
+}
+
+.insights-card-count {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* ── Entries ────────────────────────────────────────────── */
+
+.insights-entries {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.insights-entry {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.insights-entry:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.insights-entry-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  flex: 1;
+}
+
+.insights-entry-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--primary);
+  background: rgba(90, 200, 250, 0.1);
+  border: 1px solid rgba(90, 200, 250, 0.2);
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── iOS safe area ──────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .insights-page {
+    padding-top: 1rem;
+  }
+
+  .insights-title {
+    font-size: 1.4rem;
+  }
+}

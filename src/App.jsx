@@ -62,6 +62,7 @@ const EditProfile = lazy(() => import('./pages/EditProfile'));
 const Search = lazy(() => import('./pages/Search'));
 const Activity = lazy(() => import('./pages/Activity'));
 const Settings = lazy(() => import('./pages/Settings'));
+const DreamInsights = lazy(() => import('./pages/DreamInsights'));
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 
@@ -437,6 +438,13 @@ function AppContent({ user, loading, ready }) {
               </ProtectedRoute>
             }
           />
+          <Route path="/insights" element={
+            <ProtectedRoute user={user}>
+              <Suspense fallback={<LazyRouteLoader />}>
+                <DreamInsights user={user} />
+              </Suspense>
+            </ProtectedRoute>
+          } />
           <Route path="/notifications" element={<Navigate to="/activity" replace />} />
           <Route path="*" element={<Navigate to={home} replace />} />
         </Routes>
