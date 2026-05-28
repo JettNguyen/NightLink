@@ -741,17 +741,21 @@ export default function DreamDetail({ user }) {
             const updated = mapDream(row);
             return {
               ...prev,
-              title: updated.title,
-              content: updated.content,
-              visibility: updated.visibility,
-              aiGenerated: updated.aiGenerated,
-              aiTitle: updated.aiTitle,
-              aiInsights: updated.aiInsights,
-              tags: updated.tags,
-              reactionCounts: updated.reactionCounts,
-              viewerReactions: updated.viewerReactions,
-              commentCount: updated.commentCount,
-              updatedAt: updated.updatedAt,
+              // Large text fields may be absent from real-time payload due to Supabase
+              // size limits — fall back to prev to avoid silently clearing content.
+              title: updated.title || prev.title,
+              content: updated.content || prev.content,
+              visibility: updated.visibility || prev.visibility,
+              aiGenerated: updated.aiGenerated ?? prev.aiGenerated,
+              aiTitle: updated.aiTitle || prev.aiTitle,
+              aiInsights: updated.aiInsights || prev.aiInsights,
+              aiConnections: updated.aiConnections || prev.aiConnections,
+              memoryIndexed: updated.memoryIndexed ?? prev.memoryIndexed,
+              tags: updated.tags ?? prev.tags,
+              reactionCounts: updated.reactionCounts ?? prev.reactionCounts,
+              viewerReactions: updated.viewerReactions ?? prev.viewerReactions,
+              commentCount: updated.commentCount ?? prev.commentCount,
+              updatedAt: updated.updatedAt || prev.updatedAt,
             };
           });
         })
@@ -1552,7 +1556,7 @@ export default function DreamDetail({ user }) {
         idToken,
         dreamId: dream.id,
         dreamDate: dream.createdAt instanceof Date ? dream.createdAt.toISOString() : (dream.createdAt || null),
-        isReanalysis: !!dream.aiGenerated,
+        isMemoryIndexed: !!dream.memoryIndexed,
       };
 
       let selectedPromptKey = promptKey;
@@ -1628,9 +1632,14 @@ export default function DreamDetail({ user }) {
         updates.aiInsights = sanitized.insights;
       }
 
-      const rawConnections = Array.isArray(payload?.connections) ? payload.connections : [];
-      if (rawConnections.length > 0) {
-        updates.aiConnections = rawConnections;
+      // Only save connections on the first analysis — once a dream is memory-indexed,
+      // re-generations keep the original pattern recognition so counts don't drift.
+      if (!dream.memoryIndexed) {
+        const rawConnections = Array.isArray(payload?.connections) ? payload.connections : [];
+        if (rawConnections.length > 0) {
+          updates.aiConnections = rawConnections;
+        }
+        updates.memoryIndexed = true;
       }
 
       if (!sanitized.title || !sanitized.insights) {

@@ -72,6 +72,7 @@ create table if not exists public.dreams (
 
 alter table public.dreams add column if not exists comment_count integer not null default 0;
 alter table public.dreams add column if not exists ai_connections jsonb;
+alter table public.dreams add column if not exists memory_indexed boolean not null default false;
 
 -- Backfill comment_count for any dreams that had comments before the trigger was created
 update public.dreams d

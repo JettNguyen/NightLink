@@ -445,7 +445,7 @@ module.exports = async function handler(req, res) {
   }
   body = body || {};
 
-  const { dreamText, idToken, dreamId, customPrompt, promptStyle, dreamDate, isReanalysis } = body;
+  const { dreamText, idToken, dreamId, customPrompt, promptStyle, dreamDate, isMemoryIndexed } = body;
   if (!dreamText || typeof dreamText !== 'string') return res.status(400).json({ error: 'Missing dreamText' });
   if (!idToken) return res.status(401).json({ error: 'Authentication required.' });
 
@@ -549,11 +549,18 @@ module.exports = async function handler(req, res) {
   const result = { title: safeTitle, themes: safeThemes, connections, safetyFiltered };
   cache.set(cacheKey, result);
 
-  // Background: update dream memory only on first analysis — not on re-generations.
-  // Re-analysis refines the output but the dream was already counted; updating memory
-  // again would inflate occurrence counts and distort pattern tracking.
-  if (quota.tier === 'premium' && !safetyFiltered && !isReanalysis) {
-    updateDreamMemory(uid, text, safeTitle, safeThemes, currentMemory, apiKey).catch(() => {});
+  // Update dream memory if this dream hasn't been indexed yet — regardless of whether
+  // it's a re-generation. Once indexed, mark the dream so future re-analyses don't re-count it.
+  if (quota.tier === 'premium' && !safetyFiltered && !isMemoryIndexed && dreamId) {
+    updateDreamMemory(uid, text, safeTitle, safeThemes, currentMemory, apiKey)
+      .then(() => {
+        getSupabaseAdmin()
+          .from('dreams')
+          .update({ memory_indexed: true })
+          .eq('id', dreamId)
+          .catch(() => {});
+      })
+      .catch(() => {});
   }
 
   res.status(200).json({
