@@ -22,10 +22,16 @@ try {
 }
 
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const aiHandler = require('./api/ai');
 const accountHandler = require('./api/account');
 const stripeHandler = require('./api/stripe');
 const notifyHandler = require('./api/notify');
+
+// Per-IP rate limits for dev server (mirrors production platform-level limits)
+const defaultLimiter = rateLimit({ windowMs: 60_000, max: 60, standardHeaders: true, legacyHeaders: false });
+const aiLimiter     = rateLimit({ windowMs: 60_000, max: 20, standardHeaders: true, legacyHeaders: false });
+const stripeLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false });
 
 // debug: show whether key is present (never print the key)
 try { console.log('[dev] dev-server OPENAI_API_KEY present:', !!process.env.OPENAI_API_KEY); } catch (e) { void e; }
@@ -47,10 +53,10 @@ app.options('/api/account', (req, res) => res.sendStatus(204));
 app.options('/api/stripe', (req, res) => res.sendStatus(204));
 app.options('/api/notify', (req, res) => res.sendStatus(204));
 
-app.post('/api/ai', routeHandler('ai', aiHandler));
-app.post('/api/account', routeHandler('account', accountHandler));
-app.post('/api/stripe', routeHandler('stripe', stripeHandler));
-app.post('/api/notify', routeHandler('notify', notifyHandler));
+app.post('/api/ai', aiLimiter, routeHandler('ai', aiHandler));
+app.post('/api/account', defaultLimiter, routeHandler('account', accountHandler));
+app.post('/api/stripe', stripeLimiter, routeHandler('stripe', stripeHandler));
+app.post('/api/notify', defaultLimiter, routeHandler('notify', notifyHandler));
 
 const port = process.env.PORT || 3001;
 app.listen(port, () => {
