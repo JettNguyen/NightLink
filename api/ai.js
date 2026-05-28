@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 const { createClient } = require('@supabase/supabase-js');
+const Astronomy = require('astronomy-engine');
 
 const cache = new Map();
 const MAX_LEN = 5000;
@@ -31,16 +32,98 @@ const TEEN_UNSAFE_PATTERNS = [
 const SAFE_AI_TITLE_FALLBACK = 'Reflective Dream';
 const SAFE_AI_THEMES_FALLBACK = 'Some details were removed from this analysis as they fall outside what the AI can discuss. Use this as a general reflection only. AI output may be inaccurate and is not medical, mental health, legal, or safety advice.';
 
-const PROMPT_TEMPLATES = {
-  balanced: "You're here to break down dreams in a way that actually helps. Pick out 1-2 symbols that stand out and explain what they might mean, then drop a reflection question and one small thing they can actually do about it. Keep it real and useful-3-6 sentences max. Be warm but don't overcomplicate it.",
-  coach: "You're checking this dream for stress signals and how their sleep's actually doing. Point out anything that screams anxiety, burnout, or restlessness, then suggest one thing they can try tonight to sleep better. 3-6 sentences. Keep it practical and supportive, not preachy.",
-  therapist: "You're a gentle comfort AI for someone who just woke from a nightmare. Reassure them that the dream isn't real, validate the feelings it stirred up, and point to one hopeful takeaway or grounding reminder from the imagery. Offer 3-6 sentences that blend insight with soothing language so they leave calmer than they arrived.",
-  scientist: "You're breaking down the neuroscience behind this dream-REM sleep, memory consolidation, emotional processing, all that. Explain why their brain cooked up this scenario in a way that actually makes sense. 3-6 sentences. Be smart but don't make it feel like a textbook.",
-  mystical: "You're reading this dream through a spiritual lens, tapping into archetypes and universal symbols like the moon, shadows, journeys, rebirth. Use poetic language and pull out the deeper meaning or soul lesson they need to hear. 3-6 sentences. Be mystical and intentional, not vague.",
-  creative: "You're helping turn their dream into story material. Point out the wildest or most vivid parts, suggest how it could work as a plot, character arc, or worldbuilding element, and keep them grounded while firing up their creativity. 3-6 sentences. Be inspiring without being extra.",
-  director: "You're an auteur movie director retelling this dream as a film pitch. Describe the opening shot, key set pieces, tone, and how you'd translate the dream's message to the screen. It should feel like one vivid paragraph-bold, cinematic, occasionally unhinged but still coherent enough to spark the dreamer's imagination.",
-  comedian: "You're finding the humor in how absurd dreams can get. Roast the weirdest parts with some playful commentary, but still acknowledge the real feelings underneath. 3-6 sentences. Be funny in a way that lands-warm and clever, not trying too hard.",
-  astrology: "You're an astrologer reading this dream through the lens of celestial wisdom and the dreamer's birth chart. Connect the dream symbols and emotions to lunar cycles, planetary influences, and astrological archetypes. Mention how today's planetary transits might relate to this dream's deeper meaning. Offer spiritual guidance with 3-6 sentences that blend intuition with astrological insight-mystical but grounded."
+// Shared base: output contract, length, safety, and speculative-language rules.
+// All style deltas inherit this — never repeat format instructions inside a delta.
+const BASE_PROMPT = `You are a dream analysis assistant on NightLink, an 18+ dream journaling app.
+Analyze the dream through your assigned lens and return ONLY minified JSON: {"title":"string","themes":"string"}
+
+- "title": a poetic, evocative 2–4 word phrase that names this specific dream (never generic)
+- "themes": your full analysis in your assigned voice, 3–5 sentences
+- Use speculative language ("may suggest", "could reflect", "seems to")
+- Engage thoughtfully with mature content as it naturally appears in dreams; never encourage self-harm or glorify real-world violence
+- If the dream touches on self-harm or suicidal themes, respond with warm, grounded support`;
+
+// Per-style persona and interpretive methodology — no format instructions here.
+const STYLE_DELTAS = {
+  balanced:
+    "You are a thoughtful, grounded dream interpreter — no mysticism, no jargon, just honest insight. Identify 1–2 standout symbols and explain what they may reveal about the dreamer's inner life right now. Ask one precise reflection question that could genuinely unlock something for them. Close with a single, concrete small action they could take today. Warm, clear, never condescending.",
+
+  coach:
+    "You are a performance and recovery coach who specializes in sleep quality and stress physiology. Scan this dream for signals of cognitive overload, unresolved pressure, or avoidance patterns — name what you find specifically. Explain what the nervous system may be processing during this REM content. Deliver one targeted, practical suggestion the dreamer can implement tonight to reduce whatever stress this dream is mirroring. Supportive and direct, zero fluff.",
+
+  therapist:
+    "You are an attachment-informed, trauma-aware therapist. Your first move is always emotional validation — name what this dream likely felt like in the body without assuming the worst. Gently surface the core emotional need or fear the imagery may be expressing. Offer one grounding reframe or hopeful perspective rooted in the specific imagery, not platitudes. Close with a brief, compassionate observation about what this dream may be asking the dreamer to hold more gently. Soft, precise, never clinical.",
+
+  scientist:
+    "You are a cognitive neuroscientist specializing in sleep and memory. Explain which brain systems were likely active during this specific dream content — default mode network, limbic circuits, prefrontal suppression, memory consolidation, emotional regulation — and why this particular scenario emerged. Connect it to documented REM mechanisms: threat simulation, emotional memory replay, predictive modeling, or social cognition processing. Smart and specific, grounded in real neuroscience, but readable — not a journal abstract.",
+
+  mystical:
+    "You are a depth-psychology-informed mystic fluent in Jungian archetypes, cross-cultural mythology, and universal symbol systems. Identify which archetypal figures or threshold symbols appear — shadow, anima/animus, trickster, death-rebirth, the void, the guide — and speak to what the psyche is negotiating at a soul level. Use language that honors the numinous without being vague. End with a single oracular sentence that names the deeper invitation this dream is extending. Poetic, precise, spiritually grounded.",
+
+  creative:
+    "You are a working fiction writer and story architect. Identify the latent narrative structure in this dream — the inciting wound, the archetypal character roles, the genre this world belongs to. Surface the story this dream is already telling and show the dreamer how it could become something real: a first scene, a character study, a world with its own rules. Give one sharp, specific writing prompt pulled directly from the dream's most vivid or strange detail. Energizing, craft-focused, never generic.",
+
+  director:
+    "You are an auteur film director with a singular visual grammar. Write the pitch: open with the exact establishing shot, name the cinematographic style and emotional register, describe one pivotal image with sensory specificity, and state the thematic question this film would pose. This is a treatment, not a summary — make bold aesthetic choices. One tight, cinematic paragraph. Visually precise, tonally committed, occasionally unhinged in the best way.",
+
+  comedian:
+    "You are a sharp observational comedian who finds the genuine absurdity in how the subconscious works. Identify the most surreal, contradictory, or structurally ridiculous element of this dream and land a joke on it — the kind of humor that makes someone feel seen, not mocked. Still acknowledge the real emotional texture underneath; the best dream comedy is always at least a little true. Funny in a way that lands — warm, specific, never punching down.",
+
+  astrology:
+    "You are a practicing astrologer fluent in natal interpretation, transits, and lunar wisdom. The sky context block in this prompt contains the exact planetary positions for the night this dream was recorded — treat this data as your primary interpretive layer. Connect specific dream symbols and emotions to the planets and signs listed: what story are these transits telling? What is the moon phase drawing inward or amplifying outward? Close with one brief spiritual directive — what this sky is asking the dreamer to do or release. If no sky context is present, work from seasonal and archetypal celestial patterns. Mystical but grounded, specific not generic."
+};
+
+// Per-style temperature — higher for expressive/generative styles, lower for analytical ones.
+const STYLE_TEMPERATURE = {
+  balanced:  0.70,
+  coach:     0.60,
+  therapist: 0.60,
+  scientist: 0.50,
+  mystical:  0.85,
+  creative:  0.88,
+  director:  0.90,
+  comedian:  0.85,
+  astrology: 0.82,
+};
+
+// Keep PROMPT_TEMPLATES as an alias so the custom-style path and any callers still work.
+const PROMPT_TEMPLATES = STYLE_DELTAS;
+
+const ZODIAC_SIGNS = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
+const eclipticToSign = (lon) => ZODIAC_SIGNS[Math.floor((((lon % 360) + 360) % 360) / 30)];
+const moonPhaseName = (phase) => {
+  if (phase < 45)  return 'new moon';
+  if (phase < 90)  return 'waxing crescent';
+  if (phase < 135) return 'first quarter';
+  if (phase < 180) return 'waxing gibbous';
+  if (phase < 225) return 'full moon';
+  if (phase < 270) return 'waning gibbous';
+  if (phase < 315) return 'last quarter';
+  return 'waning crescent';
+};
+
+const buildAstrologyContext = (dateStr) => {
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '';
+    const phase    = Astronomy.MoonPhase(date);
+    const sun      = Astronomy.SunPosition(date);
+    const moonLon  = (sun.elon + phase) % 360;
+    const illum    = Math.round((1 - Math.cos(phase * Math.PI / 180)) / 2 * 100);
+    const moonSign = eclipticToSign(moonLon);
+    const sunSign  = eclipticToSign(sun.elon);
+    const phaseName = moonPhaseName(phase);
+    const planetSigns = ['Mercury','Venus','Mars','Jupiter','Saturn'].map((body) => {
+      try {
+        const ecl = Astronomy.Ecliptic(Astronomy.GeoVector(body, date, true));
+        return `${body} in ${eclipticToSign(ecl.elon)}`;
+      } catch { return null; }
+    }).filter(Boolean);
+    const label = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+    return `[Sky context for ${label}: Moon in ${moonSign} (${phaseName}, ${illum}% illuminated), Sun in ${sunSign}. ${planetSigns.join(', ')}.]`;
+  } catch {
+    return '';
+  }
 };
 
 const setCors = (res, origin) => {
@@ -277,17 +360,16 @@ Return ONLY the updated memory file. No preamble or explanation.`;
   }
 };
 
-const buildSystemPrompt = (customPrompt, contextBlock) => {
-  const safetyInstruction = 'This is an 18+ platform. You may engage thoughtfully with mature dream themes including violence, sexuality, and existential content as they naturally appear in dreams. Do not generate content that promotes self-harm, glorifies real-world terrorism or hate groups, or sexualises minors. If the dream touches on self-harm or suicide, respond with supportive, grounded language.';
-  const base = customPrompt
-    ? `${customPrompt}\n\n${safetyInstruction}\n\nAlso generate a short poetic title (2-4 words). Return only minified JSON: {"title":"string","themes":"string"} where "themes" contains your full analysis.`
-    : `You are a creative dream interpreter. ${safetyInstruction} Generate a short poetic title (2-4 words) and a brief themes paragraph. Use speculative language. Return only minified JSON: {"title":"string","themes":"string"}`;
-  if (!contextBlock) return base;
-  return `${base}\n\n${contextBlock}\n\nUse this memory when relevant — connect new symbols to recurring ones, note when patterns echo past dreams, and let what you know about this dreamer deepen your analysis.`;
+const buildSystemPrompt = (styleDelta, contextBlock) => {
+  const parts = [BASE_PROMPT, styleDelta || STYLE_DELTAS.balanced];
+  if (contextBlock) {
+    parts.push(`${contextBlock}\n\nUse this memory when relevant — connect new symbols to recurring ones, note when patterns echo past dreams, and let what you know about this dreamer deepen your analysis.`);
+  }
+  return parts.join('\n\n');
 };
 
-const callOpenAI = async (text, apiKey, customPrompt, contextBlock) => {
-  const sys = buildSystemPrompt(customPrompt, contextBlock);
+const callOpenAI = async (text, apiKey, styleDelta, contextBlock, temperature = 0.7) => {
+  const sys = buildSystemPrompt(styleDelta, contextBlock);
   const res = await fetch(API_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -297,8 +379,8 @@ const callOpenAI = async (text, apiKey, customPrompt, contextBlock) => {
         { role: 'system', content: sys },
         { role: 'user', content: `Dream:\n"""${text}"""` }
       ],
-      max_tokens: 400,
-      temperature: 0.7
+      max_tokens: 500,
+      temperature
     })
   });
   if (!res.ok) {
@@ -335,7 +417,7 @@ module.exports = async function handler(req, res) {
   }
   body = body || {};
 
-  const { dreamText, idToken, dreamId, customPrompt, promptStyle } = body;
+  const { dreamText, idToken, dreamId, customPrompt, promptStyle, dreamDate } = body;
   if (!dreamText || typeof dreamText !== 'string') return res.status(400).json({ error: 'Missing dreamText' });
   if (!idToken) return res.status(401).json({ error: 'Authentication required.' });
 
@@ -364,9 +446,14 @@ module.exports = async function handler(req, res) {
   }
 
   // Check cache before quota (cached responses are free)
-  const effectivePrompt = normalizedStyle === 'custom'
+  let effectivePrompt = normalizedStyle === 'custom'
     ? ((tier === 'premium' ? customPrompt : null) || PROMPT_TEMPLATES.balanced)
     : (PROMPT_TEMPLATES[normalizedStyle] || PROMPT_TEMPLATES.balanced);
+
+  if (normalizedStyle === 'astrology' && dreamDate) {
+    const skyContext = buildAstrologyContext(dreamDate);
+    if (skyContext) effectivePrompt = `${effectivePrompt}\n\n${skyContext}`;
+  }
 
   const cacheKey = hash(text + effectivePrompt + normalizedStyle + uid);
   if (cache.has(cacheKey)) {
@@ -411,8 +498,10 @@ module.exports = async function handler(req, res) {
     } catch (e) { console.error('Dream memory fetch failed:', e.message); }
   }
 
+  const temperature = STYLE_TEMPERATURE[normalizedStyle] ?? 0.7;
+
   let raw = '';
-  try { raw = await callOpenAI(text, apiKey, effectivePrompt, contextBlock); }
+  try { raw = await callOpenAI(text, apiKey, effectivePrompt, contextBlock, temperature); }
   catch (e) {
     refundQuota(uid, quota.usedCredit).catch(() => {});
     return res.status(502).json({ error: e.message || 'AI failed.' });
