@@ -2,7 +2,7 @@ const crypto = require('node:crypto');
 const { createClient } = require('@supabase/supabase-js');
 
 const cache = new Map();
-const MAX_LEN = 4000;
+const MAX_LEN = 5000;
 const MODEL = 'gpt-4o-mini';
 const API_URL = 'https://api.openai.com/v1/chat/completions';
 const PROMPT_ID_ALIASES = { investigator: 'director' };
@@ -187,6 +187,27 @@ const getUserTier = async (uid) => {
   }
   
   return 'free';
+};
+
+// Reverse a quota increment when the AI call fails — no charge on error
+const refundQuota = async (uid, usedCredit) => {
+  try {
+    const admin = getSupabaseAdmin();
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('ai_usage')
+      .eq('id', uid)
+      .single();
+    if (!profile?.ai_usage) return;
+    const usage = profile.ai_usage;
+    if (usage.monthYear !== currentMonthYear()) return; // stale month, nothing to undo
+    const updated = usedCredit
+      ? { ...usage, creditBalance: Number(usage.creditBalance || 0) + 1 }
+      : { ...usage, monthlyCount: Math.max(0, Number(usage.monthlyCount || 0) - 1) };
+    await admin.from('profiles').update({ ai_usage: updated }).eq('id', uid);
+  } catch (e) {
+    console.error('Quota refund failed:', e.message);
+  }
 };
 
 // Read the user's persistent dream memory file
@@ -392,10 +413,16 @@ module.exports = async function handler(req, res) {
 
   let raw = '';
   try { raw = await callOpenAI(text, apiKey, effectivePrompt, contextBlock); }
-  catch (e) { return res.status(502).json({ error: e.message || 'AI failed.' }); }
+  catch (e) {
+    refundQuota(uid, quota.usedCredit).catch(() => {});
+    return res.status(502).json({ error: e.message || 'AI failed.' });
+  }
 
   const { title, themes } = parse(raw);
-  if (!title || !themes) return res.status(502).json({ error: 'Incomplete AI response.' });
+  if (!title || !themes) {
+    refundQuota(uid, quota.usedCredit).catch(() => {});
+    return res.status(502).json({ error: 'Incomplete AI response.' });
+  }
 
   const safeTitle = containsTeenUnsafeText(title) ? SAFE_AI_TITLE_FALLBACK : title;
   const safeThemes = containsTeenUnsafeText(themes) ? SAFE_AI_THEMES_FALLBACK : themes;
