@@ -54,6 +54,17 @@ const parseMemory = (text) => {
   return sections;
 };
 
+// Render inline markdown — handles **bold** only (memory format uses nothing else)
+const renderInline = (text) => {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+};
+
 // Pull count hints out of an entry string like "water: ~8 times"
 const extractCount = (entry) => {
   const m = entry.match(/~?(\d+)\s*time/i);
@@ -183,7 +194,7 @@ export default function DreamInsights({ user }) {
                     const count = extractCount(entry);
                     return (
                       <li key={i} className="insights-entry">
-                        <span className="insights-entry-text">{entry}</span>
+                        <span className="insights-entry-text">{renderInline(entry)}</span>
                         {count !== null && count >= 3 && (
                           <span className="insights-entry-badge">{count}×</span>
                         )}
@@ -207,7 +218,7 @@ export default function DreamInsights({ user }) {
                 <ul className="insights-entries">
                   {sections[section].map((entry, i) => (
                     <li key={i} className="insights-entry">
-                      <span className="insights-entry-text">{entry}</span>
+                      <span className="insights-entry-text">{renderInline(entry)}</span>
                     </li>
                   ))}
                 </ul>
