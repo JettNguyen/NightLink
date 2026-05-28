@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '../supabase';
-import LoadingIndicator from '../components/LoadingIndicator';
+import { InsightsSkeleton } from '../components/SkeletonLoader';
 import { appUserPropType } from '../propTypes';
 import { useRcCustomerInfo } from '../contexts/SubscriptionContext';
 import { isProFromCustomerInfo, IS_RC_SUPPORTED } from '../utils/purchases';
@@ -134,7 +134,7 @@ export default function DreamInsights({ user }) {
     load();
   }, [user?.uid]);
 
-  if (loading) return <div className="insights-page"><LoadingIndicator /></div>;
+  if (loading) return <InsightsSkeleton />;
 
   if (!isPro) {
     return (

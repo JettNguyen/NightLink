@@ -10,7 +10,7 @@ import { mapProfile, mapDream } from '../utils/mappers';
 import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
 import AvatarDisplay from '../components/AvatarDisplay';
 import ProBadge from '../components/ProBadge';
-import LoadingIndicator from '../components/LoadingIndicator';
+import { ProfilePageSkeleton, ProfileDreamsLoadingSkeleton } from '../components/SkeletonLoader';
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import { triggerLightHaptic } from '../utils/haptics';
@@ -462,7 +462,7 @@ export default function Profile({ user }) {
   if (profileNotFound)  return <div className="page-container">We could not find that dreamer.</div>;
   if (profileLoading || !userData) return (
     <div className="page-container">
-      <div className="profile-loading loading-slot"><LoadingIndicator label="Loading profile…" size="lg" /></div>
+      <ProfilePageSkeleton />
     </div>
   );
 
@@ -633,7 +633,7 @@ export default function Profile({ user }) {
           </div>
         </div>
         {activeDreamsLoading ? (
-          <div className="profile-dreams-loading loading-slot"><LoadingIndicator label="Loading dreams…" /></div>
+          <ProfileDreamsLoadingSkeleton />
         ) : activeDreams.length === 0 ? (
           <div className="profile-dreams-empty"><p>{emptyPrimary}</p><p className="empty-subtitle">{emptySecondary}</p></div>
         ) : (

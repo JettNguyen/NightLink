@@ -12,8 +12,7 @@ import ProBadge from '../components/ProBadge';
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Feed.css';
-import LoadingIndicator from '../components/LoadingIndicator';
-import { ListSkeleton } from '../components/SkeletonLoader';
+import { FeedSkeleton } from '../components/SkeletonLoader';
 import ReactionInsightsModal from '../components/ReactionInsightsModal';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
@@ -586,7 +585,7 @@ export default function Feed({ user }) {
       {error && <div className="alert-banner">{error}</div>}
 
       {!followingIdsLoaded ? (
-        <div className="feed-empty-card loading-slot"><LoadingIndicator label="Loading your following feed…" size="md" /></div>
+        <FeedSkeleton count={3} />
       ) : followingIds.length === 0 ? (
         <div className="feed-empty-card">
           <p>You are not following anyone yet.</p>
@@ -594,7 +593,7 @@ export default function Feed({ user }) {
           <button type="button" className="primary-btn" onClick={() => navigate('/search')}>Find people</button>
         </div>
       ) : loading ? (
-        <ListSkeleton count={3} />
+        <FeedSkeleton count={3} />
       ) : visibleDreams.length === 0 ? (
         <div className="feed-empty-card">
           <p>No dreams from the people you follow yet.</p>

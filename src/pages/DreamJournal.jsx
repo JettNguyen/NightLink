@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import { mapDream, mapProfile } from '../utils/mappers';
 import LoadingIndicator from '../components/LoadingIndicator';
-import { ListSkeleton } from '../components/SkeletonLoader';
+import { JournalSkeleton } from '../components/SkeletonLoader';
 import { formatDreamDate, getTodayDateInputValue, parseDateInputValue } from '../utils/dates';
 import { buildDreamPath } from '../utils/urlHelpers';
 import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
@@ -582,7 +582,7 @@ export default function DreamJournal({ user }) {
       )}
 
       {initialLoading ? (
-        <ListSkeleton count={4} />
+        <JournalSkeleton />
       ) : filteredDreams.length ? (
         viewMode === 'list' ? (
           <div className="dreams-list">

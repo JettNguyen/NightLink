@@ -9,6 +9,7 @@ import { triggerLightHaptic } from '../utils/haptics';
 import { supabase } from '../supabase';
 import { mapDream, mapProfile, mapComment } from '../utils/mappers';
 import LoadingIndicator from '../components/LoadingIndicator';
+import { DreamDetailSkeleton } from '../components/SkeletonLoader';
 import ReactionInsightsModal from '../components/ReactionInsightsModal';
 import { logActivityEvents } from '../services/ActivityService';
 import updateDreamReaction, { toggleCommentHeart } from '../services/ReactionService';
@@ -1949,9 +1950,7 @@ export default function DreamDetail({ user }) {
   if (loading) {
     return (
       <div className={containerClass}>
-        <div className="detail-placeholder loading-slot">
-          <LoadingIndicator label="Loading dream…" size="lg" />
-        </div>
+        <DreamDetailSkeleton />
       </div>
     );
   }

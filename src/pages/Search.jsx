@@ -6,7 +6,7 @@ import { mapDream } from '../utils/mappers';
 import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR } from '../constants/avatarOptions';
 import AvatarDisplay from '../components/AvatarDisplay';
 import ProBadge from '../components/ProBadge';
-import LoadingIndicator from '../components/LoadingIndicator';
+import { SearchPeopleSkeleton, SearchDreamsSkeleton } from '../components/SkeletonLoader';
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import './Search.css';
@@ -151,7 +151,7 @@ export default function Search({ user }) {
             <section className="result-section">
               <div className="section-head"><h2>People</h2><span className="pill">{userResults.length}</span></div>
               {loading ? (
-                <div className="placeholder loading-slot"><LoadingIndicator label="Pulling profiles…" size="md" /></div>
+                <SearchPeopleSkeleton />
               ) : userResults.length === 0 ? (
                 <div className="placeholder">No matching people.</div>
               ) : (
@@ -183,7 +183,7 @@ export default function Search({ user }) {
             <section className="result-section">
               <div className="section-head"><h2>Public dreams</h2><span className="pill">{dreamResults.length}</span></div>
               {loading ? (
-                <div className="placeholder loading-slot"><LoadingIndicator label="Collecting dreams…" size="md" /></div>
+                <SearchDreamsSkeleton />
               ) : dreamResults.length === 0 ? (
                 <div className="placeholder">No dreams matched &ldquo;{lastTerm}&rdquo;.</div>
               ) : (

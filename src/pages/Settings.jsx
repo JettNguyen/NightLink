@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import { mapProfile } from '../utils/mappers';
-import LoadingIndicator from '../components/LoadingIndicator';
+import { SettingsSkeleton } from '../components/SkeletonLoader';
 import { appUserPropType } from '../propTypes';
 import { Capacitor } from '@capacitor/core';
 import { areNotificationsSupported, disableNotifications, getNotificationPermission, getNotificationPermissionStatus, requestNotificationPermission } from '../utils/notificationHelpers';
@@ -861,7 +861,7 @@ export default function Settings({ user }) {
         </div>
       )}
       {loading ? (
-        <div className="settings-loading-state"><LoadingIndicator label="Loading preferences..." /></div>
+        <SettingsSkeleton />
       ) : (
         <div className="settings-sections">
           <section className="settings-section">

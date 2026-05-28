@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHeart } from '@fortawesome/free-solid-svg-icons';
-import LoadingIndicator from '../components/LoadingIndicator';
+import { ActivitySkeleton } from '../components/SkeletonLoader';
 import { buildDreamPath, buildProfilePath } from '../utils/urlHelpers';
 import { markActivityEntryRead, removeActivityEntry } from '../services/ActivityService';
 import './Activity.css';
@@ -189,9 +189,7 @@ export default function Activity({ user, activityPreview }) {
           </div>
         </div>
         {inboxLoading ? (
-          <div className="loading-inline">
-            <LoadingIndicator label="Pulling your notifications…" size="sm" align="start" />
-          </div>
+          <ActivitySkeleton />
         ) : inboxError && activityEntries.length === 0 ? (
           <p className="detail-hint">{inboxError}</p>
         ) : activityEntries.length ? (
