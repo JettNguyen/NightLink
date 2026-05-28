@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import './SkeletonLoader.css';
 
 // ─── Primitives ──────────────────────────────────────────────────────────────
@@ -16,6 +17,13 @@ function S({ w, h, r, className = '' }) {
   );
 }
 
+S.propTypes = {
+  w: PropTypes.string,
+  h: PropTypes.string,
+  r: PropTypes.number,
+  className: PropTypes.string,
+};
+
 function Circle({ size }) {
   return (
     <div
@@ -24,6 +32,10 @@ function Circle({ size }) {
     />
   );
 }
+
+Circle.propTypes = {
+  size: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+};
 
 // ─── Journal ─────────────────────────────────────────────────────────────────
 // Matches the `dreams-list` auto-fill grid (minmax(280px, 1fr))
@@ -91,6 +103,10 @@ export function FeedSkeleton({ count = 3 }) {
     </div>
   );
 }
+
+FeedSkeleton.propTypes = {
+  count: PropTypes.number,
+};
 
 // ─── Profile ─────────────────────────────────────────────────────────────────
 // Header + stats + dream grid (3-col → 2-col → 1-col)
@@ -317,5 +333,9 @@ export function ProfileSkeleton() {
 export function ListSkeleton({ count = 3 }) {
   return <FeedSkeleton count={count} />;
 }
+
+ListSkeleton.propTypes = {
+  count: PropTypes.number,
+};
 
 export default DreamCardSkeleton;
