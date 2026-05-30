@@ -11,8 +11,6 @@ import { Purchases } from '@revenuecat/purchases-capacitor';
 import { RevenueCatUI, PAYWALL_RESULT } from '@revenuecat/purchases-capacitor-ui';
 import { supabase } from '../supabase';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 /** The RevenueCat entitlement identifier for Nightlink Pro. */
 export const ENTITLEMENT_PRO = 'Nightlink Pro';
 
@@ -37,13 +35,9 @@ export const IS_RC_SUPPORTED =
 /** Re-export so callers can compare paywall outcomes without extra imports. */
 export { PAYWALL_RESULT };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 /** Returns true if the supplied CustomerInfo has an active Pro entitlement. */
 export const isProFromCustomerInfo = (customerInfo) =>
   !!customerInfo?.entitlements?.active?.[ENTITLEMENT_PRO];
-
-// ─── SDK lifecycle ────────────────────────────────────────────────────────────
 
 /**
  * Configure the RC SDK with the current user's ID.
@@ -54,8 +48,6 @@ export const configurePurchases = async (appUserID) => {
   if (!IS_RC_SUPPORTED || !RC_API_KEY) return;
   await Purchases.configure({ apiKey: RC_API_KEY, appUserID });
 };
-
-// ─── Customer info ────────────────────────────────────────────────────────────
 
 /** Fetch the latest CustomerInfo for the current user. */
 export const getCustomerInfo = async () => {
@@ -77,8 +69,6 @@ export const addCustomerInfoUpdateListener = async (callback) =>
 export const removeCustomerInfoUpdateListener = async (callbackId) =>
   Purchases.removeCustomerInfoUpdateListener({ listenerToRemove: callbackId });
 
-// ─── Offerings & purchases ────────────────────────────────────────────────────
-
 /** Fetch all configured offerings from the RC dashboard. */
 export const getOfferings = async () => Purchases.getOfferings();
 
@@ -96,8 +86,6 @@ export const restorePurchases = async () => {
   const { customerInfo } = await Purchases.restorePurchases();
   return customerInfo;
 };
-
-// ─── Paywall & Customer Center (RevenueCatUI) ─────────────────────────────────
 
 /**
  * Present the RC paywall only if the user doesn't already have Pro.
@@ -120,8 +108,6 @@ export const presentPaywall = () => RevenueCatUI.presentPaywall();
  * Show this when the user already has an active subscription.
  */
 export const presentCustomerCenter = () => RevenueCatUI.presentCustomerCenter();
-
-// ─── Supabase sync ────────────────────────────────────────────────────────────
 
 /**
  * Write the current RC subscription state into the user's Supabase profile.

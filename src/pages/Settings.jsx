@@ -366,7 +366,6 @@ export default function Settings({ user }) {
     const payment = params.get('payment');
     if (payment === 'success') {
       setBillingStatus('Payment complete. Your account updates within a few seconds.');
-      // Fetch fresh profile immediately to show updated credits/subscription
       if (uid) {
         const fetchFresh = async () => {
           try {
@@ -523,9 +522,7 @@ export default function Settings({ user }) {
         } else {
           setProfile((prev) => (prev ? { ...prev, settings: persistedSettings } : prev));
         }
-        // Refresh auth state to reflect new provider
         await supabase.auth.refreshSession();
-        // Fetch updated session to ensure parent component sees new identity
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user?.identities?.some((i) => i.provider === 'email')) {
           setHasPasswordLogin(true);
@@ -590,13 +587,11 @@ export default function Settings({ user }) {
     setBillingStatus('');
     
     try {
-      // If a payment link is configured, use it directly
       if (paymentLink) {
         window.location.assign(paymentLink);
         return;
       }
 
-      // Otherwise, use the checkout session flow with priceId
       if (!priceId) {
         setBillingStatus('Billing is not configured yet. Add Stripe price IDs or payment links in your environment first.');
         return;
@@ -636,8 +631,6 @@ export default function Settings({ user }) {
     }
   };
 
-  // ─── RevenueCat billing handlers (iOS native only) ──────────────────────────
-
   const handlePresentPaywall = async () => {
     if (!uid || checkoutBusy) return;
     setCheckoutBusy(true);
@@ -663,9 +656,8 @@ export default function Settings({ user }) {
           };
         });
         
-        // Sync to Supabase in background
         await syncCustomerInfoToSupabase(uid, info);
-        
+
         setBillingStatus(
           result === PAYWALL_RESULT.RESTORED
             ? 'Subscription restored! Welcome back to Pro.'
@@ -710,7 +702,6 @@ export default function Settings({ user }) {
         };
       });
       
-      // Sync to Supabase in background
       await addCreditsToSupabase(uid);
       await syncCustomerInfoToSupabase(uid, customerInfo);
       setRcCustomerInfo(customerInfo);
@@ -775,8 +766,6 @@ export default function Settings({ user }) {
       console.error('Customer center error:', err?.message || err);
     }
   };
-
-  // ─────────────────────────────────────────────────────────────────────────────
 
   const handleDeleteAccount = () => {
     if (!uid || deletingAccount) return;

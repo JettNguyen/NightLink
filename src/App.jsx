@@ -55,7 +55,6 @@ const syncSubscriptionTier = async (session) => {
   }
 };
 
-// Lazy load less critical pages
 const Profile = lazy(() => import('./pages/Profile'));
 const Connections = lazy(() => import('./pages/Connections'));
 const EditProfile = lazy(() => import('./pages/EditProfile'));
@@ -480,7 +479,7 @@ const ensureProfile = async (session) => {
     .select('id')
     .eq('id', user.id)
     .single();
-  if (existing) return; // profile already exists
+  if (existing) return;
 
   // Auto-generate a username from the email prefix
   const emailPrefix = user.email?.split('@')[0] || 'dreamer';
@@ -563,7 +562,6 @@ function App() {
   }, [user?.uid]);
 
   useEffect(() => {
-    // Hydrate session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         ensureProfile(session).catch(console.error);

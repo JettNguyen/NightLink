@@ -31,7 +31,6 @@ function Navigation({ user, activityPreview }) {
     && location.key !== 'default'
     && !TAB_PATHS.has(location.pathname);
 
-  // Show settings gear in header right slot when on own profile tab
   const showHeaderSettings = isNativeIOS && location.pathname === '/profile';
   const showHeaderProfileMenu = useMemo(() => {
     if (!isNativeIOS) return false;
@@ -249,7 +248,6 @@ function Navigation({ user, activityPreview }) {
     return () => w.removeEventListener('scroll', onScroll);
   }, []);
 
-  // ── iOS native: top header + bottom tab bar ──────────────────────────────
   if (isNativeIOS) {
     return (
       <>
@@ -320,7 +318,6 @@ function Navigation({ user, activityPreview }) {
     );
   }
 
-  // ── Web: existing top nav ─────────────────────────────────────────────────
   return (
     <nav className={`navigation${compact ? ' navigation-compact' : ''}`}>
       <div className="nav-container">

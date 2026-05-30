@@ -47,7 +47,6 @@ export default function PhotoCropModal({ file, onConfirm, onCancel }) {
   const maskRef = useRef(null);
   const dragRef = useRef(null);
 
-  // Load image and measure natural dimensions
   useEffect(() => {
     if (!file) return;
     const url = URL.createObjectURL(file);
@@ -57,7 +56,6 @@ export default function PhotoCropModal({ file, onConfirm, onCancel }) {
       const nw = img.naturalWidth;
       const nh = img.naturalHeight;
       setNaturalSize({ width: nw, height: nh });
-      // Center image at base scale
       const { w, h } = computeDisplaySize(nw, nh, MIN_SCALE);
       setOffset(clampOffset((MASK_SIZE - w) / 2, (MASK_SIZE - h) / 2, w, h));
       setScale(MIN_SCALE);
@@ -81,7 +79,6 @@ export default function PhotoCropModal({ file, onConfirm, onCancel }) {
     });
   }, [naturalSize]);
 
-  // --- Mouse drag ---
   useEffect(() => {
     const onMove = (e) => {
       if (!dragRef.current?.active) return;
@@ -101,7 +98,6 @@ export default function PhotoCropModal({ file, onConfirm, onCancel }) {
     dragRef.current = { active: true, startX: e.clientX - offset.x, startY: e.clientY - offset.y };
   };
 
-  // --- Touch drag & pinch ---
   // Must be non-passive to call preventDefault and block scroll
   useEffect(() => {
     const mask = maskRef.current;

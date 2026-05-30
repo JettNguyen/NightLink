@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHeart, faPlus, faComment, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../supabase';
 import { mapDream, mapProfile } from '../utils/mappers';
-import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
+import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR } from '../constants/avatarOptions';
 import AvatarDisplay from '../components/AvatarDisplay';
 import ProBadge from '../components/ProBadge';
 import { formatDreamDate } from '../utils/dates';
@@ -107,7 +107,6 @@ export default function Feed({ user }) {
     };
   }, [feedMenuOpenDreamId]);
 
-  // Load viewer's followingIds
   useEffect(() => {
     if (!user?.uid) { setFollowingIds([]); setFollowingIdsLoaded(true); return; }
 
@@ -136,7 +135,6 @@ export default function Feed({ user }) {
     return () => supabase.removeChannel(channel);
   }, [user?.uid]);
 
-  // Load profiles of people being followed
   useEffect(() => {
     if (!followingIds.length) { setFollowingProfiles({}); return; }
 
@@ -148,7 +146,6 @@ export default function Feed({ user }) {
       });
   }, [followingIds]);
 
-  // Load feed dreams
   useEffect(() => {
     if (!followingIds.length) { setRawDreams([]); setLoading(false); setError(''); return; }
     setLoading(true);
@@ -420,7 +417,6 @@ export default function Feed({ user }) {
       const counts = { ...(prev[dream.id]?.counts || dream.reactionCounts || {}) };
       let nextReactions;
       if (emoji === null) {
-        // Clear all
         prevReactions.forEach((e) => { counts[e] = Math.max((counts[e] || 1) - 1, 0); });
         nextReactions = [];
       } else if (isRemoving) {

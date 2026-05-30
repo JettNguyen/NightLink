@@ -93,7 +93,7 @@
 }
 
 .activity-card-main:focus-visible {
-  outline: 2px solid rgba(90, 200, 250, 0.6);
+  outline: 2px solid rgba(201, 167, 240, 0.6);
   outline-offset: 4px;
 }
 
@@ -114,13 +114,13 @@
 }
 
 .activity-card-unread {
-  border-color: rgba(90, 200, 250, 0.45);
+  border-color: rgba(201, 167, 240, 0.45);
   box-shadow: 0 8px 22px rgba(4, 12, 20, 0.25);
 }
 
 .activity-card:hover {
   box-shadow: var(--shadow-soft);
-  border-color: rgba(90, 200, 250, 0.5);
+  border-color: rgba(201, 167, 240, 0.5);
 }
 
 .activity-card:disabled,
@@ -154,13 +154,13 @@
 }
 
 .activity-pill.teal {
-  border-color: rgba(90, 200, 250, 0.75);
+  border-color: rgba(201, 167, 240, 0.75);
   color: var(--primary);
 }
 
 .activity-pill.mention,
 .activity-pill.tag {
-  border-color: rgba(90, 200, 250, 0.5);
+  border-color: rgba(201, 167, 240, 0.5);
   color: var(--primary);
 }
 
@@ -235,8 +235,8 @@
 }
 
 .reaction-button.active {
-  border-color: rgba(90, 200, 250, 0.65);
-  background: rgba(90, 200, 250, 0.12);
+  border-color: rgba(201, 167, 240, 0.65);
+  background: rgba(201, 167, 240, 0.12);
   color: var(--primary);
 }
 
@@ -249,7 +249,7 @@
   height: 0.5rem;
   border-radius: 50%;
   background: var(--primary);
-  box-shadow: 0 0 0 4px rgba(90, 200, 250, 0.15);
+  box-shadow: 0 0 0 4px rgba(201, 167, 240, 0.15);
   margin-bottom: 0.3rem;
 }
 
@@ -277,8 +277,8 @@
 
 .activity-clear-btn:hover:not(:disabled) {
   color: var(--primary);
-  border-color: rgba(90, 200, 250, 0.45);
-  background: rgba(90, 200, 250, 0.08);
+  border-color: rgba(201, 167, 240, 0.45);
+  background: rgba(201, 167, 240, 0.08);
 }
 
 .activity-clear-btn:disabled {

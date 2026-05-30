@@ -1,7 +1,6 @@
 import PropTypes from 'prop-types';
 import './SkeletonLoader.css';
 
-// ─── Primitives ──────────────────────────────────────────────────────────────
 // Use these to compose page-specific skeletons.
 
 function S({ w, h, r, className = '' }) {
@@ -37,7 +36,6 @@ Circle.propTypes = {
   size: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
 };
 
-// ─── Journal ─────────────────────────────────────────────────────────────────
 // Matches the `dreams-list` auto-fill grid (minmax(280px, 1fr))
 // Shows 6 cards so all columns are populated at any breakpoint.
 
@@ -63,7 +61,6 @@ export function JournalSkeleton() {
   );
 }
 
-// ─── Feed ────────────────────────────────────────────────────────────────────
 // Matches feed-card: avatar + author row + title + content + reactions
 
 function FeedCardSkeleton() {
@@ -79,9 +76,7 @@ function FeedCardSkeleton() {
         {/* date pill on the right, same height as feed-date (38px) */}
         <div className="skel sk-feed-date" style={{ borderRadius: 8 }} />
       </div>
-      {/* title */}
       <S w="65%" h="1.1rem" r={6} />
-      {/* content lines */}
       <S h="0.85rem" className="sk-mt-sm" />
       <S w="90%" h="0.85rem" className="sk-mt-sm" />
       <S w="60%" h="0.85rem" className="sk-mt-sm" />
@@ -108,7 +103,6 @@ FeedSkeleton.propTypes = {
   count: PropTypes.number,
 };
 
-// ─── Profile ─────────────────────────────────────────────────────────────────
 // Header + stats + dream grid (3-col → 2-col → 1-col)
 
 export function ProfilePageSkeleton() {
@@ -159,7 +153,6 @@ export function ProfileDreamsLoadingSkeleton() {
   );
 }
 
-// ─── Dream Detail ────────────────────────────────────────────────────────────
 // Back btn + title + date/author + content block + AI section
 
 export function DreamDetailSkeleton() {
@@ -192,7 +185,6 @@ export function DreamDetailSkeleton() {
   );
 }
 
-// ─── Dream Insights ──────────────────────────────────────────────────────────
 // Header + section cards
 
 export function InsightsSkeleton() {
@@ -218,7 +210,6 @@ export function InsightsSkeleton() {
   );
 }
 
-// ─── Settings ────────────────────────────────────────────────────────────────
 // Section cards with toggle rows
 
 function ToggleRowSkeleton() {
@@ -258,7 +249,6 @@ export function SettingsSkeleton() {
   );
 }
 
-// ─── Activity ────────────────────────────────────────────────────────────────
 // Notification cards: avatar + content lines + clear btn
 
 function ActivityCardSkeleton() {
@@ -285,7 +275,6 @@ export function ActivitySkeleton() {
   );
 }
 
-// ─── Search ──────────────────────────────────────────────────────────────────
 // People grid (auto-fit minmax 220px) and dreams grid (auto-fit minmax 260px)
 
 export function SearchPeopleSkeleton() {
@@ -319,7 +308,6 @@ export function SearchDreamsSkeleton() {
   );
 }
 
-// ─── Legacy aliases ───────────────────────────────────────────────────────────
 // Keep these so any untouched imports don't break.
 
 export function DreamCardSkeleton() {

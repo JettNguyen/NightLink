@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '../supabase';
 import { mapProfile } from '../utils/mappers';
-import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS, DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR, getAvatarIconById } from '../constants/avatarOptions';
+import { AVATAR_ICONS, AVATAR_BACKGROUNDS, AVATAR_COLORS } from '../constants/avatarOptions';
 import LoadingIndicator from '../components/LoadingIndicator';
 import Toast from '../components/Toast';
 import PhotoCropModal from '../components/PhotoCropModal';
@@ -34,7 +34,6 @@ export default function EditProfile({ user }) {
   const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0]);
   const [accountVisibility, setAccountVisibility] = useState('private');
 
-  // Photo upload state
   const [photoFile, setPhotoFile] = useState(null);
   const [photoBlob, setPhotoBlob] = useState(null);
   const [photoPreviewURL, setPhotoPreviewURL] = useState(null);
@@ -108,7 +107,6 @@ export default function EditProfile({ user }) {
     setSaving(true);
     setUploadError('');
     try {
-      // Handle photo operations first
       if (photoBlob) {
         await uploadAvatar({ userId: user.uid, blob: photoBlob });
         clearUserSummaryCache();
@@ -226,7 +224,6 @@ export default function EditProfile({ user }) {
           </div>
         </div>
 
-        {/* Hidden file input */}
         <input
           ref={fileInputRef}
           type="file"

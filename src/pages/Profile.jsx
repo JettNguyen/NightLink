@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPencil, faGear, faLock } from '@fortawesome/free-solid-svg-icons';
-import { format } from 'date-fns';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '../supabase';
@@ -75,7 +74,6 @@ export default function Profile({ user }) {
     return () => window.removeEventListener('nightlink:open-profile-menu', handleOpenProfileMenu);
   }, [isNativeIOS, targetUserId, viewingOwnProfile]);
 
-  // Resolve handle → targetUserId
   useEffect(() => {
     if (!routeHandle) {
       setTargetUserId(user?.uid || null);
@@ -120,7 +118,6 @@ export default function Profile({ user }) {
       .then(({ data }) => setViewerData(data ? mapProfile(data) : null));
   }, [viewerId]);
 
-  // Load target user profile
   useEffect(() => {
     if (!targetUserId) return;
     setProfileNotFound(false);
@@ -142,7 +139,6 @@ export default function Profile({ user }) {
       });
   }, [targetUserId, viewerId]);
 
-  // Load dreams for target user
   useEffect(() => {
     if (!targetUserId) return;
     let q = supabase.from('dreams').select('*').eq('user_id', targetUserId).order('created_at', { ascending: false });
@@ -184,7 +180,6 @@ export default function Profile({ user }) {
     };
   }, [targetUserId, viewerId, viewingOwnProfile]);
 
-  // Load tagged dreams
   useEffect(() => {
     if (!targetUserId) { setTaggedDreams([]); setTaggedDreamsLoading(false); return; }
     setTaggedDreamsLoading(true);

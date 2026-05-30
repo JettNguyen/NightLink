@@ -35,7 +35,7 @@
 
 .home-logo-text {
   font-size: 1.3rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text);
 }
@@ -70,7 +70,7 @@
 }
 
 .home-cta-primary {
-  background: linear-gradient(120deg, #0a68ff, #5abcea);
+  background: linear-gradient(120deg, #9d6fd4, #c9a7f0);
   color: #f4fbff;
 }
 

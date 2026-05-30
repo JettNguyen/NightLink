@@ -9,6 +9,7 @@ import { formatDreamDate, getTodayDateInputValue, parseDateInputValue } from '..
 import { buildDreamPath } from '../utils/urlHelpers';
 import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
 import { getModerationFeedback } from '../utils/contentModeration';
+import { highlightSnippet } from '../utils/highlight';
 import './DreamJournal.css';
 import { appUserPropType } from '../propTypes';
 
@@ -118,7 +119,6 @@ export default function DreamJournal({ user }) {
     }
   }, [showNewDream, checkScrollEdge]);
 
-  // Real-time dreams subscription
   useEffect(() => {
     if (!user?.uid) {
       setDreams([]);
@@ -152,7 +152,6 @@ export default function DreamJournal({ user }) {
     return () => supabase.removeChannel(channel);
   }, [user?.uid]);
 
-  // Load viewer profile and connections for audience controls
   useEffect(() => {
     if (!user?.uid) {
       setConnectionOptions([]);
@@ -215,11 +214,11 @@ export default function DreamJournal({ user }) {
   const filteredDreams = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return dreams;
-    return dreams.filter((d) => {
-      const inTitle = (d.title || '').toLowerCase().includes(q);
-      const inContent = (d.content || '').toLowerCase().includes(q);
-      return inTitle || inContent;
-    });
+    const wordBound = searchQuery.endsWith(' ');
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = wordBound ? new RegExp(`\\b${escaped}\\b`, 'i') : null;
+    const test = (text) => wordBound ? regex.test(text || '') : (text || '').toLowerCase().includes(q);
+    return dreams.filter((d) => test(d.title || '') || test(d.content || '') || test(d.aiTitle || ''));
   }, [dreams, searchQuery]);
 
   const normalizeHandle = (value = '') => value.replace(/^@/, '').trim().toLowerCase();
@@ -521,8 +520,14 @@ export default function DreamJournal({ user }) {
           </div>
           <span className="dream-chevron" aria-hidden="true">→</span>
         </div>
-        <p className="dream-title">{dream.title || (dream.aiGenerated && dream.aiTitle) || 'Untitled dream'}</p>
-        <p className="dream-content">{truncate(dream.content, CONTENT_PREVIEW_LIMIT)}</p>
+        <p className="dream-title">
+          {searchQuery.trim()
+            ? highlightSnippet(dream.title || (dream.aiGenerated && dream.aiTitle) || 'Untitled dream', searchQuery.trim(), 120)
+            : dream.title || (dream.aiGenerated && dream.aiTitle) || 'Untitled dream'}
+        </p>
+        <p className="dream-content">
+          {highlightSnippet(dream.content, searchQuery.trim(), CONTENT_PREVIEW_LIMIT)}
+        </p>
         {tagCount > 0 && (
           <div className="dream-footer-meta">
             <span className="dream-tag-count">{tagCount} {tagCount === 1 ? 'tag' : 'tags'}</span>

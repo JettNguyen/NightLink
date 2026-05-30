@@ -6,8 +6,8 @@
   align-items: center;
   justify-content: center;
   padding: calc(2rem + env(safe-area-inset-top)) 1.5rem calc(3rem + env(safe-area-inset-bottom));
-  background: radial-gradient(circle at 100% 100%, rgba(90, 200, 250, 0.1), transparent 45%),
-    radial-gradient(circle at 80% 0%, rgba(10, 132, 255, 0.1), transparent 55%),
+  background: radial-gradient(circle at 100% 100%, rgba(201, 167, 240, 0.1), transparent 45%),
+    radial-gradient(circle at 80% 0%, rgba(157, 111, 212, 0.1), transparent 55%),
     var(--background);
   position: relative;
   overflow: hidden;
@@ -152,7 +152,7 @@ html[data-native-platform='ios'] .auth-page {
 }
 
 .auth-input:focus {
-  border-color: rgba(90, 200, 250, 0.75);
+  border-color: rgba(201, 167, 240, 0.75);
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -255,8 +255,8 @@ html[data-native-platform='ios'] .auth-page {
 .auth-privacy-message {
   margin: 1.5rem 0 1rem;
   padding: 0.875rem 1rem;
-  background: rgba(10, 132, 255, 0.08);
-  border: 1px solid rgba(10, 132, 255, 0.2);
+  background: rgba(157, 111, 212, 0.08);
+  border: 1px solid rgba(157, 111, 212, 0.2);
   border-radius: 10px;
   font-size: 0.85rem;
   color: var(--text-secondary);
@@ -296,10 +296,10 @@ html[data-native-platform='ios'] .auth-page {
 
 .auth-submit {
   padding: 1rem;
-  background: linear-gradient(120deg, #0a68ff 0%, #5abcea 100%);
+  background: linear-gradient(120deg, #9d6fd4 0%, #c9a7f0 100%);
   color: #f4fbff;
   border-radius: 14px;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 1rem;
   border: 1px solid rgba(15, 54, 105, 0.8);
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease, opacity 0.2s ease;

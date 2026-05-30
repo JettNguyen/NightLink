@@ -9,6 +9,7 @@ import ProBadge from '../components/ProBadge';
 import { SearchPeopleSkeleton, SearchDreamsSkeleton } from '../components/SkeletonLoader';
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
+import { highlightSnippet } from '../utils/highlight';
 import './Search.css';
 import { appUserPropType } from '../propTypes';
 
@@ -38,6 +39,7 @@ export default function Search({ user }) {
       return;
     }
     setLoading(true); setError(''); setLastTerm(term);
+    const wordBound = searchTerm.endsWith(' ');
     try {
       const lower = `%${term.toLowerCase()}%`;
       if (filter === 'people') {
@@ -59,11 +61,15 @@ export default function Search({ user }) {
         })));
         setDreamResults([]);
       } else {
+        const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const dreamOr = wordBound
+          ? `content.~*.\\m${escaped}\\M,ai_title.~*.\\m${escaped}\\M,title.~*.\\m${escaped}\\M`
+          : `content.ilike.${lower},ai_title.ilike.${lower},title.ilike.${lower}`;
         const { data } = await supabase
           .from('dreams')
           .select('*')
           .in('visibility', ['public', 'anonymous'])
-          .or(`content.ilike.${lower},ai_title.ilike.${lower},title.ilike.${lower}`)
+          .or(dreamOr)
           .neq('user_id', currentUserId || '00000000-0000-0000-0000-000000000000')
           .order('created_at', { ascending: false })
           .limit(24);
@@ -92,7 +98,6 @@ export default function Search({ user }) {
 
   const renderDream = (dream) => {
     const title = dream.title || (dream.aiGenerated ? dream.aiTitle?.trim() : '');
-    const snippet = dream.content?.length > 200 ? `${dream.content.slice(0, 200)}…` : dream.content;
     const dateLabel = dream.createdAt ? formatDreamDate(dream.createdAt) : 'Recent';
     return (
       <div className="search-dream-card" key={dream.id} role="button" tabIndex={0}
@@ -100,11 +105,13 @@ export default function Search({ user }) {
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleDreamNavigation(dream); } }}>
         <div className="search-dream-meta">
           <span className="pill">{dateLabel}</span>
-          <span className="pill">{dream.visibility === 'anonymous' ? 'Anonymous dream' : 'Public dream'}</span>
+          <span className={`pill search-vis--${dream.visibility === 'anonymous' ? 'anonymous' : 'public'}`}>{dream.visibility === 'anonymous' ? 'Anonymous dream' : 'Public dream'}</span>
         </div>
-        {title ? <h3>{title}</h3> : <p className="pending-title">Untitled dream</p>}
+        {title
+          ? <h3>{highlightSnippet(title, lastTerm, 120)}</h3>
+          : <p className="pending-title">Untitled dream</p>}
         {dream.aiGenerated && dream.aiInsights && <p className="dream-summary">{dream.aiInsights}</p>}
-        <p className="dream-snippet">{snippet}</p>
+        <p className="dream-snippet">{highlightSnippet(dream.content, lastTerm, 200)}</p>
         {dream.tags?.length ? (
           <div className="dream-tags">
             {dream.tags.map((tag, idx) => <span className="tag" key={`${dream.id}-tag-${idx}`}>{tag.value}</span>)}

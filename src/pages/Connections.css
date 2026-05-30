@@ -22,19 +22,19 @@
   padding: 0.7rem 0.85rem;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-secondary);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.92rem;
   transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .connections-tab:hover {
-  border-color: rgba(90, 200, 250, 0.4);
+  border-color: rgba(201, 167, 240, 0.4);
   color: var(--text);
 }
 
 .connections-tab.active {
-  background: rgba(90, 200, 250, 0.15);
-  border-color: rgba(90, 200, 250, 0.55);
+  background: rgba(201, 167, 240, 0.15);
+  border-color: rgba(201, 167, 240, 0.55);
   color: var(--text);
   box-shadow: var(--shadow-light);
 }
@@ -84,8 +84,8 @@
 
 .connections-card:hover {
   box-shadow: var(--shadow-soft);
-  border-color: rgba(90, 200, 250, 0.5);
-  background: rgba(90, 200, 250, 0.06);
+  border-color: rgba(201, 167, 240, 0.5);
+  background: rgba(201, 167, 240, 0.06);
 }
 
 .connections-card:focus-visible {
@@ -134,7 +134,7 @@
   border-radius: 10px;
   padding: 0.45rem 0.7rem;
   border: 1px solid var(--border);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.8rem;
   min-width: 72px;
 }

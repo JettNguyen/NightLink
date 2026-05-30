@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHeart, faPlus } from '@fortawesome/free-solid-svg-icons'; // faPlus kept for emoji picker trigger
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { Capacitor } from '@capacitor/core';
 import { triggerLightHaptic } from '../utils/haptics';
 import { supabase } from '../supabase';
@@ -2271,7 +2271,7 @@ export default function DreamDetail({ user }) {
               {dream.aiGenerated && dream.aiInsights ? (
                 <>
                   <p className="detail-insight">{dream.aiInsights}</p>
-                  {Array.isArray(dream.aiConnections) && dream.aiConnections.length > 0 && (
+                  {isOwner && Array.isArray(dream.aiConnections) && dream.aiConnections.length > 0 && (
                     <div className="detail-connections">
                       <p className="detail-connections-label">Pattern recognition</p>
                       <ul className="detail-connections-list">

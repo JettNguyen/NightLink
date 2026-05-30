@@ -5,13 +5,13 @@ const config: CapacitorConfig = {
   appName: 'nightlink',
   webDir: 'dist',
   ios: {
-    backgroundColor: '#05070f',
+    backgroundColor: '#0e0a14',
   },
   plugins: {
     SplashScreen: {
       launchShowDuration: 1800,
       launchAutoHide: true,
-      backgroundColor: '#0b1021',
+      backgroundColor: '#17112b',
       showSpinner: false,
     },
   },

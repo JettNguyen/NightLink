@@ -49,7 +49,6 @@ export default function useActivityPreview(viewerId, options = {}) {
     Math.max(toMillis(viewerProfile?.feedSeenAtMs), 0)
   ), [viewerProfile?.feedSeenAtMs]);
 
-  // Viewer profile with realtime
   useEffect(() => {
     if (!viewerId) {
       setViewerProfile(null);
@@ -73,7 +72,6 @@ export default function useActivityPreview(viewerId, options = {}) {
     return () => supabase.removeChannel(channel);
   }, [viewerId]);
 
-  // Activity inbox with realtime
   useEffect(() => {
     if (!viewerId) {
       setInboxEntries([]);
@@ -110,7 +108,6 @@ export default function useActivityPreview(viewerId, options = {}) {
     return () => supabase.removeChannel(channel);
   }, [viewerId, inboxLimit]);
 
-  // Following feed
   useEffect(() => {
     const followingIds = viewerProfile?.followingIds || [];
     const followingSince = viewerProfile?.followingSince || {};

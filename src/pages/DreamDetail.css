@@ -46,7 +46,7 @@
 
 .detail-back-btn:hover {
   border-color: var(--primary);
-  background: rgba(90, 200, 250, 0.12);
+  background: rgba(201, 167, 240, 0.12);
   color: var(--primary);
 }
 
@@ -123,13 +123,14 @@
 
 .detail-date-pill--interactive {
   cursor: pointer;
-  background: rgba(90, 200, 250, 0.08);
+  background: rgba(201, 167, 240, 0.05);
   color: var(--text);
+  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
 
 .detail-date-pill--interactive:hover {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(90, 200, 250, 0.15);
+  box-shadow: 0 0 0 2px rgba(201, 167, 240, 0.15);
 }
 
 .detail-date-edit--standalone {
@@ -163,14 +164,14 @@
   background: var(--surface);
   color: var(--text);
   font-size: 1.4rem;
-  font-weight: 700;
+  font-weight: 600;
   flex: 1;
   min-width: 200px;
 }
 
 .detail-title-input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(90, 200, 250, 0.15);
+  box-shadow: 0 0 0 3px rgba(201, 167, 240, 0.15);
 }
 
 .detail-date-input {
@@ -377,8 +378,8 @@
 }
 
 .comment-heart-btn.active {
-  border-color: rgba(90, 200, 250, 0.65);
-  background: rgba(90, 200, 250, 0.12);
+  border-color: rgba(201, 167, 240, 0.65);
+  background: rgba(201, 167, 240, 0.12);
   color: var(--primary);
   box-shadow: 0 0 12px rgba(56, 132, 255, 0.35);
 }
@@ -478,7 +479,7 @@
 
 .comment-composer textarea:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(90, 200, 250, 0.15);
+  box-shadow: 0 0 0 3px rgba(201, 167, 240, 0.15);
 }
 
 .comment-composer-actions {
@@ -515,7 +516,7 @@
 
 .tag-people-input input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(90, 200, 250, 0.15);
+  box-shadow: 0 0 0 3px rgba(201, 167, 240, 0.15);
 }
 
 .tagged-pill-row {
@@ -568,7 +569,7 @@
 }
 
 .tag-suggestion-item:hover {
-  background: rgba(90, 200, 250, 0.08);
+  background: rgba(201, 167, 240, 0.08);
 }
 
 .suggestion-name {
@@ -710,9 +711,9 @@
 }
 
 .detail-reactions .custom-emoji-popover input:focus {
-  border-color: rgba(90, 200, 250, 0.6);
+  border-color: rgba(201, 167, 240, 0.6);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(90, 200, 250, 0.2);
+  box-shadow: 0 0 0 2px rgba(201, 167, 240, 0.2);
 }
 
 .reaction-button {
@@ -746,8 +747,8 @@
 }
 
 .reaction-button.active {
-  border-color: rgba(90, 200, 250, 0.65);
-  background: rgba(90, 200, 250, 0.12);
+  border-color: rgba(201, 167, 240, 0.65);
+  background: rgba(201, 167, 240, 0.12);
   color: var(--primary);
 }
 
@@ -775,7 +776,7 @@
 
 .detail-textarea:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(90, 200, 250, 0.15);
+  box-shadow: 0 0 0 3px rgba(201, 167, 240, 0.15);
 }
 
 .detail-tags-editor {
@@ -841,7 +842,7 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 1rem 1.25rem;
-  background: rgba(90, 200, 250, 0.06);
+  background: rgba(201, 167, 240, 0.06);
   margin-top: 0.6rem;
 }
 
@@ -897,14 +898,14 @@
 .detail-connections {
   margin: 1rem 0 0;
   padding: 0.85rem 1rem;
-  background: rgba(90, 200, 250, 0.06);
-  border: 1px solid rgba(90, 200, 250, 0.18);
+  background: rgba(216, 182, 255, 0.05);
+  border: 1px solid rgba(216, 182, 255, 0.2);
   border-radius: 10px;
 }
 
 .detail-connections-label {
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--primary);
@@ -942,8 +943,8 @@
 .ai-privacy-notice {
   margin: 0.75rem 0 0;
   padding: 0.75rem 1rem;
-  background: rgba(10, 132, 255, 0.08);
-  border-left: 3px solid rgba(10, 132, 255, 0.4);
+  background: rgba(216, 182, 255, 0.05);
+  border-left: 3px solid rgba(157, 111, 212, 0.4);
   border-radius: 6px;
   color: var(--text-secondary);
   font-size: 0.78rem;
@@ -1064,7 +1065,7 @@
 
 .prompt-option-btn.current-prompt {
   border-color: var(--primary);
-  background: rgba(56, 189, 248, 0.1);
+  background: rgba(201, 167, 240, 0.1);
   margin-bottom: 10px;
 }
 
@@ -1200,7 +1201,7 @@
 
 .report-modal h3 {
   font-size: 1.1rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   text-transform: capitalize;
 }

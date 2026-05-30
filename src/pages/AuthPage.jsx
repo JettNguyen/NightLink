@@ -94,7 +94,6 @@ export default function AuthPage() {
     try {
       const normalized = name.toLowerCase();
 
-      // Check username availability
       const { data: existing } = await supabase
         .from('profiles')
         .select('id')
@@ -102,7 +101,6 @@ export default function AuthPage() {
         .single();
       if (existing) throw new Error('username-taken');
 
-      // Create auth user
       const { data: authData, error: signUpErr } = await supabase.auth.signUp({
         email: email.trim(),
         password,

@@ -43,7 +43,7 @@
 
 .feed-card:hover {
   box-shadow: var(--shadow-soft);
-  border-color: rgba(90, 200, 250, 0.4);
+  border-color: rgba(201, 167, 240, 0.4);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
 }
 
@@ -79,8 +79,8 @@
 }
 
 .feed-card-menu-btn:hover {
-  border-color: rgba(90, 200, 250, 0.38);
-  background: rgba(90, 200, 250, 0.08);
+  border-color: rgba(201, 167, 240, 0.38);
+  background: rgba(201, 167, 240, 0.08);
   color: var(--text);
 }
 
@@ -169,7 +169,7 @@
   color: var(--primary);
   font-size: 0.8rem;
   font-weight: 600;
-  background: rgba(90, 200, 250, 0.10);
+  background: rgba(201, 167, 240, 0.10);
   padding: 0.2rem 0.6rem;
   border-radius: 100px;
   width: fit-content;
@@ -177,11 +177,11 @@
 
 .feed-author-handle.feed-author-link {
   text-decoration: none;
-  background: rgba(90, 200, 250, 0.18);
+  background: rgba(201, 167, 240, 0.18);
 }
 
 .feed-author-handle.feed-author-link:hover {
-  box-shadow: 0 0 0 2px rgba(90, 200, 250, 0.2);
+  box-shadow: 0 0 0 2px rgba(201, 167, 240, 0.2);
 }
 
 .feed-visibility {
@@ -293,7 +293,7 @@
 @media (min-width: 480px) {
   .report-modal { border-radius: 20px; padding: 1.75rem 1.5rem; }
 }
-.report-modal h3 { font-size: 1.1rem; font-weight: 700; color: var(--text); text-transform: capitalize; }
+.report-modal h3 { font-size: 1.1rem; font-weight: 600; color: var(--text); text-transform: capitalize; }
 .report-modal-desc { font-size: 0.875rem; color: var(--text-secondary); margin: 0; }
 .report-reasons { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .report-reason-btn {

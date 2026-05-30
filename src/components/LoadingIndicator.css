@@ -39,7 +39,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(90, 200, 250, 0.3), transparent);
+  background: linear-gradient(90deg, transparent, rgba(201, 167, 240, 0.3), transparent);
   animation: loading-track-glow 1.4s ease-in-out infinite;
 }
 
@@ -50,7 +50,7 @@
   height: 14px;
   margin-top: -7px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(142, 214, 255, 0.95) 0%, rgba(90, 200, 250, 0.15) 65%);
+  background: radial-gradient(circle, rgba(142, 214, 255, 0.95) 0%, rgba(201, 167, 240, 0.15) 65%);
   box-shadow: 0 0 12px rgba(138, 210, 255, 0.85);
   animation: loading-orbit 1.35s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Prata:ital,wght@0,400;0,500;1,400&family=Stoke:wght@300;400;500;600&display=swap');
 
 * {
   margin: 0;
@@ -9,27 +9,27 @@
 :root {
   --safe-area-inset-top: env(safe-area-inset-top);
   --safe-area-inset-bottom: env(safe-area-inset-bottom);
-  --primary: #5abcea;
-  --primary-strong: #0a68ff;
-  --accent: #ffc266;
-  --background: #04060d;
-  --background-secondary: #0e121c;
-  --surface: rgba(255, 255, 255, 0.05);
-  --surface-muted: rgba(255, 255, 255, 0.025);
-  --text: #f0f0f0;
-  --text-secondary: #a6adb9;
-  --border: rgba(255, 255, 255, 0.1);
-  --shadow-soft: 0 20px 60px rgba(0, 0, 0, 0.25);
-  --shadow-light: 0 10px 30px rgba(0, 0, 0, 0.2);
-  --glow-primary: 0 0 60px rgba(90, 200, 250, 0.25);
+  --primary: #c9a7f0;
+  --primary-strong: #9d6fd4;
+  --accent: #e8c87a;
+  --background: #0d0d11;
+  --background-secondary: #13121a;
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-muted: rgba(255, 255, 255, 0.02);
+  --text: #eeeafa;
+  --text-secondary: #cdbded;
+  --border: rgba(255, 255, 255, 0.07);
+  --shadow-soft: 0 20px 60px rgba(0, 0, 0, 0.35);
+  --shadow-light: 0 10px 30px rgba(0, 0, 0, 0.28);
+  --glow-primary: 0 0 50px rgba(157, 111, 212, 0.22);
   --error: #ff5050;
   --success: #2cd44e;
-  --app-background-gradient: linear-gradient(180deg, #060811 0%, #0b0f1a 55%, #060811 100%);
+  --app-background-gradient: linear-gradient(180deg, #0d0d11 0%, #110f1c 55%, #0d0d11 100%);
 }
 
 html {
   background: var(--app-background-gradient);
-  background-color: #05070f;
+  background-color: #0d0d11;
   min-height: 100%;
   overscroll-behavior: none;
   scroll-behavior: smooth;
@@ -38,8 +38,9 @@ html {
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 400;
   background: var(--app-background-gradient);
-  background-color: #05070f;
+  background-color: #0e0a14;
   background-attachment: scroll;
   position: relative;
   color: var(--text);
@@ -58,6 +59,28 @@ html[data-native-platform='ios'] body {
   overscroll-behavior: auto;
 }
 
+.page-title,
+h1 {
+  font-family: 'Prata', Georgia, serif;
+  font-weight: 600;
+  font-style: italic;
+}
+
+.dream-title,
+.entry-title,
+.card-title {
+  font-family: 'Prata', Georgia, serif;
+  font-weight: 500;
+}
+
+h2, h3, .section-heading {
+  font-weight: 500;
+  color: #edeef6;
+}
+
+p {
+  color: #d8d6e8;
+}
 
 .pull-refresh-indicator {
   position: fixed;
@@ -70,7 +93,7 @@ html[data-native-platform='ios'] body {
   padding: 0.45rem 0.75rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(7, 10, 20, 0.86);
+  background: rgba(14, 10, 20, 0.86);
   color: #d7dfed;
   font-size: 0.82rem;
   letter-spacing: 0.01em;
@@ -84,7 +107,7 @@ html[data-native-platform='ios'] body {
 }
 
 .pull-refresh-indicator.is-armed {
-  border-color: rgba(90, 188, 234, 0.8);
+  border-color: rgba(201, 167, 240, 0.8);
   color: #eef5ff;
 }
 
@@ -195,10 +218,10 @@ html[data-native-platform='ios'] .app-main--with-nav {
 }
 
 .primary-btn {
-  background: #0f172a;
-  color: #e6f4ff;
+  background: linear-gradient(135deg, #120d24, #1e1535);
+  color: #ede8f5;
   border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 10px 30px rgba(4, 12, 26, 0.2);
+  box-shadow: 0 10px 30px rgba(14, 10, 20, 0.2);
   position: relative;
   overflow: hidden;
 }
@@ -214,7 +237,7 @@ html[data-native-platform='ios'] .app-main--with-nav {
 
 .primary-btn:hover {
   filter: brightness(1.12);
-  box-shadow: var(--shadow-soft), 0 0 20px rgba(90, 200, 250, 0.15);
+  box-shadow: var(--shadow-soft), 0 0 20px rgba(201, 167, 240, 0.15);
 }
 
 .primary-btn:disabled {
@@ -253,7 +276,7 @@ html[data-native-platform='ios'] .app-main--with-nav {
 }
 
 .pill-active {
-  background: rgba(90, 200, 250, 0.1);
+  background: rgba(201, 167, 240, 0.1);
   color: var(--text);
   border-color: var(--primary);
   box-shadow: var(--glow-primary);
@@ -333,6 +356,11 @@ html[data-native-platform='ios'] .lazy-route-loading {
    larger bounding box than its visual. Collapsing line-height removes the
    oversized box so the glyph overflows symmetrically, then position:relative
    nudges it without triggering the flex+transform bug. */
+html:not([data-native-platform='ios']) .dream-ai-badge {
+  font-size: 1.25rem;
+  margin-top: -0.1rem;
+}
+
 html[data-native-platform='ios'] .dream-ai-badge{
   line-height: 0;
   position: relative;
@@ -360,12 +388,14 @@ html[data-native-platform='ios'] .profile-ai-badge {
 .pro-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.1rem 0.42rem;
+  padding: 0.2rem 0.42rem;
   border-radius: 5px;
   font-size: 0.62rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  text-align: center;
+  padding-top: 0.3rem;
   color: #fbbf24;
   background: rgba(251, 191, 36, 0.12);
   border: 1px solid rgba(251, 191, 36, 0.35);
@@ -419,20 +449,20 @@ html[data-native-platform='ios'] .profile-ai-badge {
 
 .reaction-chip.active {
   border-color: var(--primary);
-  background: rgba(90, 200, 250, 0.12);
+  background: rgba(201, 167, 240, 0.12);
   box-shadow: var(--glow-primary);
 }
 
 .reaction-chip:hover,
 .reaction-chip:focus-visible {
   border-color: var(--primary);
-  background: rgba(90, 200, 250, 0.1);
+  background: rgba(201, 167, 240, 0.1);
   outline: none;
 }
 
 .reaction-emoji-icon {
   font-size: 1rem;
-  color: var(--primary);
+  color: var(--accent);
 }
 
 .custom-emoji-popover {
@@ -440,7 +470,7 @@ html[data-native-platform='ios'] .profile-ai-badge {
   padding: 0.75rem;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: rgba(9, 13, 26, 0.85);
+  background: rgba(20, 14, 35, 0.85);
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
@@ -473,9 +503,9 @@ html[data-native-platform='ios'] .profile-ai-badge {
 }
 
 .emoji-option.selected {
-  border-color: rgba(56, 189, 248, 0.7);
-  background: rgba(56, 189, 248, 0.12);
-  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2);
+  border-color: rgba(201, 167, 240, 0.7);
+  background: rgba(201, 167, 240, 0.12);
+  box-shadow: 0 0 0 1px rgba(201, 167, 240, 0.2);
 }
 
 .emoji-input-row {
@@ -496,7 +526,7 @@ html[data-native-platform='ios'] .profile-ai-badge {
 
 .emoji-input-row input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(90, 200, 250, 0.2);
+  box-shadow: 0 0 0 2px rgba(201, 167, 240, 0.2);
   outline: none;
 }
 
@@ -544,6 +574,15 @@ html[data-native-platform='ios'] .profile-ai-badge {
   line-height: 1;
 }
 
+.search-highlight {
+  background: rgba(232, 200, 122, 0.25);
+  color: #f0d58a;
+  border-radius: 2px;
+  padding: 0 1px;
+  font-style: inherit;
+  font-weight: inherit;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -589,7 +628,7 @@ html[data-native-platform='ios'] .profile-ai-badge {
 
 .audience-search-input input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(90, 200, 250, 0.12);
+  box-shadow: 0 0 0 3px rgba(201, 167, 240, 0.12);
 }
 
 .audience-result-list {
@@ -614,7 +653,7 @@ html[data-native-platform='ios'] .profile-ai-badge {
 
 .audience-result.active {
   border-color: var(--primary);
-  background: rgba(90, 200, 250, 0.1);
+  background: rgba(201, 167, 240, 0.1);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
 }
 
@@ -757,7 +796,7 @@ html[data-native-platform='ios'].is-scrolling .reaction-chip.active,
 html[data-native-platform='ios'].is-scrolling .reaction-chip.active:hover,
 html[data-native-platform='ios'].is-scrolling .reaction-chip.active:active {
   border-color: var(--primary) !important;
-  background-color: rgba(90, 200, 250, 0.12) !important;
+  background-color: rgba(183, 183, 240, 0.12) !important;
   box-shadow: var(--glow-primary) !important;
 }
 
@@ -765,13 +804,13 @@ html[data-native-platform='ios'].is-scrolling .audience-result.active,
 html[data-native-platform='ios'].is-scrolling .audience-result.active:hover,
 html[data-native-platform='ios'].is-scrolling .audience-result.active:active {
   border-color: var(--primary) !important;
-  background-color: rgba(90, 200, 250, 0.1) !important;
+  background-color: rgba(183, 183, 240, 0.1) !important;
 }
 
 html[data-native-platform='ios'].is-scrolling .pill-active,
 html[data-native-platform='ios'].is-scrolling .pill-active:hover,
 html[data-native-platform='ios'].is-scrolling .pill-active:active {
   border-color: var(--primary) !important;
-  background-color: rgba(90, 200, 250, 0.1) !important;
+  background-color: rgba(183, 183, 240, 0.1) !important;
   box-shadow: var(--glow-primary) !important;
 }
