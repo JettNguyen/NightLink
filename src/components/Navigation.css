@@ -53,7 +53,8 @@
   overflow: hidden;
   white-space: nowrap;
   color: var(--text);
-  font: 700 1rem "Playfair Display", serif;
+  font: 700 1.25rem "Playfair Display", serif;
+  margin-bottom:-1px;
 }
 
 .nav-logo-icon {
@@ -65,6 +66,7 @@
   transform-origin: center;
   will-change: transform;
   backface-visibility: hidden;
+  margin-right: -5px;
 }
 
 .nav-logo:hover {
@@ -182,7 +184,7 @@
 .navigation-compact .nav-logo span {
   max-width: 0;
   opacity: 0;
-  transform: translateX(-6px);
+  transform: translateX(-5px);
 }
 
 .navigation-compact .nav-logo-icon {
@@ -238,8 +240,8 @@
   }
 
   .nav-logo-icon {
-    width: 20px;
-    height: 20px;
+    width: 30px;
+    height: 30px;
   }
 
   .navigation:not(.navigation-compact) .nav-logo {
@@ -375,6 +377,12 @@
 
   .navigation-compact .nav-tab-label {
     font-size: 0.85rem;
+  }
+
+  .nav-logo span {
+    font-size: 1.5rem;
+    margin-left: 5px;
+    margin-bottom: 0;
   }
 }
 
