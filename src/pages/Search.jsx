@@ -7,6 +7,7 @@ import { DEFAULT_AVATAR_BACKGROUND, DEFAULT_AVATAR_COLOR } from '../constants/av
 import AvatarDisplay from '../components/AvatarDisplay';
 import ProBadge from '../components/ProBadge';
 import { SearchPeopleSkeleton, SearchDreamsSkeleton } from '../components/SkeletonLoader';
+import Toast from '../components/Toast';
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import { highlightSnippet } from '../utils/highlight';
@@ -20,7 +21,7 @@ export default function Search({ user }) {
   const [loading, setLoading] = useState(false);
   const [userResults, setUserResults] = useState([]);
   const [dreamResults, setDreamResults] = useState([]);
-  const [error, setError] = useState('');
+  const [toast, setToast] = useState(null);
   const [lastTerm, setLastTerm] = useState('');
   const [filter, setFilter] = useState('people');
   const navigate = useNavigate();
@@ -35,10 +36,10 @@ export default function Search({ user }) {
   const runSearch = async () => {
     const term = searchTerm.trim();
     if (term.length < MIN_CHARS) {
-      setUserResults([]); setDreamResults([]); setLastTerm(''); setLoading(false); setError('');
+      setUserResults([]); setDreamResults([]); setLastTerm(''); setLoading(false);
       return;
     }
-    setLoading(true); setError(''); setLastTerm(term);
+    setLoading(true); setLastTerm(term);
     const wordBound = searchTerm.endsWith(' ');
     try {
       const lower = `%${term.toLowerCase()}%`;
@@ -77,7 +78,7 @@ export default function Search({ user }) {
         setUserResults([]);
       }
     } catch {
-      setError('Search hiccup. Please try again.');
+      setToast('Search hiccup. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -122,6 +123,7 @@ export default function Search({ user }) {
   };
 
   return (
+    <>
     <div className="page-container">
       <div className="page-header search-header">
         <div>
@@ -148,7 +150,6 @@ export default function Search({ user }) {
         <p className="hint">Type at least {MIN_CHARS} characters. Filter to search only people or only public dreams.</p>
       </div>
 
-      {error && <div className="alert-banner">{error}</div>}
 
       {searchTerm.trim().length < MIN_CHARS && !loading ? (
         <div className="empty-state">Start typing to explore {filter === 'people' ? 'people' : 'public dreams'}.</div>
@@ -201,6 +202,8 @@ export default function Search({ user }) {
         </div>
       )}
     </div>
+    {toast && <Toast message={toast} onDismiss={() => setToast(null)} duration={5000} />}
+    </>
   );
 }
 

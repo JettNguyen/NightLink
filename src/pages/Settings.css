@@ -555,6 +555,47 @@ html[data-native-platform='ios'] .settings-save-bar {
   border-color: rgba(248, 113, 113, 0.35);
 }
 
+/* ── More Options collapsible ─────────────────────────────────────────────── */
+
+.more-options-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.more-options-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.5rem 0;
+  align-self: flex-start;
+  transition: color 0.18s ease;
+}
+
+.more-options-toggle:hover {
+  color: var(--text);
+}
+
+.more-options-chevron {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.more-options-chevron.open {
+  transform: rotate(180deg);
+}
+
 .settings-footnote {
   font-size: 0.75rem;
   margin-top: 0.5rem;

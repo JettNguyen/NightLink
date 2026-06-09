@@ -478,7 +478,7 @@
 }
 
 .modal-content {
-  background: #1a1330;
+  background: #131219;
   border-radius: 20px;
   padding: 1.85rem;
   width: 100%;
@@ -518,12 +518,12 @@
 
 .modal-form-wrap::before {
   top: 0;
-  background: linear-gradient(to bottom, #1a1330, transparent);
+  background: linear-gradient(to bottom, #131219, transparent);
 }
 
 .modal-form-wrap::after {
   bottom: 0;
-  background: linear-gradient(to top, #1a1330, transparent);
+  background: linear-gradient(to top, #131219, transparent);
 }
 
 .modal-form-wrap.at-top::before {

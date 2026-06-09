@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHeart, faPlus } from '@fortawesome/free-solid-svg-icons'; // faPlus kept for emoji picker trigger
+import { faHeart, faPlus, faLock } from '@fortawesome/free-solid-svg-icons'; // faPlus kept for emoji picker trigger
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { Capacitor } from '@capacitor/core';
@@ -26,7 +26,7 @@ import './DreamDetail.css';
 import { appUserPropType } from '../propTypes';
 import { COMMON_EMOJI_REACTIONS, filterEmojiInput } from '../constants/emojiOptions';
 import { useRcCustomerInfo } from '../contexts/SubscriptionContext';
-import { isProFromCustomerInfo, IS_RC_SUPPORTED } from '../utils/purchases';
+import { isProFromCustomerInfo, IS_RC_SUPPORTED, syncCustomerInfoToSupabase } from '../utils/purchases';
 
 const PROMPT_TEMPLATES = {
   balanced:  "You are a thoughtful, grounded dream interpreter — no mysticism, no jargon, just honest insight. Identify 1–2 standout symbols and explain what they may reveal about the dreamer's inner life right now. Ask one precise reflection question that could genuinely unlock something for them. Close with a single, concrete small action they could take today. Warm, clear, never condescending.",
@@ -176,7 +176,6 @@ export default function DreamDetail({ user }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [updatingVisibility, setUpdatingVisibility] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDate, setEditingDate] = useState(false);
   const [titleInput, setTitleInput] = useState('');
@@ -662,6 +661,7 @@ export default function DreamDetail({ user }) {
 
   // When RC CustomerInfo arrives (async, after profile load), upgrade the tier
   // in aiQuota if RC says the user is Pro but Supabase was still stale.
+  // Also re-sync to Supabase so the server's tier check stays consistent.
   useEffect(() => {
     if (!IS_RC_SUPPORTED || !rcCustomerInfo) return;
     const rcIsPro = isProFromCustomerInfo(rcCustomerInfo);
@@ -670,9 +670,11 @@ export default function DreamDetail({ user }) {
       if (!prev || prev.tier === 'premium') return prev;
       const tierLimit = 30;
       const used = tierLimit - prev.remainingFree;
+      // Supabase was stale — re-sync so the server sees premium too
+      if (viewerId) syncCustomerInfoToSupabase(viewerId, rcCustomerInfo);
       return { ...prev, tier: 'premium', remainingFree: Math.max(0, tierLimit - used) };
     });
-  }, [rcCustomerInfo]);
+  }, [rcCustomerInfo, viewerId]);
 
   useEffect(() => {
     if (!dreamId) {
@@ -717,7 +719,7 @@ export default function DreamDetail({ user }) {
       setEditableTags(Array.isArray(dreamData.tags) ? dreamData.tags : []);
       setExcludedViewerIds(Array.isArray(dreamData.excludedViewerIds) ? dreamData.excludedViewerIds : []);
       setTaggedPeople(Array.isArray(dreamData.taggedUsers) ? dreamData.taggedUsers : []);
-      setTaggingStatus(''); setTagHandle(''); setStatusMessage(''); setLoading(false);
+      setTaggingStatus(''); setTagHandle(''); setToast(null); setLoading(false);
     };
 
     supabase.from('dreams').select('*').eq('id', dreamId).single()
@@ -1525,12 +1527,12 @@ export default function DreamDetail({ user }) {
 
     const trimmedContent = (dream.content || '').trim();
     if (!trimmedContent) {
-      setStatusMessage('Dream content is empty, nothing to analyze.');
+      setToast('Dream content is empty, nothing to analyze.');
       return;
     }
     const dreamSafetyFeedback = getModerationFeedback(trimmedContent, { contentType: 'dream text' });
     if (dreamSafetyFeedback) {
-      setStatusMessage(`${dreamSafetyFeedback} Update the dream text, then try AI again.`);
+      setToast(`${dreamSafetyFeedback} Update the dream text, then try AI again.`);
       return;
     }
 
@@ -1541,13 +1543,13 @@ export default function DreamDetail({ user }) {
     }
 
     setAnalyzing(true);
-    setStatusMessage('');
+    setToast(null);
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const idToken = sessionData?.session?.access_token;
       if (!idToken) {
-        setStatusMessage('Please sign in again to use AI features.');
+        setToast('Please sign in again to use AI features.');
         setAnalyzing(false);
         return;
       }
@@ -1598,12 +1600,19 @@ export default function DreamDetail({ user }) {
 
       if (!response.ok) {
         if (response.status === 403 && payload?.code === 'style_locked') {
-          setStatusMessage('That insight style is locked. Upgrade to Pro in Settings to unlock all styles and custom prompts.');
+          // If the client already considers this user premium, the server's Supabase
+          // record is stale. Re-sync RC → Supabase so the next attempt succeeds.
+          if (aiQuota?.tier === 'premium' && IS_RC_SUPPORTED && rcCustomerInfo && viewerId) {
+            syncCustomerInfoToSupabase(viewerId, rcCustomerInfo);
+            setToast('Subscription sync issue — your Pro status is being refreshed. Please try again in a moment.');
+          } else {
+            setToast('That insight style is locked. Upgrade to Pro in Settings to unlock all styles and custom prompts.');
+          }
           return;
         }
         if (response.status === 429 && payload?.code === 'quota_exceeded') {
           setAiQuota(prev => ({ ...prev, remainingFree: 0, creditBalance: payload.creditBalance ?? 0 }));
-          setStatusMessage('Monthly limit reached. Upgrade or buy credits in Settings to keep analyzing.');
+          setToast('Monthly limit reached. Upgrade or buy credits in Settings to keep analyzing.');
           return;
         }
         throw new Error(payload?.error || `Analysis service error (HTTP ${response.status})`);
@@ -1658,11 +1667,11 @@ export default function DreamDetail({ user }) {
       if (saveErr) throw saveErr;
 
       setDream(prev => ({ ...prev, ...updates }));
-      setStatusMessage(sanitized.wasFiltered
+      setToast(sanitized.wasFiltered
         ? 'AI analysis was safety-filtered for 13+ audience and updated.'
         : 'Title and analysis updated.');
     } catch (err) {
-      setStatusMessage(err.message || 'Analysis generation failed.');
+      setToast(err.message || 'Analysis generation failed.');
     } finally {
       setAnalyzing(false);
     }
@@ -1673,7 +1682,7 @@ export default function DreamDetail({ user }) {
 
     setReanalyzing(true);
     setPromptSelectorOpen(false);
-    setStatusMessage('');
+    setToast(null);
 
     try {
       let customPrompt = null;
@@ -1695,7 +1704,7 @@ export default function DreamDetail({ user }) {
       }
 
       if (isPromptLockedForTier(aiQuota?.tier || 'free', selectedPromptKey)) {
-        setStatusMessage('That style is locked on the free plan. Upgrade in Settings to unlock it.');
+        setToast('That style is locked on the free plan. Upgrade in Settings to unlock it.');
         return;
       }
 
@@ -1708,15 +1717,15 @@ export default function DreamDetail({ user }) {
   const handleApplyAiTitle = async () => {
     if (!dream?.aiTitle || !isOwner) return;
     setApplyingAiTitle(true);
-    setStatusMessage('');
+    setToast(null);
     try {
       const { error } = await supabase.from('dreams').update({ title: dream.aiTitle }).eq('id', dream.id);
       if (error) throw error;
       setDream(prev => ({ ...prev, title: dream.aiTitle }));
       setTitleInput(dream.aiTitle);
-      setStatusMessage('Title updated from AI suggestion.');
+      setToast('Title updated from AI suggestion.');
     } catch {
-      setStatusMessage('Could not apply AI title.');
+      setToast('Could not apply AI title.');
     } finally {
       setApplyingAiTitle(false);
     }
@@ -1799,10 +1808,10 @@ export default function DreamDetail({ user }) {
       if (reportModal.targetType === 'comment') {
         setCommentStatus('Report submitted. We review safety reports within 24 hours.');
       } else {
-        setStatusMessage('Report submitted. We review safety reports within 24 hours.');
+        setToast('Report submitted. We review safety reports within 24 hours.');
       }
     } catch (reportError) {
-      setStatusMessage(reportError.message || 'Could not submit report.');
+      setToast(reportError.message || 'Could not submit report.');
     } finally {
       setReportBusy(false);
     }
@@ -1820,10 +1829,10 @@ export default function DreamDetail({ user }) {
         .eq('id', viewerId);
       if (updateError) throw updateError;
       setUserSettings((prev) => ({ ...(prev || {}), blockedUserIds: nextBlocked }));
-      setStatusMessage('User blocked. Their content is now hidden from your feed.');
+      setToast('User blocked. Their content is now hidden from your feed.');
       navigate('/feed');
     } catch {
-      setStatusMessage('Could not block this user right now.');
+      setToast('Could not block this user right now.');
     }
   }, [viewerId, dream?.userId, userSettings, navigate]);
 
@@ -2261,9 +2270,6 @@ export default function DreamDetail({ user }) {
           ) : null}
         </div>}
 
-        {statusMessage && (
-          <p className="detail-status-message">{statusMessage}</p>
-        )}
 
         <div className="detail-summary">
             <div className="detail-summary-text">
@@ -2334,14 +2340,16 @@ export default function DreamDetail({ user }) {
                                 type="button"
                                 className={`prompt-option-btn${locked ? ' locked' : ''}`}
                                 onClick={() => {
+                                  if (locked) return;
                                   setFirstAnalysisPromptSelector(false);
                                   handleReanalyze(key);
                                 }}
                                 disabled={analyzing || locked}
                                 title={locked ? 'Upgrade to Pro to unlock this style' : undefined}
                               >
+                                {locked && <FontAwesomeIcon icon={faLock} className="prompt-lock-icon" />}
                                 {PROMPT_LABELS[key]}
-                                {locked ? ' (Pro)' : ''}
+                                {locked ? <span className="prompt-pro-badge">Pro</span> : ''}
                               </button>
                             );
                           })}
@@ -2399,12 +2407,13 @@ export default function DreamDetail({ user }) {
                                   key={key}
                                   type="button"
                                   className={`prompt-option-btn${locked ? ' locked' : ''}`}
-                                  onClick={() => handleReanalyze(key)}
+                                  onClick={() => { if (!locked) handleReanalyze(key); }}
                                   disabled={reanalyzing || locked}
                                   title={locked ? 'Upgrade to Pro to unlock this style' : undefined}
                                 >
+                                  {locked && <FontAwesomeIcon icon={faLock} className="prompt-lock-icon" />}
                                   {PROMPT_LABELS[key]}
-                                  {locked ? ' (Pro)' : ''}
+                                  {locked ? <span className="prompt-pro-badge">Pro</span> : ''}
                                 </button>
                               );
                             })}
@@ -2412,10 +2421,13 @@ export default function DreamDetail({ user }) {
                               <button
                                 type="button"
                                 className={`prompt-option-btn custom-prompt-option${aiQuota?.tier !== 'premium' ? ' locked' : ''}`}
-                                onClick={() => handleReanalyze('custom')}
+                                onClick={() => { if (aiQuota?.tier === 'premium') handleReanalyze('custom'); }}
                                 disabled={reanalyzing || aiQuota?.tier !== 'premium'}
+                                title={aiQuota?.tier !== 'premium' ? 'Upgrade to Pro to unlock this style' : undefined}
                               >
-                                {aiQuota?.tier === 'premium' ? 'My custom prompt' : 'My custom prompt (Pro)'}
+                                {aiQuota?.tier !== 'premium' && <FontAwesomeIcon icon={faLock} className="prompt-lock-icon" />}
+                                My custom prompt
+                                {aiQuota?.tier !== 'premium' && <span className="prompt-pro-badge">Pro</span>}
                               </button>
                             )}
                           </div>
@@ -2788,7 +2800,7 @@ export default function DreamDetail({ user }) {
         />
       )}
 
-      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} duration={5000} />}
     </div>
   );
 }

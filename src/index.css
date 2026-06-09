@@ -53,10 +53,14 @@ body {
 
 html[data-native-platform='ios'] {
   overscroll-behavior: auto;
+  /* Prevent WKWebView's black background from bleeding through on rubber-band scroll */
+  background: var(--background);
+  background-color: var(--background);
 }
 
 html[data-native-platform='ios'] body {
   overscroll-behavior: auto;
+  background-color: var(--background);
 }
 
 .page-title,

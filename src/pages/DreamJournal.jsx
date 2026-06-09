@@ -5,6 +5,7 @@ import { supabase } from '../supabase';
 import { mapDream, mapProfile } from '../utils/mappers';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { JournalSkeleton } from '../components/SkeletonLoader';
+import Toast from '../components/Toast';
 import { formatDreamDate, getTodayDateInputValue, parseDateInputValue } from '../utils/dates';
 import { buildDreamPath } from '../utils/urlHelpers';
 import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
@@ -71,8 +72,7 @@ export default function DreamJournal({ user }) {
   const [visibility, setVisibility] = useState('private');
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [saveError, setSaveError] = useState('');
-  const [listenError, setListenError] = useState('');
+  const [toast, setToast] = useState(null);
   const [connectionOptions, setConnectionOptions] = useState([]);
   const [audienceLoading, setAudienceLoading] = useState(false);
   const [audienceQuery, setAudienceQuery] = useState('');
@@ -134,7 +134,7 @@ export default function DreamJournal({ user }) {
         .eq('user_id', user.uid)
         .order('created_at', { ascending: false });
       if (error) {
-        setListenError('Live sync failed. Check your connection.');
+        setToast('Live sync failed. Check your connection.');
       } else {
         setDreams((data || []).map(mapDream));
       }
@@ -370,7 +370,7 @@ export default function DreamJournal({ user }) {
 
   const resetForm = () => {
     setTitle(''); setContent(''); setDreamDate(getTodayDateInputValue());
-    setVisibility('private'); setSaveError(''); setExcludedViewerIds([]);
+    setVisibility('private'); setExcludedViewerIds([]);
     setTaggedUsers([]); setTagHandle(''); setTaggingStatus('');
   };
 
@@ -383,16 +383,15 @@ export default function DreamJournal({ user }) {
     if (!content.trim() || !user?.uid) return;
     const titleFeedback = getModerationFeedback(title, { contentType: 'dream title' });
     if (titleFeedback) {
-      setSaveError(titleFeedback);
+      setToast(titleFeedback);
       return;
     }
     const contentFeedback = getModerationFeedback(content, { contentType: 'dream text' });
     if (contentFeedback) {
-      setSaveError(contentFeedback);
+      setToast(contentFeedback);
       return;
     }
     setLoading(true);
-    setSaveError('');
 
     const taggedMeta = taggedUsers.map((entry) => ({
       userId: entry.userId, username: entry.username || '', displayName: entry.displayName || ''
@@ -401,7 +400,7 @@ export default function DreamJournal({ user }) {
     const selectedDreamDate = parseDateInputValue(dreamDate);
 
     if (!selectedDreamDate) {
-      setSaveError('Choose a valid dream date.');
+      setToast('Choose a valid dream date.');
       setLoading(false);
       return;
     }
@@ -450,7 +449,7 @@ export default function DreamJournal({ user }) {
       void triggerMediumHaptic();
     } catch {
       setDreams((prev) => prev.filter((d) => d.id !== optimistic.id));
-      setSaveError('Could not save your dream. Try again in a moment.');
+      setToast('Could not save your dream. Try again in a moment.');
     } finally {
       setLoading(false);
     }
@@ -571,7 +570,6 @@ export default function DreamJournal({ user }) {
         </div>
       </div>
 
-      {listenError && <div className="alert-banner">{listenError}</div>}
 
       {!initialLoading && dreams.length > 0 && (
         <div className="journal-search-row">
@@ -713,7 +711,6 @@ export default function DreamJournal({ user }) {
                 onChange={(e) => setContent(e.target.value)}
                 disabled={loading}
               />
-              {saveError && <div className="alert-banner">{saveError}</div>}
               <div className="visibility-section">
                 <p className="section-label">Who can see this dream?</p>
                 <div className="visibility-options">
@@ -860,6 +857,7 @@ export default function DreamJournal({ user }) {
           </div>
         </div>
       )}
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} duration={5000} />}
     </div>
   );
 }

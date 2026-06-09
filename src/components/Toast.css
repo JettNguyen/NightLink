@@ -7,12 +7,12 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #e8eef8;
   font-size: 0.875rem;
-  padding: 0.65rem 1.1rem;
-  border-radius: 999px;
-  white-space: nowrap;
-  max-width: calc(100vw - 2rem);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.45;
+  padding: 0.7rem 1.2rem;
+  border-radius: 14px;
+  white-space: normal;
+  max-width: min(420px, calc(100vw - 2.5rem));
+  text-align: center;
   z-index: 600;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);

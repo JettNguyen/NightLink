@@ -180,6 +180,7 @@ export default function Settings({ user }) {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteInput, setDeleteInput] = useState('');
+  const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const { rcCustomerInfo, setRcCustomerInfo } = useRcCustomerInfo();
   const savedRef = useRef(JSON.stringify(DEFAULT_SETTINGS));
@@ -1128,18 +1129,31 @@ export default function Settings({ user }) {
             </div>
           </section>
 
-          <section className="settings-section danger-zone">
-            <div className="settings-section-head">
-              <h2>Delete account</h2>
-              <p>Permanently remove your account and all associated data.</p>
-            </div>
-            <div className="settings-section-body">
-              <p className="settings-footnote-delete">This action cannot be undone. You will be asked to type DELETE to confirm.</p>
-              <button type="button" className="danger-btn" onClick={handleDeleteAccount} disabled={deletingAccount}>
-                {deletingAccount ? 'Deleting account...' : 'Delete account permanently'}
-              </button>
-            </div>
-          </section>
+          <div className="more-options-section">
+            <button
+              type="button"
+              className="more-options-toggle"
+              onClick={() => setMoreOptionsOpen((o) => !o)}
+              aria-expanded={moreOptionsOpen}
+            >
+              More Options
+              <span className={`more-options-chevron${moreOptionsOpen ? ' open' : ''}`} aria-hidden="true" />
+            </button>
+            {moreOptionsOpen && (
+              <section className="settings-section danger-zone">
+                <div className="settings-section-head">
+                  <h2>Delete account</h2>
+                  <p>Permanently remove your account and all associated data.</p>
+                </div>
+                <div className="settings-section-body">
+                  <p className="settings-footnote-delete">This action cannot be undone. You will be asked to type DELETE to confirm.</p>
+                  <button type="button" className="danger-btn" onClick={handleDeleteAccount} disabled={deletingAccount}>
+                    {deletingAccount ? 'Deleting account...' : 'Delete account permanently'}
+                  </button>
+                </div>
+              </section>
+            )}
+          </div>
         </div>
       )}
 

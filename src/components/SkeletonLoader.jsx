@@ -154,32 +154,35 @@ export function ProfileDreamsLoadingSkeleton() {
 }
 
 // Back btn + title + date/author + content block + AI section
+// Wrapped in sk-detail-card to mirror the actual .detail-card container.
 
 export function DreamDetailSkeleton() {
   return (
-    <div className="sk-detail">
-      <S w="88px" h="34px" r={10} />
+    <div className="sk-detail-card">
+      <div className="sk-detail-toolbar">
+        <S w="88px" h="34px" r={10} />
+      </div>
       <div className="sk-detail-title-row">
-        <S w="75%" h="1.8rem" r={8} />
-        <S w="90px" h="0.85rem" className="sk-mt-sm" />
+        <S w="72%" h="1.75rem" r={8} />
+        <S w="100px" h="0.85rem" className="sk-mt-sm" />
       </div>
       <div className="sk-detail-author">
         <Circle size={36} />
         <div className="sk-feed-meta">
-          <S w="100px" h="0.85rem" />
-          <S w="70px" h="0.75rem" />
+          <S w="110px" h="0.85rem" />
+          <S w="72px" h="0.75rem" />
         </div>
       </div>
       <div className="sk-detail-content">
-        {[100, 95, 88, 100, 75, 92, 80, 60].map((w, i) => (
+        {[100, 96, 88, 100, 78, 94, 82, 100, 66, 90, 74, 55].map((w, i) => (
           <S key={i} w={`${w}%`} h="0.9rem" className="sk-mt-sm" />
         ))}
       </div>
       <div className="sk-detail-ai">
         <S w="140px" h="1rem" r={6} />
-        <S h="0.85rem" className="sk-mt" />
-        <S w="90%" h="0.85rem" className="sk-mt-sm" />
-        <S w="70%" h="0.85rem" className="sk-mt-sm" />
+        {[100, 91, 100, 83, 71, 60].map((w, i) => (
+          <S key={i} w={`${w}%`} h="0.85rem" className={i === 0 ? 'sk-mt' : 'sk-mt-sm'} />
+        ))}
       </div>
     </div>
   );
