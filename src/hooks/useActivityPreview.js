@@ -126,7 +126,7 @@ export default function useActivityPreview(viewerId, options = {}) {
         .from('dreams')
         .select('*, profiles!user_id(following_ids, follower_ids)')
         .in('user_id', followingIds)
-        .in('visibility', ['public', 'anonymous', 'followers', 'mutuals'])
+        .in('visibility', ['public', 'followers', 'mutuals'])
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -163,14 +163,36 @@ export default function useActivityPreview(viewerId, options = {}) {
 
     fetchFollowingFeed();
 
-    // Refresh feed on any dream change from followed users
+    // Server-side filter when following ≤50 users keeps the subscription tight.
+    // For larger lists we subscribe unfiltered but debounce + client-filter to
+    // avoid a full re-fetch on every dream write in the database.
+    const realtimeFilter = followingIds.length <= 50
+      ? { filter: `user_id=in.(${followingIds.join(',')})` }
+      : {};
+
+    let debounceTimer = null;
+    const handleDreamChange = (payload) => {
+      if (realtimeFilter.filter) {
+        // Server already filtered to followed users — fire immediately.
+        fetchFollowingFeed();
+        return;
+      }
+      // Unfiltered subscription: discard events from users we don't follow.
+      const changedUserId = payload?.new?.user_id || payload?.old?.user_id;
+      if (changedUserId && !followingIds.includes(changedUserId)) return;
+      // Debounce bursts (e.g. bulk reaction updates) to a single re-fetch.
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => { debounceTimer = null; fetchFollowingFeed(); }, 2000);
+    };
+
     const channel = supabase
       .channel(`following-feed:${viewerId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'dreams' },
-        () => fetchFollowingFeed())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dreams', ...realtimeFilter },
+        handleDreamChange)
       .subscribe();
 
     return () => {
+      clearTimeout(debounceTimer);
       cancelled = true;
       supabase.removeChannel(channel);
     };
@@ -207,7 +229,6 @@ export default function useActivityPreview(viewerId, options = {}) {
     followingUpdates,
     followingLoading,
     hasActivity,
-    unreadInboxCount,
     unreadActivityCount: unreadInboxCount,
     hasUnreadActivity: unreadInboxCount > 0,
     latestFollowingTimestamp,

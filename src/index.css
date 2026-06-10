@@ -63,6 +63,11 @@ html[data-native-platform='ios'] body {
   background-color: var(--background);
 }
 
+html.no-overscroll,
+html.no-overscroll body {
+  overscroll-behavior: none !important;
+}
+
 .page-title,
 h1 {
   font-family: 'Prata', Georgia, serif;

@@ -57,6 +57,11 @@ export default function AuthPage() {
   const isSignUp = mode === 'signup';
 
   useEffect(() => {
+    document.documentElement.classList.add('no-overscroll');
+    return () => document.documentElement.classList.remove('no-overscroll');
+  }, []);
+
+  useEffect(() => {
     const ref = isSignUp ? signupRef : signinRef;
     if (ref.current) setHeight(ref.current.scrollHeight);
   }, [isSignUp, username, displayName, email, identifier]);

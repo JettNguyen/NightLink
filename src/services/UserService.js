@@ -1,6 +1,8 @@
 import { supabase } from '../supabase';
 import { mapProfile } from '../utils/mappers';
 
+// Cap prevents unbounded memory growth across long sessions.
+const MAX_CACHE_SIZE = 200;
 const userSummaryCache = new Map();
 
 const normalizeProfile = (row) => {
@@ -31,6 +33,16 @@ export const fetchUserSummaries = async (rawIds = []) => {
       (data || []).forEach((row) => {
         userSummaryCache.set(row.id, normalizeProfile(row));
       });
+      // Evict oldest entries when over the cap (Map preserves insertion order)
+      if (userSummaryCache.size > MAX_CACHE_SIZE) {
+        const overflow = userSummaryCache.size - MAX_CACHE_SIZE;
+        let evicted = 0;
+        for (const key of userSummaryCache.keys()) {
+          if (evicted >= overflow) break;
+          userSummaryCache.delete(key);
+          evicted += 1;
+        }
+      }
     } catch (error) {
       console.error('Failed to fetch user summaries', error);
     }
@@ -40,16 +52,6 @@ export const fetchUserSummaries = async (rawIds = []) => {
     if (userSummaryCache.has(id)) acc[id] = userSummaryCache.get(id);
     return acc;
   }, {});
-};
-
-export const getCachedUserSummary = (userId) => (
-  (typeof userId === 'string' && userSummaryCache.get(userId)) || null
-);
-
-export const primeUserSummaryCache = (profiles = []) => {
-  profiles.forEach((profile) => {
-    if (profile?.id) userSummaryCache.set(profile.id, normalizeProfile(profile));
-  });
 };
 
 export const clearUserSummaryCache = () => {

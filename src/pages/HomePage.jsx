@@ -1,7 +1,13 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './HomePage.css';
 
 export default function HomePage() {
+  useEffect(() => {
+    document.documentElement.classList.add('no-overscroll');
+    return () => document.documentElement.classList.remove('no-overscroll');
+  }, []);
+
   return (
     <div className="home-page">
       <section className="home-hero">
