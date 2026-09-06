@@ -82,6 +82,9 @@ where comment_count = 0
 
 create index if not exists dreams_user_id_created_at_idx on public.dreams (user_id, created_at desc);
 create index if not exists dreams_visibility_created_at_idx on public.dreams (visibility, created_at desc);
+-- The profile "Tagged" tab runs `tagged_user_ids @> array[...]` on every profile
+-- view. Without a GIN index that is a sequential scan of the whole dreams table.
+create index if not exists dreams_tagged_user_ids_idx on public.dreams using gin (tagged_user_ids);
 
 -- ============================================================
 -- COMMENTS
