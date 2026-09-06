@@ -278,12 +278,12 @@ function Navigation({ user, activityPreview }) {
         </header>
 
         <nav className="nav-ios-tabbar">
-          <Link to="/journal" aria-label="Journal" className={`nav-ios-tab${isActive('/journal') ? ' active' : ''}`} onClick={handleNavTap('/journal')}>
+          <Link to="/journal" aria-label="Journal" aria-current={isActive('/journal') ? 'page' : undefined} className={`nav-ios-tab${isActive('/journal') ? ' active' : ''}`} onClick={handleNavTap('/journal')}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faBook} className="nav-icon" />
             </span>
           </Link>
-          <Link to="/feed" aria-label="Feed" className={`nav-ios-tab${isActive('/feed') ? ' active' : ''}`} onClick={handleNavTap('/feed', markFeedSeen)}>
+          <Link to="/feed" aria-label="Feed" aria-current={isActive('/feed') ? 'page' : undefined} className={`nav-ios-tab${isActive('/feed') ? ' active' : ''}`} onClick={handleNavTap('/feed', markFeedSeen)}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faCompass} className="nav-icon" />
               {hasNewFeed && (
@@ -293,12 +293,12 @@ function Navigation({ user, activityPreview }) {
               )}
             </span>
           </Link>
-          <Link to="/search" aria-label="Search" className={`nav-ios-tab${isActive('/search') ? ' active' : ''}`} onClick={handleNavTap('/search')}>
+          <Link to="/search" aria-label="Search" aria-current={isActive('/search') ? 'page' : undefined} className={`nav-ios-tab${isActive('/search') ? ' active' : ''}`} onClick={handleNavTap('/search')}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faSearch} className="nav-icon" />
             </span>
           </Link>
-          <Link to="/activity" aria-label="Activity" className={`nav-ios-tab${isActive('/activity') ? ' active' : ''}`} onClick={handleNavTap('/activity')}>
+          <Link to="/activity" aria-label="Activity" aria-current={isActive('/activity') ? 'page' : undefined} className={`nav-ios-tab${isActive('/activity') ? ' active' : ''}`} onClick={handleNavTap('/activity')}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faBell} className="nav-icon" />
               {hasUnread && (
@@ -308,7 +308,7 @@ function Navigation({ user, activityPreview }) {
               )}
             </span>
           </Link>
-          <Link to="/profile" aria-label="Profile" className={`nav-ios-tab${isActive('/profile') ? ' active' : ''}`} onClick={handleNavTap('/profile')}>
+          <Link to="/profile" aria-label="Profile" aria-current={isActive('/profile') ? 'page' : undefined} className={`nav-ios-tab${isActive('/profile') ? ' active' : ''}`} onClick={handleNavTap('/profile')}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faUser} className="nav-icon" />
             </span>
@@ -327,13 +327,13 @@ function Navigation({ user, activityPreview }) {
         </Link>
 
         <div className="nav-links">
-          <Link to="/journal" aria-label="Journal" className={isActive('/journal')} onClick={handleNavTap('/journal')}>
+          <Link to="/journal" aria-label="Journal" aria-current={isActive('/journal') ? 'page' : undefined} className={isActive('/journal')} onClick={handleNavTap('/journal')}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faBook} className="nav-icon" />
             </span>
             <span className="nav-tab-label">Journal</span>
           </Link>
-          <Link to="/feed" aria-label="Feed" className={isActive('/feed')} onClick={handleNavTap('/feed', markFeedSeen)}>
+          <Link to="/feed" aria-label="Feed" aria-current={isActive('/feed') ? 'page' : undefined} className={isActive('/feed')} onClick={handleNavTap('/feed', markFeedSeen)}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faCompass} className="nav-icon" />
               {hasNewFeed && (
@@ -344,13 +344,13 @@ function Navigation({ user, activityPreview }) {
             </span>
             <span className="nav-tab-label">Feed</span>
           </Link>
-          <Link to="/search" aria-label="Search" className={isActive('/search')} onClick={handleNavTap('/search')}>
+          <Link to="/search" aria-label="Search" aria-current={isActive('/search') ? 'page' : undefined} className={isActive('/search')} onClick={handleNavTap('/search')}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faSearch} className="nav-icon" />
             </span>
             <span className="nav-tab-label">Search</span>
           </Link>
-          <Link to="/activity" aria-label="Activity" className={isActive('/activity')} onClick={handleNavTap('/activity')}>
+          <Link to="/activity" aria-label="Activity" aria-current={isActive('/activity') ? 'page' : undefined} className={isActive('/activity')} onClick={handleNavTap('/activity')}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faBell} className="nav-icon" />
               {hasUnread && (
@@ -361,7 +361,7 @@ function Navigation({ user, activityPreview }) {
             </span>
             <span className="nav-tab-label">Activity</span>
           </Link>
-          <Link to="/profile" aria-label="Profile" className={isActive('/profile')} onClick={handleNavTap('/profile')}>
+          <Link to="/profile" aria-label="Profile" aria-current={isActive('/profile') ? 'page' : undefined} className={isActive('/profile')} onClick={handleNavTap('/profile')}>
             <span className="nav-icon-wrapper">
               <FontAwesomeIcon icon={faUser} className="nav-icon" />
             </span>

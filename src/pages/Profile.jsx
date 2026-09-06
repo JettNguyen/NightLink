@@ -423,6 +423,10 @@ export default function Profile({ user }) {
   const displayAvatarColor   = userData?.avatarColor || AVATAR_COLORS[0];
   const selectedIcon = useMemo(() => getAvatarIconById(displayAvatarIconId), [displayAvatarIconId]);
   const isFollowActionBusy = Boolean(followAction.type);
+  // Busy labels are per-action: blocking someone should not relabel the
+  // Follow and Report buttons as "Working…" too.
+  const isFollowBusy = ['follow', 'unfollow', 'cancelRequest'].includes(followAction.type);
+  const isBlockBusy = ['block', 'unblock'].includes(followAction.type);
 
   const viewerCanSeeTaggedDream = useCallback((dream) => {
     if (!dream) return false;
@@ -589,7 +593,7 @@ export default function Profile({ user }) {
                     onClick={(isFollowingTarget || hasPendingFollowRequest) ? handleUnfollow : handleFollow}
                     disabled={isFollowActionBusy || isBlockedTarget}
                   >
-                    {isFollowActionBusy ? 'Working…' : isFollowingTarget ? 'Following' : hasPendingFollowRequest ? 'Requested' : 'Follow'}
+                    {isFollowBusy ? 'Working…' : isFollowingTarget ? 'Following' : hasPendingFollowRequest ? 'Requested' : 'Follow'}
                   </button>
                   {followsYou && <span className="follow-note follow-note-compact">Follows you</span>}
                 </div>
@@ -602,10 +606,10 @@ export default function Profile({ user }) {
                 {!isNativeIOS && (
                   <div className="follow-actions-row follow-actions-row-secondary">
                     <button type="button" className="moderation-action-btn" onClick={isBlockedTarget ? handleUnblockUser : handleBlockUser} disabled={isFollowActionBusy}>
-                      {isFollowActionBusy ? 'Working…' : isBlockedTarget ? 'Unblock' : 'Block'}
+                      {isBlockBusy ? 'Working…' : isBlockedTarget ? 'Unblock' : 'Block'}
                     </button>
                     <button type="button" className="moderation-action-btn moderation-action-btn-danger" onClick={handleReportUser} disabled={isFollowActionBusy}>
-                      {isFollowActionBusy ? 'Working…' : 'Report'}
+                      Report
                     </button>
                     {isBlockedTarget && <span className="follow-note follow-note-compact">Blocked</span>}
                   </div>
@@ -685,7 +689,7 @@ export default function Profile({ user }) {
                 }}
                 disabled={isFollowActionBusy}
               >
-                {isFollowActionBusy ? 'Working…' : isBlockedTarget ? 'Unblock user' : 'Block user'}
+                {isBlockBusy ? 'Working…' : isBlockedTarget ? 'Unblock user' : 'Block user'}
               </button>
               <button
                 type="button"

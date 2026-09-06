@@ -36,11 +36,11 @@ export default function Activity({ user, activityPreview }) {
     })
   ), [inboxEntries]);
 
-  const notificationsSummary = useMemo(() => (
-    activityEntries.length
-      ? `Latest ${Math.min(activityEntries.length, 20)} updates`
-      : 'You’re all caught up'
-  ), [activityEntries.length]);
+  const notificationsSummary = useMemo(() => {
+    if (!activityEntries.length) return 'You’re all caught up';
+    if (activityEntries.length === 1) return '1 update';
+    return `Latest ${activityEntries.length} updates`;
+  }, [activityEntries.length]);
 
   const handleDreamNavigation = (ownerUsername, ownerId, dreamId) => {
     if (!dreamId) return;
@@ -162,6 +162,7 @@ export default function Activity({ user, activityPreview }) {
             <button
               type="button"
               className="activity-clear-btn"
+              aria-label={`Clear notification: ${headline}`}
               disabled={clearingEntries.has(entry.id)}
               onClick={(event) => handleNotificationClear(event, entry)}
             >
