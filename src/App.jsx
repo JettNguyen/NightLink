@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigationType, useParams } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState, Suspense, lazy } from 'react';
 import PropTypes from 'prop-types';
 import { Capacitor } from '@capacitor/core';
@@ -75,6 +75,25 @@ function LazyRouteLoader() {
       <LoadingIndicator label="Loading…" size="md" />
     </div>
   );
+}
+
+// React Router keeps the window scroll offset across navigations, so opening a
+// dream from halfway down the feed lands mid-page. Back/forward (POP) is left
+// alone so the browser can restore where the user actually was.
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  const navigationType = useNavigationType();
+
+  useEffect(() => {
+    if (navigationType === 'POP') return;
+    try {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    } catch {
+      window.scrollTo(0, 0);
+    }
+  }, [pathname, navigationType]);
+
+  return null;
 }
 
 function LegacyRedirect() {
@@ -597,6 +616,7 @@ function App() {
   return (
     <SubscriptionContext.Provider value={{ rcCustomerInfo, setRcCustomerInfo }}>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <ScrollToTop />
         <ErrorBoundary>
           <AppContent user={user} loading={loading} ready={ready} />
         </ErrorBoundary>
