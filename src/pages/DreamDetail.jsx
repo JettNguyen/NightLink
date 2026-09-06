@@ -2091,7 +2091,28 @@ export default function DreamDetail({ user }) {
   const commentCountLabel = comments.length ? ` (${comments.length})` : '';
   const visibilitySummary = visibilityLabel(dream.visibility);
   const aiLockedByQuota = aiQuota?.remainingFree === 0 && aiQuota?.creditBalance === 0;
-  const promptOptionKeys = Object.keys(PROMPT_TEMPLATES).filter((key) => key !== 'custom');
+  // The style saved in Settings leads the list rather than sitting in a separate
+  // button above it. Picking it routes through 'current' so it still resolves
+  // the exact prompt from settings, custom text included.
+  const promptOptions = useMemo(() => {
+    const preset = (userSettings?.aiPromptPreset || '').trim();
+    const usesCustom = preset === 'custom' && Boolean(userSettings?.aiPromptCustom);
+    // A 'custom' preset with nothing saved in it resolves to balanced on the
+    // server, so mark balanced rather than leaving the list with no default.
+    const currentKey = usesCustom ? 'custom' : normalizePromptKey(preset === 'custom' ? 'balanced' : preset || 'balanced');
+    const all = Object.keys(PROMPT_TEMPLATES)
+      .filter((key) => key !== 'custom')
+      .map((key) => ({ key, label: PROMPT_LABELS[key] || key }));
+    if (usesCustom) all.push({ key: 'custom', label: 'My custom prompt' });
+    const decorated = all.map((option) => ({ ...option, isCurrent: option.key === currentKey }));
+    return [...decorated.filter((o) => o.isCurrent), ...decorated.filter((o) => !o.isCurrent)];
+  }, [userSettings?.aiPromptPreset, userSettings?.aiPromptCustom]);
+
+  const isOptionLocked = (key) => (
+    key === 'custom'
+      ? (aiQuota?.tier || 'free') !== 'premium'
+      : isPromptLockedForTier(aiQuota?.tier || 'free', key)
+  );
 
   return (
     <div className={containerClass}>
@@ -2443,38 +2464,26 @@ export default function DreamDetail({ user }) {
                       <div className="prompt-selector-content">
                         <h3>Choose an insight style</h3>
                         <p className="prompt-selector-hint">You can change this anytime in Settings</p>
-                        <button
-                          type="button"
-                          className="prompt-option-btn current-prompt"
-                          onClick={() => {
-                            setFirstAnalysisPromptSelector(false);
-                            handleAnalyzeDream({ skipPromptSelector: true });
-                          }}
-                          disabled={analyzing}
-                        >
-                          <strong>Use my current preference</strong>
-                          <span>({userSettings?.aiPromptPreset === 'custom'
-                            ? 'Custom prompt'
-                            : (PROMPT_LABELS[normalizePromptKey(userSettings?.aiPromptPreset)] || 'Balanced guide')})</span>
-                        </button>
                         <div className="prompt-options-grid">
-                          {promptOptionKeys.map((key) => {
-                            const locked = isPromptLockedForTier(aiQuota?.tier || 'free', key);
+                          {promptOptions.map((option) => {
+                            const locked = isOptionLocked(option.key);
                             return (
                               <button
-                                key={key}
+                                key={option.key}
                                 type="button"
-                                className={`prompt-option-btn${locked ? ' locked' : ''}`}
+                                className={`prompt-option-btn${option.isCurrent ? ' current-prompt' : ''}${locked ? ' locked' : ''}`}
                                 onClick={() => {
                                   if (locked) return;
                                   setFirstAnalysisPromptSelector(false);
-                                  handleReanalyze(key);
+                                  if (option.isCurrent) handleAnalyzeDream({ skipPromptSelector: true });
+                                  else handleReanalyze(option.key);
                                 }}
                                 disabled={analyzing || locked}
                                 title={locked ? 'Upgrade to Pro to unlock this style' : undefined}
                               >
                                 {locked && <FontAwesomeIcon icon={faLock} className="prompt-lock-icon" />}
-                                {PROMPT_LABELS[key]}
+                                {option.label}
+                                {option.isCurrent && <span className="prompt-current-tag">Your setting</span>}
                                 {locked ? <span className="prompt-pro-badge">Pro</span> : ''}
                               </button>
                             );
@@ -2517,48 +2526,25 @@ export default function DreamDetail({ user }) {
                       {promptSelectorOpen && (
                         <div className="prompt-selector-panel">
                           <p className="prompt-selector-label">Choose a prompt style:</p>
-                          <button
-                            type="button"
-                            className="prompt-option-btn current-prompt"
-                            onClick={() => handleReanalyze('current')}
-                            disabled={reanalyzing}
-                          >
-                            <strong>Use my settings</strong>
-                            <span>({userSettings?.aiPromptPreset === 'custom'
-                              ? 'Custom prompt'
-                              : (PROMPT_LABELS[normalizePromptKey(userSettings?.aiPromptPreset)] || 'Balanced guide')})</span>
-                          </button>
                           <div className="prompt-options-grid">
-                            {promptOptionKeys.map((key) => {
-                              const locked = isPromptLockedForTier(aiQuota?.tier || 'free', key);
+                            {promptOptions.map((option) => {
+                              const locked = isOptionLocked(option.key);
                               return (
                                 <button
-                                  key={key}
+                                  key={option.key}
                                   type="button"
-                                  className={`prompt-option-btn${locked ? ' locked' : ''}`}
-                                  onClick={() => { if (!locked) handleReanalyze(key); }}
+                                  className={`prompt-option-btn${option.isCurrent ? ' current-prompt' : ''}${locked ? ' locked' : ''}`}
+                                  onClick={() => { if (!locked) handleReanalyze(option.isCurrent ? 'current' : option.key); }}
                                   disabled={reanalyzing || locked}
                                   title={locked ? 'Upgrade to Pro to unlock this style' : undefined}
                                 >
                                   {locked && <FontAwesomeIcon icon={faLock} className="prompt-lock-icon" />}
-                                  {PROMPT_LABELS[key]}
+                                  {option.label}
+                                  {option.isCurrent && <span className="prompt-current-tag">Your setting</span>}
                                   {locked ? <span className="prompt-pro-badge">Pro</span> : ''}
                                 </button>
                               );
                             })}
-                            {userSettings?.aiPromptPreset === 'custom' && userSettings?.aiPromptCustom && (
-                              <button
-                                type="button"
-                                className={`prompt-option-btn custom-prompt-option${aiQuota?.tier !== 'premium' ? ' locked' : ''}`}
-                                onClick={() => { if (aiQuota?.tier === 'premium') handleReanalyze('custom'); }}
-                                disabled={reanalyzing || aiQuota?.tier !== 'premium'}
-                                title={aiQuota?.tier !== 'premium' ? 'Upgrade to Pro to unlock this style' : undefined}
-                              >
-                                {aiQuota?.tier !== 'premium' && <FontAwesomeIcon icon={faLock} className="prompt-lock-icon" />}
-                                My custom prompt
-                                {aiQuota?.tier !== 'premium' && <span className="prompt-pro-badge">Pro</span>}
-                              </button>
-                            )}
                           </div>
                           <button
                             type="button"

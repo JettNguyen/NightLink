@@ -1160,23 +1160,31 @@
   letter-spacing: 0.03em;
 }
 
-/* Deliberately not tinted. A primary border over a primary wash is exactly how
-   this app draws a selected pill or the chosen calendar day, so this read as
-   "already picked" when it is one of the choices on offer. It keeps a slightly
-   brighter edge to mark it as the default, and nothing more. */
+/* The style saved in Settings leads the list and spans the full width, so it
+   reads as the top of the list rather than as whichever cell it happened to
+   land in. The tint is what marks it; the tag is what stops the tint being
+   read as "already chosen", which is the trap the old separate button fell
+   into — it looked selected while being the one thing not yet picked. */
 .prompt-option-btn.current-prompt {
-  border-color: rgba(255, 255, 255, 0.18);
+  grid-column: 1 / -1;
+  border-color: rgba(201, 167, 240, 0.45);
+  background: rgba(201, 167, 240, 0.09);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.prompt-option-btn.current-prompt strong {
-  display: block;
-  margin-bottom: 0.2rem;
-  color: var(--text);
-}
-
-.prompt-option-btn.current-prompt span {
-  font-size: var(--fs-sm);
-  color: var(--text-secondary);
+.prompt-current-tag {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  border: 1px solid rgba(201, 167, 240, 0.4);
+  background: rgba(201, 167, 240, 0.14);
+  color: var(--primary);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  letter-spacing: 0.03em;
 }
 
 .ai-upgrade-cta {
