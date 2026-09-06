@@ -177,6 +177,9 @@
 }
 
 .person-name {
+  /* User-authored text: break long unbroken strings instead of overflowing. */
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -240,6 +243,9 @@
 }
 
 .dream-snippet {
+  /* User-authored text: break long unbroken strings instead of overflowing. */
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   margin: 0 0 0.6rem;
   color: var(--text);
   line-height: 1.5;

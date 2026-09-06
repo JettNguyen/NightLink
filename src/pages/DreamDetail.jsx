@@ -1786,6 +1786,13 @@ export default function DreamDetail({ user }) {
 
   useEscapeKey(closeReportModal, Boolean(reportModal));
 
+  const closePromptSelectors = useCallback(() => {
+    setPromptSelectorOpen(false);
+    setFirstAnalysisPromptSelector(false);
+  }, []);
+
+  useEscapeKey(closePromptSelectors, promptSelectorOpen || firstAnalysisPromptSelector);
+
   const handleReportDream = useCallback(() => {
     if (!dream?.id || !viewerId) return;
     setReportReason('');

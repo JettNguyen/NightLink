@@ -111,6 +111,9 @@
 }
 
 .connections-name {
+  /* User-authored text: break long unbroken strings instead of overflowing. */
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   font-weight: 600;
   color: var(--text);
   display: flex;

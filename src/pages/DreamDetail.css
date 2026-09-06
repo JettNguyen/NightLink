@@ -78,6 +78,9 @@
 }
 
 .detail-title {
+  /* User-authored text: break long unbroken strings instead of overflowing. */
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -339,6 +342,9 @@
 }
 
 .comment-body {
+  /* User-authored text: break long unbroken strings instead of overflowing. */
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   margin: 0;
   color: var(--text);
   white-space: pre-wrap;
@@ -666,6 +672,9 @@
 }
 
 .detail-body {
+  /* User-authored text: break long unbroken strings instead of overflowing. */
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   padding: 1.25rem;
   border-radius: 16px;
   border: 1px solid var(--border);
@@ -884,6 +893,9 @@
 }
 
 .detail-insight {
+  /* User-authored text: break long unbroken strings instead of overflowing. */
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   margin: 0;
   color: var(--text);
 }

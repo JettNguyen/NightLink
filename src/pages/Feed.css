@@ -248,17 +248,26 @@
 }
 
 .feed-title {
+  /* User-authored text: break long unbroken strings instead of overflowing. */
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   margin: 0.35rem 0;
   font-size: 1.1rem;
 }
 
 .feed-summary {
+  /* User-authored text: break long unbroken strings instead of overflowing. */
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   color: var(--primary);
   font-weight: 600;
   margin: 0.25rem 0 0.5rem;
 }
 
 .feed-content {
+  /* User-authored text: break long unbroken strings instead of overflowing. */
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   color: var(--text);
   line-height: 1.5;
   margin: 0.35rem 0 0.75rem;
