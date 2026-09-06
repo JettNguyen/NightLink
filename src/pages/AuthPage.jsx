@@ -45,6 +45,7 @@ export default function AuthPage() {
   const [acceptedPolicies, setAcceptedPolicies] = useState(false);
   const [confirmedAge, setConfirmedAge] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -84,17 +85,18 @@ export default function AuthPage() {
   const handleSignUp = async (e) => {
     e.preventDefault();
     setError('');
+    setNotice('');
     setLoading(true);
 
     const name = username.trim();
     if (!name) { setError('Choose a username.'); setLoading(false); return; }
-    if (!confirmedAge) { setError('You must be 18 or older to create an account.'); setLoading(false); return; }
-    if (!acceptedPolicies) { setError('Please agree to the Terms and Privacy Policy to continue.'); setLoading(false); return; }
     if (!USERNAME_RE.test(name)) {
       setError('3–20 chars: letters, numbers, underscores.');
       setLoading(false);
       return;
     }
+    if (!confirmedAge) { setError('You must be 18 or older to create an account.'); setLoading(false); return; }
+    if (!acceptedPolicies) { setError('Please agree to the Terms and Privacy Policy to continue.'); setLoading(false); return; }
 
     try {
       const normalized = name.toLowerCase();
@@ -137,6 +139,10 @@ export default function AuthPage() {
           follower_ids: [],
         });
         if (profileErr) throw profileErr;
+      } else {
+        // Email confirmation is on: there is no session yet and no redirect
+        // happens, so say so instead of leaving the form sitting there.
+        setNotice('Account created. Check your email for the confirmation link, then sign in.');
       }
     } catch (err) {
       setError(friendlyMsg(err));
@@ -163,6 +169,7 @@ export default function AuthPage() {
   const handleSignIn = async (e) => {
     e.preventDefault();
     setError('');
+    setNotice('');
     setLoading(true);
     try {
       const mail = await resolveEmail(identifier);
@@ -369,7 +376,7 @@ export default function AuthPage() {
               role="tab"
               aria-selected={!isSignUp}
               className={!isSignUp ? 'active' : ''}
-              onClick={() => { setMode('signin'); setError(''); setShowPassword(false); }}
+              onClick={() => { setMode('signin'); setError(''); setNotice(''); setShowPassword(false); }}
             >
               Sign In
             </button>
@@ -377,7 +384,7 @@ export default function AuthPage() {
               role="tab"
               aria-selected={isSignUp}
               className={isSignUp ? 'active' : ''}
-              onClick={() => { setMode('signup'); setError(''); setShowPassword(false); }}
+              onClick={() => { setMode('signup'); setError(''); setNotice(''); setShowPassword(false); }}
             >
               Sign Up
             </button>
@@ -385,23 +392,24 @@ export default function AuthPage() {
         )}
 
         {mode === 'forgot' ? (
-          <div className="auth-form">
+          <form className="auth-form" onSubmit={(e) => { e.preventDefault(); handleForgotPassword(); }}>
             <p className="auth-forgot-desc">
               Enter your email and we&apos;ll send you a password reset link.
             </p>
             <input
               type="email"
               placeholder="Email address"
+              aria-label="Email address"
               value={forgotEmail}
               onChange={(e) => setForgotEmail(e.target.value)}
               className="auth-input"
               autoComplete="email"
+              enterKeyHint="send"
             />
             {error && <p className="auth-error">{error}</p>}
             {forgotStatus && <p className="auth-success">{forgotStatus}</p>}
             <button
-              type="button"
-              onClick={handleForgotPassword}
+              type="submit"
               disabled={forgotLoading}
               className="auth-submit"
             >
@@ -414,7 +422,7 @@ export default function AuthPage() {
             >
               ← Back to Sign In
             </button>
-          </div>
+          </form>
         ) : (
           <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="auth-form">
             <div className="auth-field-switch" style={height ? { height: `${height}px` } : undefined}>
@@ -426,6 +434,7 @@ export default function AuthPage() {
                 <input
                   type="text"
                   placeholder="Username"
+                  aria-label="Username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required={isSignUp}
@@ -436,6 +445,7 @@ export default function AuthPage() {
                 <input
                   type="text"
                   placeholder="Display Name (optional)"
+                  aria-label="Display name (optional)"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   className="auth-input"
@@ -445,6 +455,7 @@ export default function AuthPage() {
                 <input
                   type="email"
                   placeholder="Email"
+                  aria-label="Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required={isSignUp}
@@ -462,6 +473,7 @@ export default function AuthPage() {
                 <input
                   type="text"
                   placeholder="Email or Username"
+                  aria-label="Email or username"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   required={!isSignUp}
@@ -476,6 +488,7 @@ export default function AuthPage() {
               <input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Password"
+                aria-label="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -539,6 +552,7 @@ export default function AuthPage() {
             )}
 
             {error && <p className="auth-error">{error}</p>}
+            {notice && <p className="auth-success">{notice}</p>}
 
             <button type="submit" disabled={loading} className="auth-submit">
               {loading ? 'Working…' : isSignUp ? 'Create Account' : 'Sign In'}
