@@ -1009,3 +1009,62 @@ button:disabled:active {
     animation: none;
   }
 }
+
+/* Remaining standalone controls and links. Grouped separately from the block
+   above only because these are not variants of the shared button classes. */
+.auth-back-link:active,
+.auth-forgot-link:active,
+.auth-password-toggle:active,
+.comment-replies-toggle:active,
+.detail-author-btn:active,
+.detail-back-btn:active,
+.detail-title-editable:active,
+.detail-date-pill--interactive:active,
+.feed-author-link:active,
+.feed-card-menu-btn:active,
+.legal-back-btn:active,
+.memory-patterns-link:active,
+.nav-logo:active,
+.rc-restore-btn:active,
+.tag-suggestion-item:active,
+.tagged-view-profile:active,
+.emoji-clear-btn:active,
+.navigation .nav-links a:active {
+  transform: scale(0.94);
+  transition: transform 70ms ease;
+}
+
+.home-cta-primary:active,
+.home-cta-secondary:active {
+  transform: scale(0.965);
+  transition: transform 80ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .detail-title-editable:hover,
+  .detail-date-pill--interactive:hover,
+  .feed-author-link:hover,
+  .tagged-view-profile:hover,
+  .memory-patterns-link:hover,
+  .auth-forgot-link:hover,
+  .auth-back-link:hover,
+  .comment-replies-toggle:hover,
+  .rc-restore-btn:hover {
+    color: var(--primary);
+  }
+
+  .feed-card-menu-btn:hover,
+  .auth-password-toggle:hover,
+  .detail-back-btn:hover,
+  .legal-back-btn:hover {
+    color: var(--text);
+  }
+
+  .tag-suggestion-item:hover {
+    border-color: rgba(201, 167, 240, 0.45);
+  }
+
+  .nav-logo:hover {
+    filter: brightness(1.15);
+  }
+}
