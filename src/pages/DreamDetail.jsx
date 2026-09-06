@@ -2094,7 +2094,13 @@ export default function DreamDetail({ user }) {
   // The style saved in Settings leads the list rather than sitting in a separate
   // button above it. Picking it routes through 'current' so it still resolves
   // the exact prompt from settings, custom text included.
-  const promptOptions = useMemo(() => {
+  //
+  // Plainly computed, NOT useMemo: this sits below the loading/error/!dream
+  // early returns, so a hook here would be skipped on the loading render and
+  // run on the next one — the hook count changes and react throws mid render.
+  // It is a handful of array operations over nine items; there is nothing to
+  // memoise anyway.
+  const promptOptions = (() => {
     const preset = (userSettings?.aiPromptPreset || '').trim();
     const usesCustom = preset === 'custom' && Boolean(userSettings?.aiPromptCustom);
     // A 'custom' preset with nothing saved in it resolves to balanced on the
@@ -2106,7 +2112,7 @@ export default function DreamDetail({ user }) {
     if (usesCustom) all.push({ key: 'custom', label: 'My custom prompt' });
     const decorated = all.map((option) => ({ ...option, isCurrent: option.key === currentKey }));
     return [...decorated.filter((o) => o.isCurrent), ...decorated.filter((o) => !o.isCurrent)];
-  }, [userSettings?.aiPromptPreset, userSettings?.aiPromptCustom]);
+  })();
 
   const isOptionLocked = (key) => (
     key === 'custom'
