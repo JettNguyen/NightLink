@@ -8,6 +8,7 @@ import AvatarDisplay from '../components/AvatarDisplay';
 import ProBadge from '../components/ProBadge';
 import { buildProfilePath } from '../utils/urlHelpers';
 import LoadingIndicator from '../components/LoadingIndicator';
+import Toast from '../components/Toast';
 import './Connections.css';
 import { appUserPropType } from '../propTypes';
 
@@ -34,6 +35,7 @@ export default function Connections({ user }) {
   const [requestProfiles, setRequestProfiles] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestActionId, setRequestActionId] = useState(null);
+  const [toast, setToast] = useState('');
   const navigate = useNavigate();
 
   const viewingOwnProfile = Boolean(user?.uid && targetUserId && targetUserId === user.uid);
@@ -177,8 +179,11 @@ export default function Connections({ user }) {
     navigate(buildProfilePath(profile.username, profile.id));
   }, [navigate]);
 
+  // Loaded whenever you are on your own connections page, not just while the
+  // Requests tab is open — otherwise the tab always reads "Requests 0" and
+  // pending requests stay invisible.
   useEffect(() => {
-    if (!viewingOwnProfile || activeTab !== TAB_REQUESTS) {
+    if (!viewingOwnProfile) {
       setRequestProfiles([]);
       setRequestsLoading(false);
       return;
@@ -237,7 +242,7 @@ export default function Connections({ user }) {
     return () => {
       cancelled = true;
     };
-  }, [activeTab, user?.uid, viewingOwnProfile]);
+  }, [user?.uid, viewingOwnProfile]);
 
   const handleRequestDecision = useCallback(async (requesterId, decision) => {
     if (!requesterId || !viewingOwnProfile || !user?.uid) return;
@@ -273,7 +278,8 @@ export default function Connections({ user }) {
         } : prev);
       }
     } catch {
-      // No-op: keep the request row visible if the action fails.
+      // Keep the request row visible so the action can be retried.
+      setToast(decision === 'accept' ? 'Could not accept that request right now.' : 'Could not decline that request right now.');
     } finally {
       setRequestActionId(null);
     }
@@ -411,6 +417,8 @@ export default function Connections({ user }) {
           ))}
         </div>
       )}
+
+      <Toast message={toast} onDismiss={() => setToast('')} />
     </div>
   );
 }
