@@ -2,8 +2,26 @@ const crypto = require('node:crypto');
 const { createClient } = require('@supabase/supabase-js');
 const Astronomy = require('astronomy-engine');
 
+// Vercel is free to freeze the instance the moment the response is sent, which
+// killed the dream memory update mid-flight most of the time — it starts a
+// second OpenAI call that takes longer than the response it trails. waitUntil
+// keeps the instance alive until that work lands. Absent locally, where the
+// express dev server stays up on its own.
+let vercelWaitUntil = null;
+try { ({ waitUntil: vercelWaitUntil } = require('@vercel/functions')); }
+catch { /* not on Vercel */ }
+
+const deferWork = (promise) => {
+  if (!vercelWaitUntil) return;
+  try { vercelWaitUntil(promise); } catch { /* outside a request context */ }
+};
+
 const cache = new Map();
 const MAX_LEN = 5000;
+// The analysis is what the user is waiting on, so it gets a tight ceiling. The
+// memory rewrite runs after the response and can take the rest of the budget.
+const ANALYSIS_TIMEOUT_MS = 25_000;
+const MEMORY_TIMEOUT_MS = 40_000;
 const MODEL = 'gpt-4o-mini';
 const API_URL = 'https://api.openai.com/v1/chat/completions';
 const PROMPT_ID_ALIASES = { investigator: 'director' };
@@ -39,7 +57,7 @@ Analyze the dream through your assigned lens and return ONLY minified JSON: {"ti
 
 - "title": a poetic, evocative 2–4 word phrase that names this specific dream (never generic)
 - "themes": your full analysis in your assigned voice
-- "connections": array of short strings (under 15 words each) for patterns explicitly recorded in the dreamer's memory file that also appear in this dream. Only cite a connection if it is stated in the memory — do not infer, guess, or hallucinate recurring themes. Return [] if no memory context was provided or no overlap exists.
+- "connections": array of short strings (under 15 words each) for patterns explicitly recorded in the dreamer's memory file that also appear in this dream. A contrast counts as a connection when both halves are grounded — e.g. "water recurs, but this is the first time it turns violent". Only cite a connection if the memory states it — do not infer, guess, or hallucinate recurring themes. Return [] if no memory context was provided or no overlap exists.
 - Use speculative language ("may suggest", "could reflect", "seems to")
 - Engage thoughtfully with mature content as it naturally appears in dreams; never encourage self-harm or glorify real-world violence
 - If the dream touches on self-harm or suicidal themes, respond with warm, grounded support`;
@@ -318,9 +336,29 @@ const getDreamMemory = async (uid) => {
   return data?.dream_memory || null;
 };
 
-// Fire-and-forget: update the dream memory file after a successful analysis
-const updateDreamMemory = async (uid, dreamText, aiTitle, aiInsights, currentMemory, apiKey) => {
+// Has this dream already contributed to the memory file? Read it rather than
+// trusting the client's `isMemoryIndexed`, which the caller could set either way
+// to suppress indexing or pay for it twice. Scoped by owner so a borrowed dream
+// id can't touch someone else's row.
+const isDreamMemoryIndexed = async (uid, dreamId) => {
+  const admin = getSupabaseAdmin();
+  const { data } = await admin
+    .from('dreams')
+    .select('memory_indexed')
+    .eq('id', dreamId)
+    .eq('user_id', uid)
+    .maybeSingle();
+  // Missing or not ours: treat as indexed so nothing is written.
+  return data ? !!data.memory_indexed : true;
+};
+
+// Rewrites the memory file from the current one. Returns whether it persisted —
+// the caller must not mark the dream indexed unless it did, or the dream is lost
+// from the memory permanently.
+const updateDreamMemory = async (uid, dreamText, aiTitle, aiInsights, apiKey) => {
   const systemPrompt = `You maintain a private dream memory file for a single user. After each analyzed dream, update the file by merging in new patterns, symbols, and themes.
+
+Your value is in noticing what the dreamer cannot see from inside a single night: how a symbol changes over time, which figure keeps returning, what pairs with what, and what has quietly stopped appearing.
 
 Use only the headings that have content (omit empty ones):
 ## Recurring symbols
@@ -328,18 +366,31 @@ Use only the headings that have content (omit empty ones):
 ## Emotional patterns
 ## Life themes (inferred)
 ## Notable narratives
+## Shifts over time
+## Open threads
 
 Rules:
-- Keep total length under 1200 words
+- Keep total length under 900 words
 - Use concise note-style writing, not full prose sentences
 - Track rough occurrence counts where useful (e.g. "water: ~8 times")
+- Note the direction a pattern is moving, not just that it exists (e.g. "water: ~8 times; still and calm in early entries, turbulent recently")
+- Record pairings that keep co-occurring (e.g. "the house appears with the absent father in most entries")
+- Under "Shifts over time", record changes worth telling the dreamer about: a symbol that has inverted, an emotion that has cooled, a recurring figure that has stopped appearing
+- Under "Open threads", record what keeps arriving unresolved — a chase never resolved, a door never opened, a conversation never finished
+- Relative sequencing only ("early entries", "recently", "the last few") — never dates, months, or dream IDs
 - Merge new information into existing entries — never duplicate
 - Add new entries only when genuinely novel
-- When nearing the length limit, consolidate or trim rare/low-signal entries
+- Never drop an entry that has occurred 3 or more times; consolidate wording instead
+- When nearing the length limit, trim the rarest single-occurrence entries first
 - Never include raw dream text — only synthesized patterns and observations
-- Do not reference specific dates or dream IDs
+- Never speculate about diagnoses, medical conditions, or the dreamer's safety
 
 Return ONLY the updated memory file. No preamble or explanation.`;
+
+  // Re-read instead of using the copy fetched at the top of the request: this
+  // rewrites the whole file, so building on a stale read would silently discard
+  // whatever an overlapping analysis wrote in the meantime.
+  const currentMemory = await getDreamMemory(uid).catch(() => null);
 
   const userContent = [
     `Current memory:\n${currentMemory || '(empty — this is the first entry)'}`,
@@ -353,27 +404,45 @@ Return ONLY the updated memory file. No preamble or explanation.`;
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(MEMORY_TIMEOUT_MS),
       body: JSON.stringify({
         model: MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userContent },
         ],
-        max_tokens: 1200,
+        // The file is capped at 900 words, which is roughly 1200 tokens. The
+        // old ceiling of 1200 tokens meant a full file was cut off mid-entry
+        // and saved that way, and the next update built on the truncation.
+        max_tokens: 2000,
         temperature: 0.3,
       }),
     });
-    if (!res.ok) return;
+    if (!res.ok) return false;
     const data = await res.json();
-    const updatedMemory = data.choices?.[0]?.message?.content?.trim();
-    if (!updatedMemory) return;
+    const choice = data.choices?.[0];
+    if (choice?.finish_reason === 'length') {
+      console.error('Dream memory update hit the token ceiling; keeping the previous file.');
+      return false;
+    }
+    const updatedMemory = choice?.message?.content?.trim();
+    if (!updatedMemory) return false;
+    // A file that comes back less than half its old size is a failed rewrite,
+    // not a consolidation. Trimming rare entries never costs that much.
+    if (currentMemory && updatedMemory.length < currentMemory.length * 0.5) {
+      console.error('Dream memory update came back truncated; keeping the previous file.');
+      return false;
+    }
     const admin = getSupabaseAdmin();
-    await admin.from('profiles').update({
+    const { error } = await admin.from('profiles').update({
       dream_memory: updatedMemory,
       dream_memory_updated_at: new Date().toISOString(),
     }).eq('id', uid);
+    if (error) { console.error('Dream memory write failed:', error.message); return false; }
+    return true;
   } catch (e) {
     console.error('Dream memory update failed:', e.message);
+    return false;
   }
 };
 
@@ -385,6 +454,7 @@ const buildSystemPrompt = (styleDelta, contextBlock) => {
 MEMORY DIRECTIVE: This dreamer has a recorded history. Use it honestly:
 - In your "themes" text, reference a memory pattern only if it genuinely appears in this dream — e.g. "Water has come up in your dreams before; here it shifts from still to rushing..." Never fabricate a connection that isn't supported by the memory file.
 - Populate the "connections" array ONLY with patterns that are (a) explicitly listed in the memory file AND (b) clearly present in this dream. If a symbol from this dream is not in the memory file, do not claim it recurs. Return [] if nothing overlaps.
+- Say the thing the dreamer is least likely to have noticed themselves: a symbol that has inverted since earlier entries, two elements that keep arriving together, an emotion that is missing where the memory says it usually sits. A grounded contrast or absence is a connection — both halves just have to be real.
 - Accuracy matters more than fullness. Fewer real connections are better than more invented ones.`);
   }
   return parts.join('\n\n');
@@ -392,9 +462,12 @@ MEMORY DIRECTIVE: This dreamer has a recorded history. Use it honestly:
 
 const callOpenAI = async (text, apiKey, styleDelta, contextBlock, temperature = 0.7, maxTokens = 500) => {
   const sys = buildSystemPrompt(styleDelta, contextBlock);
+  // The client has no timeout of its own, so a stalled call would leave the
+  // generate button spinning for as long as the platform allows.
   const res = await fetch(API_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(ANALYSIS_TIMEOUT_MS),
     body: JSON.stringify({
       model: MODEL,
       messages: [
@@ -413,6 +486,28 @@ const callOpenAI = async (text, apiKey, styleDelta, contextBlock, temperature = 
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error('Empty AI response');
   return content;
+};
+
+// Index this dream into the memory file unless it already has been. A
+// re-generation of an already-indexed dream must not count twice.
+const scheduleMemoryIndexing = ({ uid, tier, dreamId, text, title, themes, safetyFiltered, apiKey }) => {
+  if (tier !== 'premium' || safetyFiltered || !dreamId || !apiKey) return;
+
+  const indexing = (async () => {
+    if (await isDreamMemoryIndexed(uid, dreamId)) return;
+    const stored = await updateDreamMemory(uid, text, title, themes, apiKey);
+    // Only claim the dream once the memory actually holds it. Marking it on a
+    // failed update used to retire the dream from indexing forever.
+    if (!stored) return;
+    const { error } = await getSupabaseAdmin()
+      .from('dreams')
+      .update({ memory_indexed: true })
+      .eq('id', dreamId)
+      .eq('user_id', uid);
+    if (error) console.error('Marking dream memory-indexed failed:', error.message);
+  })().catch((e) => console.error('Dream memory indexing failed:', e?.message || e));
+
+  deferWork(indexing);
 };
 
 const parse = (raw) => {
@@ -445,7 +540,9 @@ module.exports = async function handler(req, res) {
   }
   body = body || {};
 
-  const { dreamText, idToken, dreamId, customPrompt, promptStyle, dreamDate, isMemoryIndexed } = body;
+  // `isMemoryIndexed` is still accepted in the body for older clients but is
+  // deliberately ignored — indexing is decided from the row itself.
+  const { dreamText, idToken, dreamId, customPrompt, promptStyle, dreamDate } = body;
   if (!dreamText || typeof dreamText !== 'string') return res.status(400).json({ error: 'Missing dreamText' });
   if (!idToken) return res.status(401).json({ error: 'Authentication required.' });
 
@@ -485,7 +582,21 @@ module.exports = async function handler(req, res) {
 
   const cacheKey = hash(text + effectivePrompt + normalizedStyle + uid);
   if (cache.has(cacheKey)) {
-    return res.status(200).json({ ...cache.get(cacheKey), cached: true });
+    const hit = cache.get(cacheKey);
+    // A cached answer still has to index: if the first attempt's memory write
+    // failed, retrying the same dream in the same style would otherwise short
+    // circuit here and the dream would never reach the memory file.
+    scheduleMemoryIndexing({
+      uid,
+      tier,
+      dreamId,
+      text,
+      title: hit.title,
+      themes: hit.themes,
+      safetyFiltered: hit.safetyFiltered,
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+    return res.status(200).json({ ...hit, cached: true });
   }
 
   // Check and increment quota atomically
@@ -549,19 +660,7 @@ module.exports = async function handler(req, res) {
   const result = { title: safeTitle, themes: safeThemes, connections, safetyFiltered };
   cache.set(cacheKey, result);
 
-  // Update dream memory if this dream hasn't been indexed yet — regardless of whether
-  // it's a re-generation. Once indexed, mark the dream so future re-analyses don't re-count it.
-  if (quota.tier === 'premium' && !safetyFiltered && !isMemoryIndexed && dreamId) {
-    updateDreamMemory(uid, text, safeTitle, safeThemes, currentMemory, apiKey)
-      .then(() => {
-        getSupabaseAdmin()
-          .from('dreams')
-          .update({ memory_indexed: true })
-          .eq('id', dreamId)
-          .catch(() => {});
-      })
-      .catch(() => {});
-  }
+  scheduleMemoryIndexing({ uid, tier: quota.tier, dreamId, text, title: safeTitle, themes: safeThemes, safetyFiltered, apiKey });
 
   res.status(200).json({
     ...result,

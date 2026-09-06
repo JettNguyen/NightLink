@@ -8,6 +8,9 @@
     { "src": "/.*", "dest": "/index.html" }
   ],
   "functions": {
+    "api/ai.js": {
+      "maxDuration": 60
+    },
     "api/*.js": {
       "maxDuration": 10
     }
