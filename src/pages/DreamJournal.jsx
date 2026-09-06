@@ -88,6 +88,7 @@ export default function DreamJournal({ user }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedCalendarDateKey, setSelectedCalendarDateKey] = useState(null);
+  const [monthDirection, setMonthDirection] = useState('next');
   const formScrollRef = useRef(null);
   const [scrollEdge, setScrollEdge] = useState({ top: true, bottom: false });
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -505,11 +506,13 @@ export default function DreamJournal({ user }) {
 
   const goToPreviousMonth = () => {
     void triggerLightHaptic();
+    setMonthDirection('prev');
     setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
   };
 
   const goToNextMonth = () => {
     void triggerLightHaptic();
+    setMonthDirection('next');
     setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
   };
 
@@ -632,7 +635,9 @@ export default function DreamJournal({ user }) {
             <div className="journal-calendar" aria-label="Dream journal calendar">
               <div className="calendar-toolbar">
                 <button type="button" className="ghost-btn" onClick={goToPreviousMonth} aria-label="Previous month">←</button>
-                <h2>{monthLabel(calendarMonth)}</h2>
+                <h2 key={monthPrefixFromDate(calendarMonth)} data-month-direction={monthDirection}>
+                  {monthLabel(calendarMonth)}
+                </h2>
                 <button type="button" className="ghost-btn" onClick={goToNextMonth} aria-label="Next month">→</button>
               </div>
               <div className="calendar-weekdays">
@@ -640,7 +645,11 @@ export default function DreamJournal({ user }) {
                   <span key={label}>{label}</span>
                 ))}
               </div>
-              <div className="calendar-grid">
+              <div
+                className="calendar-grid"
+                key={monthPrefixFromDate(calendarMonth)}
+                data-month-direction={monthDirection}
+              >
                 {calendarCells.map((cell) => {
                   if (cell.type === 'spacer') {
                     return <div key={cell.key} className="calendar-spacer" aria-hidden="true" />;
@@ -662,23 +671,25 @@ export default function DreamJournal({ user }) {
             </div>
 
             <div className="calendar-day-panel">
-              {selectedCalendarDateKey ? (
-                <>
-                  <div className="calendar-day-panel-head">
-                    <h3>{dateLabel(selectedCalendarDateKey)}</h3>
-                    <p>{selectedCalendarDreams.length} dream{selectedCalendarDreams.length === 1 ? '' : 's'}</p>
-                  </div>
-                  {selectedCalendarDreams.length ? (
-                    <div className="dreams-list calendar-dreams-list">
-                      {selectedCalendarDreams.map((dream) => renderDreamCard(dream))}
+              <div className="calendar-day-panel-body" key={selectedCalendarDateKey || 'none'}>
+                {selectedCalendarDateKey ? (
+                  <>
+                    <div className="calendar-day-panel-head">
+                      <h3>{dateLabel(selectedCalendarDateKey)}</h3>
+                      <p>{selectedCalendarDreams.length} dream{selectedCalendarDreams.length === 1 ? '' : 's'}</p>
                     </div>
-                  ) : (
-                    <p className="empty-state">No dreams logged for this date.</p>
-                  )}
-                </>
-              ) : (
-                <p className="empty-state">Select a date to see dreams from that day.</p>
-              )}
+                    {selectedCalendarDreams.length ? (
+                      <div className="dreams-list calendar-dreams-list">
+                        {selectedCalendarDreams.map((dream) => renderDreamCard(dream))}
+                      </div>
+                    ) : (
+                      <p className="empty-state">No dreams logged for this date.</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="empty-state">Select a date to see dreams from that day.</p>
+                )}
+              </div>
             </div>
           </div>
         )
