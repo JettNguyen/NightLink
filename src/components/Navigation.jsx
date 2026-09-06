@@ -142,8 +142,12 @@ function Navigation({ user, activityPreview }) {
   const isActive = (path) => currentPath === path ? 'active' : '';
 
   const handleNavTap = useCallback((path, sideEffect) => () => {
-    if (path !== currentPath) {
-      void triggerLightHaptic();
+    void triggerLightHaptic();
+    // Re-tapping the current tab returns to the top, the way a native tab bar
+    // does. `scroll-behavior: smooth` on the root keeps it eased.
+    if (path === currentPath) {
+      const w = getWin();
+      if (w && w.scrollY > 0) w.scrollTo(0, 0);
     }
     sideEffect?.();
   }, [currentPath]);

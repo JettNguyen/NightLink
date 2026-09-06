@@ -7,6 +7,7 @@ import { faHeart } from '@fortawesome/free-solid-svg-icons';
 import { ActivitySkeleton } from '../components/SkeletonLoader';
 import { buildDreamPath, buildProfilePath } from '../utils/urlHelpers';
 import { markActivityEntryRead, removeActivityEntry } from '../services/ActivityService';
+import { triggerLightHaptic, triggerErrorHaptic } from '../utils/haptics';
 import './Activity.css';
 import { appUserPropType, activityPreviewPropType } from '../propTypes';
 
@@ -53,6 +54,7 @@ export default function Activity({ user, activityPreview }) {
 
   const handleNotificationInteraction = useCallback(async (entry, action) => {
     if (!entry) return;
+    void triggerLightHaptic();
     if (viewerId && entry.read === false) {
       await markActivityEntryRead(viewerId, entry.id);
     }
@@ -74,6 +76,7 @@ export default function Activity({ user, activityPreview }) {
       await removeActivityEntry(viewerId, entry.id);
     } catch (error) {
       console.error('Failed to clear notification', error);
+      void triggerErrorHaptic();
       setClearingEntries((prev) => {
         const next = new Set(prev);
         next.delete(entry.id);

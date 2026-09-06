@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types';
 import useEscapeKey from '../hooks/useEscapeKey';
+import { triggerLightHaptic, triggerHeavyHaptic } from '../utils/haptics';
 import './ConfirmModal.css';
 
 export default function ConfirmModal({
@@ -17,6 +18,11 @@ export default function ConfirmModal({
   confirmDisabled = false,
 }) {
   useEscapeKey(onCancel);
+
+  const handleConfirm = () => {
+    void (danger ? triggerHeavyHaptic() : triggerLightHaptic());
+    onConfirm();
+  };
 
   return (
     <div className="confirm-modal-backdrop" onClick={onCancel}>
@@ -41,7 +47,7 @@ export default function ConfirmModal({
           <button
             type="button"
             className={danger ? 'danger-btn' : 'primary-btn'}
-            onClick={onConfirm}
+            onClick={handleConfirm}
             disabled={confirmDisabled}
           >
             {confirmLabel}

@@ -5,7 +5,7 @@ import { faHeart, faPlus, faLock } from '@fortawesome/free-solid-svg-icons'; // 
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { Capacitor } from '@capacitor/core';
-import { triggerLightHaptic } from '../utils/haptics';
+import { triggerLightHaptic, triggerSelectionHaptic, triggerSuccessHaptic, triggerErrorHaptic } from '../utils/haptics';
 import { supabase } from '../supabase';
 import { mapDream, mapProfile, mapComment } from '../utils/mappers';
 import LoadingIndicator from '../components/LoadingIndicator';
@@ -943,6 +943,7 @@ export default function DreamDetail({ user }) {
 
   const handleVisibilityChange = async (value) => {
     if (!dream || !isOwner || dream.visibility === value) return;
+    void triggerSelectionHaptic();
     setUpdatingVisibility(true);
     try {
       const { error } = await supabase.from('dreams').update({ visibility: value }).eq('id', dream.id);
@@ -978,6 +979,7 @@ export default function DreamDetail({ user }) {
         }
       }
     } catch {
+      void triggerErrorHaptic();
       setError('Could not update visibility.');
     } finally {
       setUpdatingVisibility(false);
@@ -1410,6 +1412,7 @@ export default function DreamDetail({ user }) {
         }
       }
       setCommentInput('');
+      void triggerSuccessHaptic();
       setCommentStatus('Posted.');
       if (currentReplyTarget?.rootId) {
         setExpandedThreads((prev) => ({
@@ -1419,6 +1422,7 @@ export default function DreamDetail({ user }) {
       }
       setReplyTarget(null);
     } catch {
+      void triggerErrorHaptic();
       setCommentStatus('Could not post your comment.');
     } finally {
       setCommentBusy(false);
@@ -1440,6 +1444,7 @@ export default function DreamDetail({ user }) {
       if (error) throw error;
       setComments((prev) => prev.filter((c) => c.id !== commentId));
     } catch {
+      void triggerErrorHaptic();
       setCommentStatus('Could not remove that comment.');
     } finally {
       setRemovingCommentId(null);
@@ -1826,6 +1831,7 @@ export default function DreamDetail({ user }) {
       setReportModal(null);
       setReportReason('');
       if (reportModal.targetType === 'comment') {
+        void triggerSuccessHaptic();
         setCommentStatus('Report submitted. We review safety reports within 24 hours.');
       } else {
         setToast('Report submitted. We review safety reports within 24 hours.');

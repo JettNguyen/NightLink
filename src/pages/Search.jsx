@@ -11,6 +11,7 @@ import Toast from '../components/Toast';
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import { highlightSnippet } from '../utils/highlight';
+import { triggerSelectionHaptic, triggerLightHaptic } from '../utils/haptics';
 import './Search.css';
 import { appUserPropType } from '../propTypes';
 
@@ -93,11 +94,13 @@ export default function Search({ user }) {
 
   const handleProfileNavigation = (profile) => {
     if (!profile?.id) return;
+    void triggerLightHaptic();
     navigate(buildProfilePath(profile.username, profile.id));
   };
 
   const handleDreamNavigation = (dream) => {
     if (!dream?.id) return;
+    void triggerLightHaptic();
     const path = dream.visibility === 'anonymous'
       ? `/dream/${dream.id}`
       : buildDreamPath(dream.authorUsername, dream.userId, dream.id);
@@ -142,7 +145,7 @@ export default function Search({ user }) {
         <div className="filter-toggle">
           <span className="filter-label">Filter by:</span>
           {filters.map((option) => (
-            <button key={option.id} className={filter === option.id ? 'chip chip-active' : 'chip'} onClick={() => setFilter(option.id)} type="button" aria-pressed={filter === option.id}>
+            <button key={option.id} className={filter === option.id ? 'chip chip-active' : 'chip'} onClick={() => { if (filter !== option.id) void triggerSelectionHaptic(); setFilter(option.id); }} type="button" aria-pressed={filter === option.id}>
               {option.label}
             </button>
           ))}

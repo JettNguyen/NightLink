@@ -12,7 +12,7 @@ import ProBadge from '../components/ProBadge';
 import { ProfilePageSkeleton, ProfileDreamsLoadingSkeleton } from '../components/SkeletonLoader';
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
-import { triggerLightHaptic } from '../utils/haptics';
+import { triggerLightHaptic, triggerSuccessHaptic, triggerErrorHaptic } from '../utils/haptics';
 import useEscapeKey from '../hooks/useEscapeKey';
 import { logActivityEvent } from '../services/ActivityService';
 import Toast from '../components/Toast';
@@ -225,6 +225,7 @@ export default function Profile({ user }) {
         }
 
         setFollowRequestState('pending');
+        void triggerSuccessHaptic();
         setToast('Follow request sent.');
         return;
       }
@@ -241,7 +242,7 @@ export default function Profile({ user }) {
         actorUsername: viewerData?.username || null,
         type: 'follow',
       });
-    } catch { setToast('Unable to follow this user.'); }
+    } catch { void triggerErrorHaptic(); setToast('Unable to follow this user.'); }
     finally { setFollowAction({ type: null }); }
   }
 
@@ -284,7 +285,7 @@ export default function Profile({ user }) {
       void triggerLightHaptic();
       void supabase.from('activity').delete()
         .eq('target_user_id', targetUserId).eq('actor_id', user.uid).eq('type', 'follow');
-    } catch { setToast('Unable to unfollow right now.'); }
+    } catch { void triggerErrorHaptic(); setToast('Unable to unfollow right now.'); }
     finally { setFollowAction({ type: null }); }
   }
 
@@ -308,8 +309,10 @@ export default function Profile({ user }) {
         setViewerData((prev) => prev ? { ...prev, followingIds: (prev.followingIds || []).filter((id) => id !== targetUserId) } : prev);
         setUserData((prev) => prev ? { ...prev, followerIds: (prev.followerIds || []).filter((id) => id !== viewerId) } : prev);
       }
+      void triggerSuccessHaptic();
       setToast('User blocked. Their content is now hidden from your feed.');
     } catch {
+      void triggerErrorHaptic();
       setToast('Could not block this user right now.');
     } finally {
       setFollowAction({ type: null });
@@ -329,6 +332,7 @@ export default function Profile({ user }) {
         .eq('id', viewerId);
       if (error) throw error;
       setViewerData((prev) => prev ? { ...prev, settings: { ...(prev.settings || {}), blockedUserIds: nextBlocked } } : prev);
+      void triggerSuccessHaptic();
       setToast('User unblocked.');
     } catch {
       setToast('Could not unblock this user right now.');
@@ -377,6 +381,7 @@ export default function Profile({ user }) {
       if (!response.ok || !payload?.success) throw new Error(payload?.error || 'Could not submit report.');
       setReportModal(false);
       setReportReason('');
+      void triggerSuccessHaptic();
       setToast('Report submitted. We review safety reports within 24 hours.');
     } catch (error) {
       setToast(error.message || 'Could not submit report.');

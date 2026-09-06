@@ -18,6 +18,7 @@ import updateDreamReaction from '../services/ReactionService';
 import fetchUserSummaries from '../services/UserService';
 import { appUserPropType } from '../propTypes';
 import useEscapeKey from '../hooks/useEscapeKey';
+import { triggerLightHaptic, triggerSelectionHaptic, triggerSuccessHaptic, triggerErrorHaptic } from '../utils/haptics';
 import { COMMON_EMOJI_REACTIONS, filterEmojiInput } from '../constants/emojiOptions';
 
 const DEFAULT_API_ORIGIN = 'https://www.nightlink.dev';
@@ -291,9 +292,11 @@ export default function Feed({ user }) {
     setHiddenDreamIds(nextHidden);
     try {
       await persistViewerSafetySettings({ hiddenDreamIds: nextHidden });
+      void triggerSuccessHaptic();
       setToast('Removed from your feed.');
     } catch {
       setHiddenDreamIds(previousHidden);
+      void triggerErrorHaptic();
       setToast('Could not update your feed right now.');
     }
   }, [hiddenDreamIds, persistViewerSafetySettings]);
@@ -305,9 +308,11 @@ export default function Feed({ user }) {
     setBlockedUserIds(nextBlocked);
     try {
       await persistViewerSafetySettings({ blockedUserIds: nextBlocked });
+      void triggerSuccessHaptic();
       setToast('User blocked. Their dreams are now hidden from your feed.');
     } catch {
       setBlockedUserIds(previousBlocked);
+      void triggerErrorHaptic();
       setToast('Could not block this user right now.');
     }
   }, [blockedUserIds, viewerId, persistViewerSafetySettings]);
@@ -358,6 +363,7 @@ export default function Feed({ user }) {
 
   const toggleFeedMenu = useCallback((event, dreamId) => {
     event.preventDefault(); event.stopPropagation();
+    void triggerLightHaptic();
     setFeedMenuOpenDreamId((prev) => (prev === dreamId ? null : dreamId));
   }, []);
 
@@ -378,6 +384,7 @@ export default function Feed({ user }) {
       });
       setReportModal(null);
       setReportReason('');
+      void triggerSuccessHaptic();
       setToast('Report submitted. We review safety reports within 24 hours.');
     } catch (err) {
       setToast(err.message || 'Could not submit report.');
@@ -453,6 +460,7 @@ export default function Feed({ user }) {
     const currentState = reactionState[dream.id];
     const prevReactions = currentState?.viewerReactions || [];
     const isRemoving = emoji === null || prevReactions.includes(emoji);
+    void triggerLightHaptic();
     setReactionState((prev) => {
       const counts = { ...(prev[dream.id]?.counts || dream.reactionCounts || {}) };
       let nextReactions;
@@ -480,6 +488,7 @@ export default function Feed({ user }) {
       });
     } catch (err) {
       console.error('Failed to update dream reaction', err);
+      void triggerErrorHaptic();
       setReactionState((prev) => ({
         ...prev,
         [dream.id]: { counts: currentState?.counts || dream.reactionCounts || {}, viewerReactions: prevReactions },
@@ -558,6 +567,7 @@ export default function Feed({ user }) {
       if (profilePath) navigate(profilePath);
     };
     const openDreamDetail = () => {
+      void triggerLightHaptic();
       const path = isAnonymous ? `/dream/${dream.id}` : buildDreamPath(authorUsername, dream.userId, dream.id);
       navigate(path, { state: { fromNav: '/feed' } });
     };
@@ -711,14 +721,14 @@ export default function Feed({ user }) {
           <button
             type="button" role="tab" aria-selected={activeTab === 'foryou'}
             className={`feed-tab${activeTab === 'foryou' ? ' active' : ''}`}
-            onClick={() => setActiveTab('foryou')}
+            onClick={() => { if (activeTab !== 'foryou') void triggerSelectionHaptic(); setActiveTab('foryou'); }}
           >
             For You
           </button>
           <button
             type="button" role="tab" aria-selected={activeTab === 'following'}
             className={`feed-tab${activeTab === 'following' ? ' active' : ''}`}
-            onClick={() => setActiveTab('following')}
+            onClick={() => { if (activeTab !== 'following') void triggerSelectionHaptic(); setActiveTab('following'); }}
           >
             Following
             {followingIds.length > 0 && (

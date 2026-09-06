@@ -7,7 +7,7 @@ import { SettingsSkeleton } from '../components/SkeletonLoader';
 import { appUserPropType } from '../propTypes';
 import { Capacitor } from '@capacitor/core';
 import { areNotificationsSupported, disableNotifications, getNotificationPermission, getNotificationPermissionStatus, requestNotificationPermission } from '../utils/notificationHelpers';
-import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
+import { triggerLightHaptic, triggerMediumHaptic, triggerSelectionHaptic, triggerSuccessHaptic, triggerErrorHaptic } from '../utils/haptics';
 import {
   IS_RC_SUPPORTED,
   CREDITS_OFFERING_ID,
@@ -420,7 +420,7 @@ export default function Settings({ user }) {
   }, [settings, loading]);
   const update = useCallback((key, value) => setSettings((prev) => ({ ...prev, [key]: value })), []);
   const toggle = (key) => {
-    void triggerLightHaptic();
+    void triggerSelectionHaptic();
     update(key, !settings[key]);
   };
 
@@ -431,7 +431,7 @@ export default function Settings({ user }) {
       return;
     }
     if (settings.aiPromptPreset !== normalized) {
-      void triggerLightHaptic();
+      void triggerSelectionHaptic();
     }
     update('aiPromptPreset', normalized);
   };
@@ -571,9 +571,10 @@ export default function Settings({ user }) {
       if (error) throw error;
       savedRef.current = JSON.stringify(savedSettings);
       setStatus('saved');
-      void triggerMediumHaptic();
+      void triggerSuccessHaptic();
     } catch (err) {
       console.error('Settings save failed', err);
+      void triggerErrorHaptic();
       setStatus('error');
     } finally {
       setSaving(false);

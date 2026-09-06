@@ -8,7 +8,7 @@ import { JournalSkeleton } from '../components/SkeletonLoader';
 import Toast from '../components/Toast';
 import { formatDreamDate, getTodayDateInputValue, parseDateInputValue } from '../utils/dates';
 import { buildDreamPath } from '../utils/urlHelpers';
-import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
+import { triggerLightHaptic, triggerMediumHaptic, triggerSelectionHaptic, triggerSuccessHaptic, triggerErrorHaptic } from '../utils/haptics';
 import { getModerationFeedback } from '../utils/contentModeration';
 import { highlightSnippet } from '../utils/highlight';
 import useEscapeKey from '../hooks/useEscapeKey';
@@ -458,9 +458,10 @@ export default function DreamJournal({ user }) {
       }
       setShowNewDream(false);
       resetForm();
-      void triggerMediumHaptic();
+      void triggerSuccessHaptic();
     } catch {
       setDreams((prev) => prev.filter((d) => d.id !== optimistic.id));
+      void triggerErrorHaptic();
       setToast('Could not save your dream. Try again in a moment.');
     } finally {
       setLoading(false);
@@ -480,18 +481,18 @@ export default function DreamJournal({ user }) {
 
   const handleVisibilitySelect = (nextVisibility) => {
     if (nextVisibility !== visibility) {
-      void triggerLightHaptic();
+      void triggerSelectionHaptic();
     }
     setVisibility(nextVisibility);
   };
 
   const showListView = () => {
-    void triggerLightHaptic();
+    void triggerSelectionHaptic();
     setViewMode('list');
   };
 
   const showCalendarView = () => {
-    void triggerLightHaptic();
+    void triggerSelectionHaptic();
     // Search only filters the list, so carrying a query into the calendar
     // would leave it empty with no visible input to clear.
     setSearchQuery('');

@@ -9,6 +9,7 @@ import ProBadge from '../components/ProBadge';
 import { buildProfilePath } from '../utils/urlHelpers';
 import LoadingIndicator from '../components/LoadingIndicator';
 import Toast from '../components/Toast';
+import { triggerSelectionHaptic, triggerSuccessHaptic, triggerErrorHaptic } from '../utils/haptics';
 import './Connections.css';
 import { appUserPropType } from '../propTypes';
 
@@ -168,11 +169,12 @@ export default function Connections({ user }) {
 
   const handleTabSelect = useCallback((tab) => {
     const nextTab = normalizeTab(tab, viewingOwnProfile);
+    if (nextTab !== activeTab) void triggerSelectionHaptic();
     setActiveTab(nextTab);
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set('tab', nextTab);
     setSearchParams(nextParams, { replace: true });
-  }, [searchParams, setSearchParams, viewingOwnProfile]);
+  }, [activeTab, searchParams, setSearchParams, viewingOwnProfile]);
 
   const handleProfileNavigation = useCallback((profile) => {
     if (!profile) return;
@@ -270,6 +272,7 @@ export default function Connections({ user }) {
         if (updateError) throw updateError;
       }
 
+      void triggerSuccessHaptic();
       setRequestProfiles((prev) => prev.filter((item) => item.requesterId !== requesterId));
       if (decision === 'accept') {
         setUserData((prev) => prev ? {
@@ -279,6 +282,7 @@ export default function Connections({ user }) {
       }
     } catch {
       // Keep the request row visible so the action can be retried.
+      void triggerErrorHaptic();
       setToast(decision === 'accept' ? 'Could not accept that request right now.' : 'Could not decline that request right now.');
     } finally {
       setRequestActionId(null);

@@ -13,7 +13,7 @@ import PhotoCropModal from '../components/PhotoCropModal';
 import AvatarDisplay from '../components/AvatarDisplay';
 import { uploadAvatar, removeAvatar } from '../utils/uploadAvatar';
 import { clearUserSummaryCache } from '../services/UserService';
-import { triggerMediumHaptic } from '../utils/haptics';
+import { triggerSuccessHaptic, triggerErrorHaptic } from '../utils/haptics';
 import { appUserPropType } from '../propTypes';
 import './Profile.css';
 import './Legal.css';
@@ -155,13 +155,13 @@ export default function EditProfile({ user }) {
         settings:            { ...(userData.settings || {}), bio: bio.trim() || null, accountVisibility },
       }).eq('id', user.uid);
       if (error) throw error;
-      void triggerMediumHaptic();
+      void triggerSuccessHaptic();
       navigate('/profile', { replace: true });
     } catch (err) {
       // 23505 = unique violation, i.e. the handle was claimed between the
       // availability check and the write.
       if (err?.code === '23505') setUsernameError('That username is already taken.');
-      else setToast('Failed to update profile.');
+      else { void triggerErrorHaptic(); setToast('Failed to update profile.'); }
     }
     setSaving(false);
   };
