@@ -1063,8 +1063,8 @@ button:disabled:active {
     background-color: rgba(255, 255, 255, 0.055);
   }
 
-  .calendar-day:hover:not(.is-selected) {
-    border-color: rgba(201, 167, 240, 0.4);
+  .calendar-day:hover:not(.is-selected) .calendar-day-number {
+    background: rgba(201, 167, 240, 0.16);
   }
 
   .avatar-option:hover,

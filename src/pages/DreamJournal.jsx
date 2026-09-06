@@ -655,7 +655,6 @@ export default function DreamJournal({ user }) {
                       aria-label={`${dateLabel(cell.dateKey)}${cell.hasDreams ? `, ${cell.dreamCount} dream${cell.dreamCount === 1 ? '' : 's'}` : ', no dreams'}`}
                     >
                       <span className="calendar-day-number">{cell.day}</span>
-                      {cell.hasDreams && <span className="calendar-day-count">{cell.dreamCount}</span>}
                     </button>
                   );
                 })}
