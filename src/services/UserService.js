@@ -16,6 +16,11 @@ const normalizeProfile = (row) => {
     avatarIcon: p.avatarIcon,
     avatarBackground: p.avatarBackground,
     avatarColor: p.avatarColor,
+    // Drives the Pro badge. Without it an author resolved through this summary
+    // has no subscription at all, which is why viewers never saw their own
+    // badge: everyone they follow comes from a full profile row, but they do
+    // not follow themselves, so their own card fell through to here.
+    subscription: p.subscription,
   };
 };
 
@@ -28,7 +33,7 @@ export const fetchUserSummaries = async (rawIds = []) => {
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('id, display_name, username, photo_url, avatar_icon, avatar_background, avatar_color')
+        .select('id, display_name, username, photo_url, avatar_icon, avatar_background, avatar_color, subscription')
         .in('id', pending);
       (data || []).forEach((row) => {
         userSummaryCache.set(row.id, normalizeProfile(row));
