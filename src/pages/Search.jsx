@@ -23,12 +23,16 @@ export default function Search({ user }) {
   const [dreamResults, setDreamResults] = useState([]);
   const [toast, setToast] = useState(null);
   const [lastTerm, setLastTerm] = useState('');
+  const [pending, setPending] = useState(false);
   const [filter, setFilter] = useState('people');
   const navigate = useNavigate();
   const currentUserId = user?.uid || null;
   const filters = [{ id: 'people', label: 'People' }, { id: 'dreams', label: 'Dreams' }];
 
+  // `pending` covers the debounce window so results already on screen are not
+  // briefly reported as "no matches" for a term that has not been run yet.
   useEffect(() => {
+    if (searchTerm.trim().length >= MIN_CHARS) setPending(true);
     const handler = setTimeout(() => { runSearch(); }, 280);
     return () => clearTimeout(handler);
   }, [searchTerm, filter]);
@@ -36,7 +40,7 @@ export default function Search({ user }) {
   const runSearch = async () => {
     const term = searchTerm.trim();
     if (term.length < MIN_CHARS) {
-      setUserResults([]); setDreamResults([]); setLastTerm(''); setLoading(false);
+      setUserResults([]); setDreamResults([]); setLastTerm(''); setLoading(false); setPending(false);
       return;
     }
     setLoading(true); setLastTerm(term);
@@ -81,8 +85,11 @@ export default function Search({ user }) {
       setToast('Search hiccup. Please try again.');
     } finally {
       setLoading(false);
+      setPending(false);
     }
   };
+
+  const searching = loading || pending;
 
   const handleProfileNavigation = (profile) => {
     if (!profile?.id) return;
@@ -140,25 +147,27 @@ export default function Search({ user }) {
             </button>
           ))}
         </div>
-        <div className="search-input-wrap">
-          <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+        <form className="search-input-wrap" onSubmit={(e) => { e.preventDefault(); runSearch(); }}>
+          <input type="search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+            aria-label={filter === 'people' ? 'Search people' : 'Search public dreams'}
+            enterKeyHint="search"
             placeholder={filter === 'people' ? 'Search names or usernames' : 'Search public dream titles or text'} />
-          <button className="primary-btn" onClick={runSearch} disabled={loading || searchTerm.trim().length < MIN_CHARS}>
-            {loading ? 'Searching…' : 'Search'}
+          <button type="submit" className="primary-btn" disabled={loading || searchTerm.trim().length < MIN_CHARS}>
+            {searching ? 'Searching…' : 'Search'}
           </button>
-        </div>
+        </form>
         <p className="hint">Type at least {MIN_CHARS} characters. Filter to search only people or only public dreams.</p>
       </div>
 
 
-      {searchTerm.trim().length < MIN_CHARS && !loading ? (
+      {searchTerm.trim().length < MIN_CHARS && !searching ? (
         <div className="empty-state">Start typing to explore {filter === 'people' ? 'people' : 'public dreams'}.</div>
       ) : (
         <div className="search-results">
           {filter === 'people' ? (
             <section className="result-section">
               <div className="section-head"><h2>People</h2><span className="pill">{userResults.length}</span></div>
-              {loading ? (
+              {searching ? (
                 <SearchPeopleSkeleton />
               ) : userResults.length === 0 ? (
                 <div className="placeholder">No matching people.</div>
@@ -190,7 +199,7 @@ export default function Search({ user }) {
           ) : (
             <section className="result-section">
               <div className="section-head"><h2>Public dreams</h2><span className="pill">{dreamResults.length}</span></div>
-              {loading ? (
+              {searching ? (
                 <SearchDreamsSkeleton />
               ) : dreamResults.length === 0 ? (
                 <div className="placeholder">No dreams matched &ldquo;{lastTerm}&rdquo;.</div>
