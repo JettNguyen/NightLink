@@ -40,6 +40,17 @@ const resolveAccountEndpoint = () => {
 };
 const ACCOUNT_ENDPOINT = resolveAccountEndpoint();
 
+// Every full-screen overlay in the app. Pull-to-refresh reloads the page, so it
+// has to stand down whenever one of these is up — otherwise dragging on a
+// confirm sheet or the photo cropper throws away what the user was doing.
+const MODAL_SELECTOR = [
+  '.report-modal-backdrop',
+  '.modal-overlay',
+  '.confirm-modal-backdrop',
+  '.crop-modal-backdrop',
+  '.prompt-selector-overlay',
+].join(', ');
+
 const syncSubscriptionTier = async (session) => {
   if (!session) return;
   try {
@@ -86,11 +97,14 @@ function ScrollToTop() {
 
   useEffect(() => {
     if (navigationType === 'POP') return;
-    try {
-      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    } catch {
-      window.scrollTo(0, 0);
-    }
+    // `behavior: 'instant'` throws on iOS < 15.4 (invalid enum), and the plain
+    // call would inherit `scroll-behavior: smooth` from the stylesheet, so
+    // briefly force `auto` on the root instead. Instant scrolls are synchronous.
+    const root = document.documentElement;
+    const previous = root.style.scrollBehavior;
+    root.style.scrollBehavior = 'auto';
+    window.scrollTo(0, 0);
+    root.style.scrollBehavior = previous;
   }, [pathname, navigationType]);
 
   return null;
@@ -180,7 +194,7 @@ function AppContent({ user, loading, ready }) {
       const target = event.target;
       if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"]')) return;
       if (isInsideScrollable(target)) return;
-      if (document.querySelector('.report-modal-backdrop, .modal-overlay')) return;
+      if (document.querySelector(MODAL_SELECTOR)) return;
       // Only arm PTR when the page is truly at the top at touch-start.
       if (window.scrollY > 2) return;
       if (!event.touches || event.touches.length !== 1) return;
@@ -192,7 +206,7 @@ function AppContent({ user, loading, ready }) {
 
     const onTouchMove = (event) => {
       if (!pullActiveRef.current) return;
-      if (document.querySelector('.report-modal-backdrop, .modal-overlay')) {
+      if (document.querySelector(MODAL_SELECTOR)) {
         pullActiveRef.current = false;
         setDistanceSafely(0);
         return;
