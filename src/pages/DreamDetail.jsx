@@ -189,6 +189,11 @@ export default function DreamDetail({ user }) {
   const [applyingAiTitle, setApplyingAiTitle] = useState(false);
   const [reanalyzing, setReanalyzing] = useState(false);
   const [aiQuota, setAiQuota] = useState(null);
+  // Which inline field save is in flight, so its button can disable and say so.
+  // The ref is the actual guard: the title input also saves on Enter, which
+  // bypasses the disabled attribute entirely and repeats while the key is held.
+  const [savingField, setSavingField] = useState(null);
+  const savingFieldRef = useRef(null);
   const [promptSelectorOpen, setPromptSelectorOpen] = useState(false);
   const [firstAnalysisPromptSelector, setFirstAnalysisPromptSelector] = useState(false);
   const [selectedPrompt, setSelectedPrompt] = useState(null);
@@ -986,8 +991,21 @@ export default function DreamDetail({ user }) {
     }
   };
 
+  const beginFieldSave = (field) => {
+    if (savingFieldRef.current) return false;
+    savingFieldRef.current = field;
+    setSavingField(field);
+    return true;
+  };
+
+  const endFieldSave = () => {
+    savingFieldRef.current = null;
+    setSavingField(null);
+  };
+
   const handleSaveTitle = async () => {
     if (!dream || !isOwner) return;
+    if (!beginFieldSave('title')) return;
     try {
       const { error } = await supabase.from('dreams').update({ title: titleInput.trim() }).eq('id', dream.id);
       if (error) throw error;
@@ -1021,17 +1039,20 @@ export default function DreamDetail({ user }) {
       setEditingTitle(false);
     } catch {
       setError('Could not update title.');
+    } finally {
+      endFieldSave();
     }
   };
 
   const handleSaveDate = async () => {
     if (!dream || !isOwner || !dateInput) return;
+    const nextDate = parseDateInputValue(dateInput);
+    if (!nextDate) {
+      setError('Choose a valid dream date.');
+      return;
+    }
+    if (!beginFieldSave('date')) return;
     try {
-      const nextDate = parseDateInputValue(dateInput);
-      if (!nextDate) {
-        setError('Choose a valid dream date.');
-        return;
-      }
       const { error } = await supabase.from('dreams').update({ created_at: nextDate.toISOString() }).eq('id', dream.id);
       if (error) throw error;
       const targetIds = new Set([
@@ -1066,6 +1087,8 @@ export default function DreamDetail({ user }) {
       setEditingDate(false);
     } catch {
       setError('Could not update date.');
+    } finally {
+      endFieldSave();
     }
   };
 
@@ -1083,6 +1106,7 @@ export default function DreamDetail({ user }) {
       setError(contentFeedback);
       return;
     }
+    if (!beginFieldSave('content')) return;
     try {
       const { error } = await supabase.from('dreams').update({ content: contentInput.trim(), tags: editableTags }).eq('id', dream.id);
       if (error) throw error;
@@ -1119,6 +1143,8 @@ export default function DreamDetail({ user }) {
       setNewTag('');
     } catch {
       setError('Could not update dream content.');
+    } finally {
+      endFieldSave();
     }
   };
 
@@ -1602,6 +1628,16 @@ export default function DreamDetail({ user }) {
         payload = raw ? JSON.parse(raw) : null;
       } catch (parseError) {
         console.error('Failed to parse AI response:', parseError, 'Raw response:', raw);
+        // A gateway that never reached the function answers in plain text, not
+        // JSON. That is a service being down, not a malformed payload, and
+        // saying so is the difference between "try again later" and "this is
+        // broken for me".
+        if (response.status >= 502 && response.status <= 504) {
+          throw new Error('The analysis service is unavailable right now. Please try again in a moment.');
+        }
+        if (!response.ok) {
+          throw new Error(`Analysis service error (HTTP ${response.status}).`);
+        }
         throw new Error('Invalid response from analysis service.');
       }
 
@@ -1678,7 +1714,18 @@ export default function DreamDetail({ user }) {
         ? 'AI analysis was safety-filtered for 13+ audience and updated.'
         : 'Title and analysis updated.');
     } catch (err) {
-      setToast(err.message || 'Analysis generation failed.');
+      // fetch rejects with a TypeError when the request never got a response at
+      // all — no network, DNS failure, connection refused. `err.message` there
+      // is "Failed to fetch", which tells the user nothing.
+      const isNetworkFailure = err instanceof TypeError;
+      const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+      if (isOffline) {
+        setToast('You appear to be offline. Reconnect and try again.');
+      } else if (isNetworkFailure) {
+        setToast('Could not reach the analysis service. Please try again in a moment.');
+      } else {
+        setToast(err.message || 'Analysis generation failed.');
+      }
     } finally {
       setAnalyzing(false);
     }
@@ -2060,7 +2107,14 @@ export default function DreamDetail({ user }) {
                     }}
                     autoFocus
                   />
-                  <button type="button" className="ghost-btn" onClick={handleSaveTitle}>Save</button>
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    onClick={handleSaveTitle}
+                    disabled={savingField === 'title'}
+                  >
+                    {savingField === 'title' ? 'Saving…' : 'Save'}
+                  </button>
                   <button type="button" className="ghost-btn" onClick={() => setEditingTitle(false)}>Cancel</button>
                 </div>
               ) : (
@@ -2087,7 +2141,14 @@ export default function DreamDetail({ user }) {
                   value={dateInput}
                   onChange={(e) => setDateInput(e.target.value)}
                 />
-                <button type="button" className="ghost-btn" onClick={handleSaveDate}>Save</button>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={handleSaveDate}
+                  disabled={savingField === 'date'}
+                >
+                  {savingField === 'date' ? 'Saving…' : 'Save'}
+                </button>
                 <button type="button" className="ghost-btn" onClick={() => setEditingDate(false)}>Cancel</button>
               </div>
             ) : formattedDate ? (
@@ -2189,9 +2250,9 @@ export default function DreamDetail({ user }) {
                     type="button"
                     className="primary-btn"
                     onClick={handleSaveContent}
-                    disabled={!contentInput.trim()}
+                    disabled={!contentInput.trim() || savingField === 'content'}
                   >
-                    Save changes
+                    {savingField === 'content' ? 'Saving changes…' : 'Save changes'}
                   </button>
                 </div>
               </>
