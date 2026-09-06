@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHeart, faPlus, faLock } from '@fortawesome/free-solid-svg-icons'; // faPlus kept for emoji picker trigger
+import { faHeart, faPlus, faLock, faChevronDown } from '@fortawesome/free-solid-svg-icons'; // faPlus kept for emoji picker trigger
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { Capacitor } from '@capacitor/core';
@@ -2651,7 +2651,9 @@ export default function DreamDetail({ user }) {
                 <p className="detail-label">Sharing options</p>
                 <p className="detail-hint">{visibilitySummary}</p>
               </div>
-              <span className={`share-toggle-icon${sharingControlsOpen ? ' open' : ''}`} aria-hidden="true">›</span>
+              <span className={`share-toggle-icon${sharingControlsOpen ? ' open' : ''}`} aria-hidden="true">
+                <FontAwesomeIcon icon={faChevronDown} />
+              </span>
             </button>
             {sharingControlsOpen && (
               <div className="detail-share-panel">

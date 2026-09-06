@@ -237,14 +237,19 @@
   cursor: pointer;
 }
 
+/* Was a `›` glyph rotated 90deg to point down. Flex centres a glyph's inline
+   box, not its ink, and `›` sits high in its box with uneven side bearings, so
+   it never sat in the middle of the circle — and rotating moved that offset to
+   a different edge, which is why it looked wrong both open and closed. An svg
+   chevron is centred in its own viewBox, so it lands dead centre and stays
+   there when the 180deg flip points it back up. */
 .share-toggle-icon {
-  rotate: 90deg;
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 14px;
   color: var(--text);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 40px;
   height: 40px;
   border-radius: 50%;
