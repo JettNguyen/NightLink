@@ -19,6 +19,7 @@ import { getModerationFeedback, sanitizeAiGeneratedContent } from '../utils/cont
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
 import useEscapeKey from '../hooks/useEscapeKey';
+import VoiceInput from '../components/VoiceInput';
 import AvatarDisplay from '../components/AvatarDisplay';
 import ProBadge from '../components/ProBadge';
 import { buildProfilePath } from '../utils/urlHelpers';
@@ -1786,6 +1787,10 @@ export default function DreamDetail({ user }) {
 
   useEscapeKey(closeReportModal, Boolean(reportModal));
 
+  const appendDictation = useCallback((text) => {
+    setContentInput((prev) => (prev.trim() ? `${prev.replace(/\s+$/, '')} ${text}` : text));
+  }, []);
+
   const closePromptSelectors = useCallback(() => {
     setPromptSelectorOpen(false);
     setFirstAnalysisPromptSelector(false);
@@ -2126,11 +2131,21 @@ export default function DreamDetail({ user }) {
         <div className="detail-body">
             {isOwner && editingContent ? (
               <>
-                <textarea
-                  className="detail-textarea"
-                  value={contentInput}
-                  onChange={(e) => setContentInput(e.target.value)}
-                />
+                <div className="voice-field">
+                  <textarea
+                    className="detail-textarea"
+                    aria-label="Dream text"
+                    value={contentInput}
+                    onChange={(e) => setContentInput(e.target.value)}
+                  />
+                  <div className="voice-field-affordance">
+                    <VoiceInput
+                      onTranscript={appendDictation}
+                      onNotice={setToast}
+                      label="Dictate your dream"
+                    />
+                  </div>
+                </div>
                 <div className="detail-tags-editor">
                   <label htmlFor="detail-tag-input">Tags</label>
                   <div className="detail-tag-input-row">

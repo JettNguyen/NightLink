@@ -26,12 +26,14 @@ const rateLimit = require('express-rate-limit');
 const aiHandler = require('./api/ai');
 const accountHandler = require('./api/account');
 const stripeHandler = require('./api/stripe');
+const transcribeHandler = require('./api/transcribe');
 const notifyHandler = require('./api/notify');
 
 // Per-IP rate limits for dev server (mirrors production platform-level limits)
 const defaultLimiter = rateLimit({ windowMs: 60_000, max: 60, standardHeaders: true, legacyHeaders: false });
 const aiLimiter     = rateLimit({ windowMs: 60_000, max: 20, standardHeaders: true, legacyHeaders: false });
 const stripeLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false });
+const transcribeLimiter = rateLimit({ windowMs: 60_000, max: 20, standardHeaders: true, legacyHeaders: false });
 
 // debug: show whether key is present (never print the key)
 try { console.log('[dev] dev-server OPENAI_API_KEY present:', !!process.env.OPENAI_API_KEY); } catch (e) { void e; }
@@ -52,11 +54,14 @@ app.options('/api/ai', (req, res) => res.sendStatus(204));
 app.options('/api/account', (req, res) => res.sendStatus(204));
 app.options('/api/stripe', (req, res) => res.sendStatus(204));
 app.options('/api/notify', (req, res) => res.sendStatus(204));
+app.options('/api/transcribe', (req, res) => res.sendStatus(204));
 
 app.post('/api/ai', aiLimiter, routeHandler('ai', aiHandler));
 app.post('/api/account', defaultLimiter, routeHandler('account', accountHandler));
 app.post('/api/stripe', stripeLimiter, routeHandler('stripe', stripeHandler));
 app.post('/api/notify', defaultLimiter, routeHandler('notify', notifyHandler));
+// Base64 audio outgrows the shared 1mb parser, so this route gets its own.
+app.post('/api/transcribe', transcribeLimiter, express.json({ limit: '8mb' }), routeHandler('transcribe', transcribeHandler));
 
 const port = process.env.PORT || 3001;
 app.listen(port, () => {

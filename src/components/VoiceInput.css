@@ -1,0 +1,184 @@
+/* Voice dictation control. Sits inside the bottom-right of a textarea, so the
+   idle state is deliberately quiet — a single mic glyph — and only expands into
+   the waveform bar while actually listening. */
+
+.voice-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.voice-input > * {
+  pointer-events: auto;
+}
+
+/* ── Trigger ─────────────────────────────────────────────────────────────── */
+
+.voice-input-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(20, 14, 35, 0.85);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: color 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+}
+
+.voice-input-btn:hover:not(:disabled),
+.voice-input-btn:focus-visible {
+  color: var(--primary);
+  border-color: rgba(201, 167, 240, 0.5);
+}
+
+.voice-input-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.voice-input-btn.is-recording {
+  color: #ffd9df;
+  border-color: rgba(255, 120, 140, 0.7);
+  background: rgba(120, 26, 44, 0.55);
+  animation: voicePulse 1.9s ease-in-out infinite;
+}
+
+.voice-input-btn.is-busy {
+  color: var(--primary);
+  border-color: rgba(201, 167, 240, 0.45);
+}
+
+@keyframes voicePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 120, 140, 0.32); }
+  50%      { box-shadow: 0 0 0 7px rgba(255, 120, 140, 0); }
+}
+
+.voice-input-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(201, 167, 240, 0.28);
+  border-top-color: var(--primary);
+  animation: voiceSpin 0.7s linear infinite;
+}
+
+@keyframes voiceSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Live recording strip ────────────────────────────────────────────────── */
+
+.voice-input-live {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  height: 36px;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 120, 140, 0.35);
+  background: rgba(22, 12, 20, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: voiceStripIn 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes voiceStripIn {
+  from { opacity: 0; transform: translateX(8px) scaleX(0.9); }
+  to   { opacity: 1; transform: translateX(0) scaleX(1); }
+}
+
+.voice-input-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color 0.16s ease;
+}
+
+.voice-input-cancel:hover,
+.voice-input-cancel:focus-visible {
+  color: #ff9fb1;
+}
+
+/* ── Waveform ────────────────────────────────────────────────────────────── */
+
+.voice-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 20px;
+  width: 104px;
+}
+
+.voice-wave-bar {
+  flex: 1;
+  min-width: 2px;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #f0a8bb, var(--primary));
+  transform: scaleY(0.08);
+  transform-origin: center;
+  will-change: transform;
+}
+
+.voice-input-clock {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.voice-input-clock.is-ending {
+  color: #ff9fb1;
+}
+
+/* The bars are a readout of the user's own voice, not decoration, so they keep
+   moving under reduced motion — only the ambient pulse and slide are dropped. */
+@media (prefers-reduced-motion: reduce) {
+  .voice-input-btn.is-recording { animation: none; }
+  .voice-input-live { animation: none; }
+}
+
+/* ── Textarea integration ────────────────────────────────────────────────── */
+
+.voice-field {
+  position: relative;
+  display: block;
+}
+
+.voice-field > textarea {
+  display: block;
+  width: 100%;
+}
+
+.voice-field-affordance {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+}
+
+/* Keep dictated text clear of the button while it sits over the field. */
+.voice-field > textarea {
+  padding-bottom: 52px;
+}
+
+@media (max-width: 420px) {
+  .voice-wave { width: 78px; }
+}

@@ -12,6 +12,7 @@ import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
 import { getModerationFeedback } from '../utils/contentModeration';
 import { highlightSnippet } from '../utils/highlight';
 import useEscapeKey from '../hooks/useEscapeKey';
+import VoiceInput from '../components/VoiceInput';
 import './DreamJournal.css';
 import { appUserPropType } from '../propTypes';
 
@@ -375,6 +376,10 @@ export default function DreamJournal({ user }) {
     setTaggedUsers([]); setTagHandle(''); setTaggingStatus('');
   };
 
+  const appendDictation = useCallback((text) => {
+    setContent((prev) => (prev.trim() ? `${prev.replace(/\s+$/, '')} ${text}` : text));
+  }, []);
+
   const closeModal = useCallback(() => {
     if (loading) return;
     void triggerLightHaptic();
@@ -708,14 +713,24 @@ export default function DreamJournal({ user }) {
                   disabled={loading}
                 />
               </div>
-              <textarea
-                className="dream-textarea"
-                placeholder="Describe everything you remember…"
-                aria-label="Dream description"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                disabled={loading}
-              />
+              <div className="voice-field">
+                <textarea
+                  className="dream-textarea"
+                  placeholder="Describe everything you remember…"
+                  aria-label="Dream description"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  disabled={loading}
+                />
+                <div className="voice-field-affordance">
+                  <VoiceInput
+                    onTranscript={appendDictation}
+                    onNotice={setToast}
+                    disabled={loading}
+                    label="Dictate your dream"
+                  />
+                </div>
+              </div>
               <div className="visibility-section">
                 <p className="section-label">Who can see this dream?</p>
                 <div className="visibility-options">
