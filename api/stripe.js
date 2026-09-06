@@ -75,6 +75,12 @@ const handleCreateCheckout = async (req, res) => {
     mode,
     line_items: [{ price: priceId, quantity: 1 }],
     client_reference_id: uid,
+    // `client_reference_id` only lives on the checkout session. Later
+    // subscription events (notably customer.subscription.deleted) carry the
+    // subscription object instead, so stamp the uid onto it here — without this
+    // a cancellation has no user to downgrade and silently does nothing.
+    metadata: { uid },
+    ...(mode === 'subscription' ? { subscription_data: { metadata: { uid } } } : {}),
     success_url: successUrl || `${req.headers.origin}/settings?payment=success`,
     cancel_url:  cancelUrl  || `${req.headers.origin}/settings?payment=cancelled`,
   });

@@ -25,14 +25,21 @@ const verifyCaller = async (req, expectedUid) => {
   return admin;
 };
 
-const resolveEffectiveTier = (profileEmail, envPremiumEmails) => {
+// PREMIUM_EMAILS is a comp list, so it can only ever *grant* Pro.
+//
+// It must never downgrade: a paying Stripe or RevenueCat subscriber is not on
+// that list, and this runs on every app start. Returning 'free' for them used
+// to overwrite a legitimately paid tier. Revoking access belongs to the payment
+// providers — the Stripe `customer.subscription.deleted` webhook and the
+// RevenueCat customer-info sync, both of which write the tier directly.
+const isComped = (profileEmail, envPremiumEmails) => {
   const premiumEmails = (envPremiumEmails || '')
     .split(',')
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean);
   const email = (profileEmail || '').trim().toLowerCase();
-  if (!email) return 'free';
-  return premiumEmails.includes(email) ? 'premium' : 'free';
+  if (!email) return false;
+  return premiumEmails.includes(email);
 };
 
 module.exports = async function handler(req, res) {
@@ -70,7 +77,9 @@ module.exports = async function handler(req, res) {
       if (profileError) throw profileError;
 
       const currentTier = profile?.subscription?.tier === 'premium' ? 'premium' : 'free';
-      const effectiveTier = resolveEffectiveTier(profile?.email, process.env.PREMIUM_EMAILS || '');
+      const effectiveTier = (currentTier === 'premium' || isComped(profile?.email, process.env.PREMIUM_EMAILS || ''))
+        ? 'premium'
+        : 'free';
 
       if (effectiveTier !== currentTier) {
         const nextSubscription = {
