@@ -99,10 +99,29 @@
 }
 
 .home-feature-card {
-  padding: 0.8rem;
+  padding: 0.9rem;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  /* Stagger off the card's own index so the three arrive in reading order
+     rather than all at once. `backwards` fill — never `both` — so no transform
+     is left on the card afterwards. */
+  animation: slideInUp 0.32s ease-out backwards;
+  animation-delay: calc(0.06s * var(--card-index, 0) + 0.08s);
+}
+
+.home-feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 0.6rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  color: var(--primary);
+  background: rgba(201, 167, 240, 0.12);
+  border: 1px solid rgba(201, 167, 240, 0.22);
 }
 
 .home-feature-card h3 {
@@ -116,11 +135,30 @@
   line-height: 1.5;
 }
 
+/* The icons replace the bullets rather than sitting alongside them, so the
+   list gains meaning without gaining clutter. */
 .home-security ul {
   margin: 0;
-  padding-left: 1.1rem;
+  padding-left: 0;
+  list-style: none;
   color: var(--text-secondary);
   line-height: 1.6;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.home-security li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.home-security li > svg {
+  flex-shrink: 0;
+  width: 15px;
+  margin-top: 0.28em;
+  color: var(--primary);
+  opacity: 0.85;
 }
 
 .home-footer {
@@ -135,4 +173,10 @@
 .home-footer a {
   color: var(--primary);
   text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-feature-card {
+    animation: none;
+  }
 }

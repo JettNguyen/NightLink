@@ -1,6 +1,39 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faBook, faWandMagicSparkles, faUserGroup,
+  faEye, faLightbulb, faShieldHalved, faSliders,
+} from '@fortawesome/free-solid-svg-icons';
 import './HomePage.css';
+
+// One icon per claim, no more. The page is a first impression for people who
+// may not think of dreamwork as a software category, and a wall of symbols
+// reads as occult shorthand rather than as a product.
+const FEATURES = [
+  {
+    icon: faBook,
+    title: 'Journal with intention',
+    body: 'Write, tag, and organize dreams in a focused space designed for nightly reflection.',
+  },
+  {
+    icon: faWandMagicSparkles,
+    title: 'AI insight styles',
+    body: 'Choose from grounded, mystical, and astrology-style interpretations that match your vibe.',
+  },
+  {
+    icon: faUserGroup,
+    title: 'Optional social sharing',
+    body: 'Keep dreams private by default, or share selected entries with your community.',
+  },
+];
+
+const PRIVACY_POINTS = [
+  { icon: faEye, text: 'Dream visibility controls on every entry' },
+  { icon: faLightbulb, text: 'AI summaries for reflection only' },
+  { icon: faShieldHalved, text: 'No AI model training on your dream content' },
+  { icon: faSliders, text: 'Account and policy controls in-app at any time' },
+];
 
 export default function HomePage() {
   useEffect(() => {
@@ -29,28 +62,31 @@ export default function HomePage() {
       <section className="home-section">
         <h2>What you can do</h2>
         <div className="home-feature-grid">
-          <article className="home-feature-card">
-            <h3>Journal with intention</h3>
-            <p>Write, tag, and organize dreams in a focused space designed for nightly reflection.</p>
-          </article>
-          <article className="home-feature-card">
-            <h3>AI insight styles</h3>
-            <p>Choose from grounded, mystical, and astrology-style interpretations that match your vibe.</p>
-          </article>
-          <article className="home-feature-card">
-            <h3>Optional social sharing</h3>
-            <p>Keep dreams private by default, or share selected entries with your community.</p>
-          </article>
+          {FEATURES.map((feature, index) => (
+            <article
+              className="home-feature-card"
+              key={feature.title}
+              style={{ '--card-index': index }}
+            >
+              <span className="home-feature-icon" aria-hidden="true">
+                <FontAwesomeIcon icon={feature.icon} />
+              </span>
+              <h3>{feature.title}</h3>
+              <p>{feature.body}</p>
+            </article>
+          ))}
         </div>
       </section>
 
       <section className="home-section home-security">
         <h2>Privacy by design</h2>
         <ul>
-          <li>Dream visibility controls on every entry</li>
-          <li>AI summaries for reflection only</li>
-          <li>No AI model training on your dream content</li>
-          <li>Account and policy controls in-app at any time</li>
+          {PRIVACY_POINTS.map((point) => (
+            <li key={point.text}>
+              <FontAwesomeIcon icon={point.icon} aria-hidden="true" />
+              <span>{point.text}</span>
+            </li>
+          ))}
         </ul>
       </section>
 
