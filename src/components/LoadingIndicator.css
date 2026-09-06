@@ -8,7 +8,7 @@
   text-align: center;
   color: var(--text-secondary);
   letter-spacing: 0.02em;
-  animation: fadeIn 0.3s ease;
+  animation: fadeIn 0.2s ease-out;
 }
 
 .loading-indicator-start {

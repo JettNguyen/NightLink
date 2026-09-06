@@ -125,6 +125,20 @@ p {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Page entrance. `backwards` fill only — a lingering `transform` on a page root
+   would make it the containing block for every `position: fixed` modal and
+   toast inside it, so the transform must be gone once the animation ends. */
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.page-container,
+.insights-page,
+.home-page {
+  animation: pageEnter 200ms ease-out backwards;
+}
+
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 @keyframes glowSweep {
@@ -244,9 +258,11 @@ html[data-native-platform='ios'] .app-main--with-nav {
   animation: glowSweep 8s ease-in-out infinite;
 }
 
-.primary-btn:hover {
-  filter: brightness(1.12);
-  box-shadow: var(--shadow-soft), 0 0 20px rgba(201, 167, 240, 0.15);
+@media (hover: hover) and (pointer: fine) {
+  .primary-btn:hover {
+    filter: brightness(1.12);
+    box-shadow: var(--shadow-soft), 0 0 20px rgba(201, 167, 240, 0.15);
+  }
 }
 
 .primary-btn:disabled {
@@ -262,9 +278,11 @@ html[data-native-platform='ios'] .app-main--with-nav {
   border-color: var(--border);
 }
 
-.secondary-btn:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+@media (hover: hover) and (pointer: fine) {
+  .secondary-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
 }
 
 .ghost-btn {
@@ -320,10 +338,12 @@ button, a, [role="button"] {
   backdrop-filter: blur(14px);
 }
 
-.card-shell:hover {
-  box-shadow: var(--shadow-soft);
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.14);
+@media (hover: hover) and (pointer: fine) {
+  .card-shell:hover {
+    box-shadow: var(--shadow-soft);
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.14);
+  }
 }
 
 .empty-state {
@@ -462,11 +482,17 @@ html[data-native-platform='ios'] .profile-ai-badge {
   box-shadow: var(--glow-primary);
 }
 
-.reaction-chip:hover,
 .reaction-chip:focus-visible {
   border-color: var(--primary);
   background: rgba(201, 167, 240, 0.1);
   outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .reaction-chip:hover {
+    border-color: var(--primary);
+    background: rgba(201, 167, 240, 0.1);
+  }
 }
 
 .reaction-emoji-icon {
@@ -505,10 +531,13 @@ html[data-native-platform='ios'] .profile-ai-badge {
   transition: border-color 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
 }
 
-.emoji-option:hover,
 .emoji-option:focus-visible {
   border-color: var(--primary);
   outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .emoji-option:hover { border-color: var(--primary); }
 }
 
 .emoji-option.selected {
@@ -573,9 +602,11 @@ html[data-native-platform='ios'] .profile-ai-badge {
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.emoji-clear-btn:hover {
-  background: rgba(255, 100, 100, 0.12);
-  border-color: rgba(255, 100, 100, 0.45);
+@media (hover: hover) and (pointer: fine) {
+  .emoji-clear-btn:hover {
+    background: rgba(255, 100, 100, 0.12);
+    border-color: rgba(255, 100, 100, 0.45);
+  }
 }
 
 .reaction-emoji-text {
@@ -719,8 +750,8 @@ html[data-native-platform='ios'] .profile-ai-badge {
   line-height: 1;
 }
 
-.selected-pill button:hover {
-  color: var(--primary);
+@media (hover: hover) and (pointer: fine) {
+  .selected-pill button:hover { color: var(--primary); }
 }
 
 @media (max-width: 768px) {
@@ -822,4 +853,159 @@ html[data-native-platform='ios'].is-scrolling .pill-active:active {
   border-color: var(--primary) !important;
   background-color: rgba(183, 183, 240, 0.1) !important;
   box-shadow: var(--glow-primary) !important;
+}
+
+/* ── Interaction feedback ────────────────────────────────────────────────────
+ * Two separate concerns, deliberately kept apart:
+ *
+ *   Press  — applies on every device. `-webkit-tap-highlight-color` is cleared
+ *            globally above, so without these a tap on a phone gives no
+ *            feedback at all. The transition lives inside the `:active` rule so
+ *            the press reads instantly and the release snaps back.
+ *   Hover  — gated behind `hover: hover` + `pointer: fine`. Ungated `:hover`
+ *            sticks to whatever a finger last touched until something else is
+ *            tapped, which is what `iosTapFix.js` exists to paper over.
+ * ------------------------------------------------------------------------- */
+
+.primary-btn:active,
+.secondary-btn:active,
+.ghost-btn:active,
+.danger-btn:active,
+.auth-submit:active,
+.auth-google-btn:active,
+.auth-apple-btn:active,
+.request-btn:active,
+.follow-action-btn:active,
+.moderation-action-btn:active,
+.edit-profile-btn:active,
+.settings-btn:active,
+.add-tag-btn:active,
+.close-btn:active,
+.report-reason-btn:active,
+.feed-card-menu-item:active,
+.activity-clear-btn:active,
+.prompt-option-btn:active,
+.prompt-option:active,
+.more-options-toggle:active,
+.detail-share-toggle:active,
+.voice-input-btn:active {
+  transform: scale(0.965);
+  transition: transform 80ms ease;
+}
+
+/* Cards are large, so they take a much smaller scale — anything more reads as
+   the whole page lurching rather than the card acknowledging the tap. */
+.card-shell:active,
+.feed-card:active,
+.dream-card:active,
+.profile-dream-card:active,
+.tagged-dream-card:active,
+.search-dream-card:active,
+.person-card:active,
+.connections-card:active,
+.connections-card-main:active,
+.activity-card-main:active,
+.audience-result:active,
+.stat-button:active {
+  transform: scale(0.99);
+  transition: transform 80ms ease;
+}
+
+.pill:active,
+.chip:active,
+.reaction-chip:active,
+.emoji-option:active,
+.visibility-chip:active,
+.feed-tab:active,
+.dream-tab:active,
+.connections-tab:active,
+.view-toggle-btn:active,
+.filter-toggle .chip:active,
+.reaction-button:active,
+.comment-heart-btn:active,
+.comment-reply-btn:active,
+.comment-report-btn:active,
+.comment-delete-btn:active,
+.selected-pill button:active,
+.tagged-pill button:active,
+.detail-tag-remove:active,
+.avatar-option:active,
+.color-swatch:active,
+.calendar-day:active,
+.nav-ios-tab:active,
+.nav-ios-back-btn:active {
+  transform: scale(0.93);
+  transition: transform 70ms ease;
+}
+
+/* Disabled controls must not look pressable. */
+.primary-btn:disabled:active,
+.secondary-btn:disabled:active,
+.ghost-btn:disabled:active,
+.danger-btn:disabled:active,
+button:disabled:active {
+  transform: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ghost-btn:hover:not(:disabled),
+  .danger-btn:hover:not(:disabled) {
+    color: var(--text);
+    filter: brightness(1.15);
+  }
+
+  .pill:hover,
+  .chip:hover,
+  .view-toggle-btn:hover,
+  .feed-tab:hover,
+  .dream-tab:hover,
+  .connections-tab:hover {
+    border-color: rgba(201, 167, 240, 0.45);
+    color: var(--text);
+  }
+
+  .feed-card:hover,
+  .dream-card:hover,
+  .profile-dream-card:hover,
+  .tagged-dream-card:hover,
+  .search-dream-card:hover,
+  .person-card:hover,
+  .connections-card:hover,
+  .activity-card:hover {
+    border-color: rgba(201, 167, 240, 0.28);
+    background-color: rgba(255, 255, 255, 0.055);
+  }
+
+  .calendar-day:hover:not(.is-selected) {
+    border-color: rgba(201, 167, 240, 0.4);
+  }
+
+  .avatar-option:hover,
+  .color-swatch:hover,
+  .report-reason-btn:hover,
+  .feed-card-menu-item:hover,
+  .prompt-option-btn:hover,
+  .audience-result:hover {
+    border-color: rgba(201, 167, 240, 0.45);
+  }
+
+  .activity-clear-btn:hover,
+  .comment-reply-btn:hover,
+  .comment-report-btn:hover {
+    color: var(--primary);
+  }
+
+  .comment-delete-btn:hover {
+    color: #ff9fb1;
+  }
+}
+
+/* Presses are feedback, not decoration, but they still respect the global
+   reduced-motion rule above, which zeroes out every transition duration. */
+@media (prefers-reduced-motion: reduce) {
+  .page-container,
+  .insights-page,
+  .home-page {
+    animation: none;
+  }
 }

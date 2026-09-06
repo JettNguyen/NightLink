@@ -1,6 +1,5 @@
 .dream-detail-page {
   padding-top: calc(88px + env(safe-area-inset-top) + 0.75rem);
-  animation: fadeIn 0.4s ease;
 }
 
 .dream-detail-page .detail-card {
@@ -18,7 +17,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  animation: slideInUp 0.45s ease 0.1s both;
+  animation: slideInUp 0.24s ease-out 0.05s both;
 }
 
 .detail-toolbar {
@@ -26,7 +25,7 @@
   align-items: center;
   justify-content: flex-start;
   margin-bottom: 0.25rem;
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn 0.22s ease-out;
 }
 
 .detail-back-btn {

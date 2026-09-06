@@ -806,32 +806,32 @@
   color: var(--text-secondary);
   padding: 3rem 1rem;
   font-size: 1rem;
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn 0.22s ease-out;
 }
 
 .journal-header {
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn 0.22s ease-out;
 }
 
 .journal-header h1 {
-  animation: slideInUp 0.4s ease 0.05s both;
+  animation: slideInUp 0.22s ease-out 0.03s both;
 }
 
 .journal-header .page-subtitle {
-  animation: slideInUp 0.4s ease 0.1s both;
+  animation: slideInUp 0.22s ease-out 0.05s both;
 }
 
 .journal-header .action-group {
-  animation: fadeIn 0.5s ease 0.15s both;
+  animation: fadeIn 0.24s ease-out 0.08s both;
 }
 
 
 .dreams-list {
-  animation: fadeIn 0.5s ease 0.2s both;
+  animation: fadeIn 0.24s ease-out 0.1s both;
 }
 
 .journal-search-row {
-  animation: fadeIn 0.4s ease 0.18s both;
+  animation: fadeIn 0.22s ease-out 0.09s both;
 }
 
 .journal-search-input {
@@ -857,7 +857,7 @@
 }
 
 .dream-card {
-  animation: slideInUp 0.4s ease both;
+  animation: slideInUp 0.22s ease-out both;
 }
 
 @media (max-width: 768px) {

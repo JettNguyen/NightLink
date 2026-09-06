@@ -1,20 +1,20 @@
 .search-header {
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn 0.22s ease-out;
 }
 
 .search-header h1 {
-  animation: slideInUp 0.4s ease 0.05s both;
+  animation: slideInUp 0.22s ease-out 0.03s both;
 }
 
 .search-header .page-subtitle {
-  animation: slideInUp 0.4s ease 0.1s both;
+  animation: slideInUp 0.22s ease-out 0.05s both;
 }
 
 .search-box {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  animation: fadeIn 0.5s ease 0.15s both;
+  animation: fadeIn 0.24s ease-out 0.08s both;
 }
 
 .filter-toggle {
@@ -258,23 +258,23 @@
 }
 
 .search-results {
-  animation: fadeIn 0.5s ease 0.2s both;
+  animation: fadeIn 0.24s ease-out 0.1s both;
 }
 
 .people-grid {
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn 0.22s ease-out;
 }
 
 .person-card {
-  animation: slideInUp 0.4s ease both;
+  animation: slideInUp 0.22s ease-out both;
 }
 
 .dream-grid {
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn 0.22s ease-out;
 }
 
 .search-dream-card {
-  animation: slideInUp 0.4s ease both;
+  animation: slideInUp 0.22s ease-out both;
 }
 
 @media (max-width: 640px) {

@@ -1,6 +1,6 @@
 .connections-header {
   margin-bottom: 0.9rem;
-  animation: fadeIn 0.35s ease;
+  animation: fadeIn 0.2s ease-out;
 }
 
 .connections-header h1 {
