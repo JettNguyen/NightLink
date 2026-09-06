@@ -6,7 +6,10 @@ import { defineConfig } from "eslint/config";
 
 export default defineConfig([
   {
-    ignores: ["dist/**"],
+    // `ios/` holds the native project plus the web bundle Capacitor copies into
+    // it, so linting it just re-reports thousands of errors from generated and
+    // vendored code — and it was failing CI.
+    ignores: ["dist/**", "ios/**", "**/*.min.js", "dev-dist/**"],
   },
   {
     files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],

@@ -440,7 +440,9 @@ export default function Feed({ user }) {
       const end = input.value.length;
       input.setSelectionRange(end, end);
       if (typeof navigator !== 'undefined' && navigator.virtualKeyboard?.show) {
-        try { navigator.virtualKeyboard.show(); } catch { }
+        // Best-effort only: the API is unavailable on iOS and can throw when the
+        // page has not opted into virtualkeyboard overlay mode.
+        try { navigator.virtualKeyboard.show(); } catch { /* keyboard stays closed */ }
       }
     });
     return () => cancelAnimationFrame(raf);
