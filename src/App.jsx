@@ -55,18 +55,34 @@ const MODAL_SELECTOR = [
   '.voice-input.is-recording',
 ].join(', ');
 
+/**
+ * Resolves the tier the server considers this account to be on, and returns it.
+ *
+ * The server knows things the client cannot: a comped email is premium there
+ * but reads as free from the profile row alone. The response was being thrown
+ * away, so a comped user was shown "upgrade to Pro" until their first
+ * generation came back and corrected it. Returns null when the answer is
+ * unknown — offline, failed, or not signed in — which callers treat as "do not
+ * claim anything about this account yet".
+ */
 const syncSubscriptionTier = async (session) => {
-  if (!session) return;
+  if (!session) return null;
   try {
     const idToken = session.access_token;
-    if (!idToken) return;
-    await fetch(ACCOUNT_ENDPOINT, {
+    if (!idToken) return null;
+    const response = await fetch(ACCOUNT_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
       body: JSON.stringify({ action: 'sync_subscription_tier', uid: session.user.id }),
     });
+    if (!response.ok) return null;
+    const payload = await response.json().catch(() => null);
+    if (payload?.tier === 'premium') return 'premium';
+    if (payload?.tier === 'free') return 'free';
+    return null;
   } catch {
     // Non-critical — silently ignore network errors on startup
+    return null;
   }
 };
 
@@ -578,6 +594,8 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
   const [rcCustomerInfo, setRcCustomerInfo] = useState(null);
+  // null until the server has answered: "unknown", not "free".
+  const [accountTier, setAccountTier] = useState(null);
   const rcListenerIdRef = useRef(null);
 
   // Initialize RevenueCat once the user is known (iOS native only).
@@ -627,7 +645,7 @@ function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         ensureProfile(session).catch(console.error);
-        syncSubscriptionTier(session).catch(console.error);
+        syncSubscriptionTier(session).then(setAccountTier).catch(console.error);
       }
       setUser(buildNormalizedUser(session));
       setLoading(false);
@@ -637,7 +655,7 @@ function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         ensureProfile(session).catch(console.error);
-        syncSubscriptionTier(session).catch(console.error);
+        syncSubscriptionTier(session).then(setAccountTier).catch(console.error);
       }
       setUser(buildNormalizedUser(session));
       setLoading(false);
@@ -657,7 +675,7 @@ function App() {
   }, [ready]);
 
   return (
-    <SubscriptionContext.Provider value={{ rcCustomerInfo, setRcCustomerInfo }}>
+    <SubscriptionContext.Provider value={{ rcCustomerInfo, setRcCustomerInfo, accountTier }}>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ScrollToTop />
         <ErrorBoundary>

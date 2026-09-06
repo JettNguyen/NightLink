@@ -1333,3 +1333,51 @@
   justify-content: flex-end;
   margin-top: 0.25rem;
 }
+
+/* Generation placeholder. A button that only changes its label leaves the rest
+   of the page looking exactly as it did, which is what reads as frozen — this
+   puts the movement where the answer is going to appear. */
+.analysis-pending {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding-top: 0.15rem;
+}
+
+.analysis-pending-line {
+  height: 0.7rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(201, 167, 240, 0.16) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: analysisShimmer 1.35s ease-in-out infinite;
+}
+
+.analysis-pending-line:nth-child(2) { width: 92%; animation-delay: 0.12s; }
+.analysis-pending-line:nth-child(3) { width: 68%; animation-delay: 0.24s; }
+
+@keyframes analysisShimmer {
+  from { background-position: 140% 0; }
+  to   { background-position: -40% 0; }
+}
+
+.analysis-pending-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.35rem 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+/* The bars carry no information, so under reduced motion the spinner in the
+   note is left to do the work alone. */
+@media (prefers-reduced-motion: reduce) {
+  .analysis-pending-line {
+    animation: none;
+  }
+}

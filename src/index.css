@@ -215,6 +215,38 @@ html[data-native-platform='ios'] [data-nav-direction='tab'] .insights-page {
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+/* Inline activity spinner. Sized from the current font-size so it drops into a
+   button label without needing its own dimensions. Static text alone ("Working
+   …") reads as a frozen screen; something has to actually move. */
+.inline-spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  opacity: 0.75;
+  flex-shrink: 0;
+  animation: inlineSpin 0.7s linear infinite;
+}
+
+@keyframes inlineSpin {
+  to { transform: rotate(360deg); }
+}
+
+.btn-loading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+}
+
+/* Reduced motion slows the spinner rather than stopping it — a frozen ring is
+   exactly the "is this broken?" signal it exists to prevent. */
+@media (prefers-reduced-motion: reduce) {
+  .inline-spinner { animation-duration: 2.4s; }
+}
+
 @keyframes glowSweep {
   0% { transform: translateX(-120%); opacity: 0; }
   45% { opacity: 0.35; }

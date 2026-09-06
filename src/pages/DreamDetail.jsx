@@ -169,7 +169,7 @@ const canAccess = (dream, uid, author) => {
 };
 
 export default function DreamDetail({ user }) {
-  const { rcCustomerInfo } = useRcCustomerInfo();
+  const { rcCustomerInfo, accountTier } = useRcCustomerInfo();
   const { dreamId } = useParams();
   const navigate = useNavigate();
   const [dream, setDream] = useState(null);
@@ -641,7 +641,7 @@ export default function DreamDetail({ user }) {
           // RC is authoritative on iOS — prefer live RC state over potentially
           // stale Supabase data so users are never falsely shown as 'free'.
           const rcIsPro = IS_RC_SUPPORTED && isProFromCustomerInfo(rcCustomerInfo);
-          const tier = supabaseTier === 'premium' || rcIsPro ? 'premium' : 'free';
+          const tier = supabaseTier === 'premium' || rcIsPro || accountTier === 'premium' ? 'premium' : 'free';
           const usage = data?.aiUsage || {};
           const thisMonth = new Date().toISOString().slice(0, 7);
           const monthlyCount = (usage.monthYear || '') === thisMonth ? (usage.monthlyCount || 0) : 0;
@@ -682,6 +682,19 @@ export default function DreamDetail({ user }) {
       return { ...prev, tier: 'premium', remainingFree: Math.max(0, tierLimit - used) };
     });
   }, [rcCustomerInfo, viewerId]);
+
+  // Same catch-up for the server's answer, which arrives after the profile read
+  // and is the only source that knows about comped accounts. Without this the
+  // page would keep believing the stale 'free' it read from the profile row.
+  useEffect(() => {
+    if (accountTier !== 'premium') return;
+    setAiQuota((prev) => {
+      if (!prev || prev.tier === 'premium') return prev;
+      const tierLimit = 30;
+      const used = Math.max(0, 1 - prev.remainingFree);
+      return { ...prev, tier: 'premium', remainingFree: Math.max(0, tierLimit - used) };
+    });
+  }, [accountTier]);
 
   useEffect(() => {
     if (!dreamId) {
@@ -2378,7 +2391,17 @@ export default function DreamDetail({ user }) {
         <div className="detail-summary">
             <div className="detail-summary-text">
               <h3>Analysis</h3>
-              {dream.aiGenerated && dream.aiInsights ? (
+              {analyzing || reanalyzing ? (
+                <div className="analysis-pending" role="status" aria-live="polite">
+                  <span className="analysis-pending-line" />
+                  <span className="analysis-pending-line" />
+                  <span className="analysis-pending-line" />
+                  <p className="analysis-pending-note">
+                    <span className="inline-spinner" aria-hidden="true" />
+                    Reading your dream and looking for patterns…
+                  </p>
+                </div>
+              ) : dream.aiGenerated && dream.aiInsights ? (
                 <>
                   <p className="detail-insight">{dream.aiInsights}</p>
                   {isOwner && Array.isArray(dream.aiConnections) && dream.aiConnections.length > 0 && (
@@ -2475,7 +2498,9 @@ export default function DreamDetail({ user }) {
                       onClick={() => handleAnalyzeDream()}
                       disabled={analyzing || aiLockedByQuota}
                     >
-                      {analyzing ? 'Generating title & analysis…' : 'Generate title & analysis'}
+                      {analyzing
+                        ? <span className="btn-loading"><span className="inline-spinner" aria-hidden="true" />Generating…</span>
+                        : 'Generate title & analysis'}
                     </button>
                   ) : null}
                   {dream.aiGenerated ? (
@@ -2486,7 +2511,9 @@ export default function DreamDetail({ user }) {
                         onClick={() => setPromptSelectorOpen(!promptSelectorOpen)}
                         disabled={reanalyzing || analyzing || aiLockedByQuota}
                       >
-                        {reanalyzing ? 'Regenerating…' : 'Regenerate with different prompt'}
+                        {reanalyzing
+                          ? <span className="btn-loading"><span className="inline-spinner" aria-hidden="true" />Regenerating…</span>
+                          : 'Regenerate with different prompt'}
                       </button>
                       {promptSelectorOpen && (
                         <div className="prompt-selector-panel">
@@ -2547,7 +2574,7 @@ export default function DreamDetail({ user }) {
                     </div>
                   ) : null}
                 </div>
-                {aiQuota && aiQuota.tier !== 'premium' && (
+                {aiQuota && aiQuota.tier !== 'premium' && accountTier === 'free' && (
                   <div className="ai-upgrade-cta">
                     <p>Unlock all insight styles, custom instructions, and cross-dream pattern analysis with Pro.</p>
                     <div className="ai-upgrade-cta-actions">
