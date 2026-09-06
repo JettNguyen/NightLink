@@ -160,19 +160,6 @@ input, textarea, select {
   outline: none;
 }
 
-/* WebKit gives type="search" its own native chrome (and a low-contrast cancel
-   glyph on this dark theme). Strip it so search fields match every other input. */
-input[type='search'] {
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-input[type='search']::-webkit-search-cancel-button,
-input[type='search']::-webkit-search-decoration {
-  -webkit-appearance: none;
-  appearance: none;
-}
-
 a {
   text-decoration: none;
   color: inherit;
