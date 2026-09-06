@@ -271,26 +271,62 @@ export default function Feed({ user }) {
 
   const persistViewerSafetySettings = useCallback(async (nextSettings) => {
     if (!viewerId) return;
-    const merged = { ...viewerSettingsRef.current, ...(nextSettings || {}) };
+    const previous = viewerSettingsRef.current;
+    const merged = { ...previous, ...(nextSettings || {}) };
     viewerSettingsRef.current = merged;
-    await supabase.from('profiles').update({ settings: merged }).eq('id', viewerId);
+    // Supabase returns the failure rather than throwing, so surface it as one
+    // — callers roll their optimistic state back on a rejection.
+    const { error: persistError } = await supabase.from('profiles').update({ settings: merged }).eq('id', viewerId);
+    if (persistError) {
+      viewerSettingsRef.current = previous;
+      throw persistError;
+    }
   }, [viewerId]);
 
   const handleHideDream = useCallback(async (event, dreamId) => {
     event.preventDefault(); event.stopPropagation();
     if (!dreamId) return;
-    const nextHidden = [...new Set([...(hiddenDreamIds || []), dreamId])];
+    const previousHidden = hiddenDreamIds || [];
+    const nextHidden = [...new Set([...previousHidden, dreamId])];
     setHiddenDreamIds(nextHidden);
-    try { await persistViewerSafetySettings({ hiddenDreamIds: nextHidden }); } catch { }
+    try {
+      await persistViewerSafetySettings({ hiddenDreamIds: nextHidden });
+      setToast('Removed from your feed.');
+    } catch {
+      setHiddenDreamIds(previousHidden);
+      setToast('Could not update your feed right now.');
+    }
   }, [hiddenDreamIds, persistViewerSafetySettings]);
 
-  const handleBlockAuthor = useCallback(async (event, authorId) => {
+  const blockAuthor = useCallback(async (authorId) => {
+    if (!authorId || !viewerId || authorId === viewerId) return;
+    const previousBlocked = blockedUserIds || [];
+    const nextBlocked = [...new Set([...previousBlocked, authorId])];
+    setBlockedUserIds(nextBlocked);
+    try {
+      await persistViewerSafetySettings({ blockedUserIds: nextBlocked });
+      setToast('User blocked. Their dreams are now hidden from your feed.');
+    } catch {
+      setBlockedUserIds(previousBlocked);
+      setToast('Could not block this user right now.');
+    }
+  }, [blockedUserIds, viewerId, persistViewerSafetySettings]);
+
+  // Blocking is a one-tap item in a small overflow menu, so confirm it first.
+  const handleBlockAuthor = useCallback((event, authorId, authorLabel) => {
     event.preventDefault(); event.stopPropagation();
     if (!authorId || !viewerId || authorId === viewerId) return;
-    const nextBlocked = [...new Set([...(blockedUserIds || []), authorId])];
-    setBlockedUserIds(nextBlocked);
-    try { await persistViewerSafetySettings({ blockedUserIds: nextBlocked }); } catch { }
-  }, [blockedUserIds, viewerId, persistViewerSafetySettings]);
+    setConfirmModal({
+      title: 'Block user',
+      message: `Block ${authorLabel || 'this dreamer'}? Their dreams disappear from your feed. You can unblock them from their profile.`,
+      confirmLabel: 'Block',
+      danger: true,
+      onConfirm: () => {
+        setConfirmModal(null);
+        blockAuthor(authorId);
+      },
+    });
+  }, [blockAuthor, viewerId]);
 
   const submitSafetyReport = useCallback(async ({ targetType, targetId, targetUserId, reason, details }) => {
     if (!viewerId) return;
@@ -575,7 +611,7 @@ export default function Feed({ user }) {
                   <button type="button" className="feed-card-menu-item" role="menuitem" onClick={(event) => { closeFeedMenu(); handleHideDream(event, dream.id); }}>Remove from feed</button>
                 )}
                 {!isAnonymous && !isOwnerDream && dream.userId && (
-                  <button type="button" className="feed-card-menu-item" role="menuitem" onClick={(event) => { closeFeedMenu(); handleBlockAuthor(event, dream.userId); }}>Block user</button>
+                  <button type="button" className="feed-card-menu-item" role="menuitem" onClick={(event) => { closeFeedMenu(); handleBlockAuthor(event, dream.userId, authorHandle); }}>Block user</button>
                 )}
                 <button type="button" className="feed-card-menu-item feed-card-menu-item-danger" role="menuitem" onClick={(event) => { closeFeedMenu(); handleReportDream(event, dream); }}>Report</button>
                 {isOwnerDream && (
