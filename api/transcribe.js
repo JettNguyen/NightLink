@@ -32,6 +32,33 @@ const EXTENSION_MIME = {
   wav: 'audio/wav',
 };
 
+// Per-user throttle. Every request costs real money upstream, and unlike the
+// analysis endpoint there is no credit quota in front of this one. In-memory so
+// it is per serverless instance rather than global — enough to stop a runaway
+// client or a naive script, not a substitute for platform rate limiting.
+const RATE_LIMIT_WINDOW_MS = 5 * 60_000;
+const RATE_LIMIT_MAX = 20;
+const recentByUser = new Map();
+
+const isRateLimited = (uid) => {
+  const now = Date.now();
+  const hits = (recentByUser.get(uid) || []).filter((at) => now - at < RATE_LIMIT_WINDOW_MS);
+  if (hits.length >= RATE_LIMIT_MAX) {
+    recentByUser.set(uid, hits);
+    return true;
+  }
+  hits.push(now);
+  recentByUser.set(uid, hits);
+
+  // Opportunistic sweep so the map cannot grow without bound on a warm instance.
+  if (recentByUser.size > 500) {
+    for (const [key, times] of recentByUser) {
+      if (!times.some((at) => now - at < RATE_LIMIT_WINDOW_MS)) recentByUser.delete(key);
+    }
+  }
+  return false;
+};
+
 const getSupabaseAdmin = () => createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -68,11 +95,17 @@ module.exports = async function handler(req, res) {
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'Authentication required.' });
 
+  let callerId;
   try {
     const { data: { user }, error: authError } = await getSupabaseAdmin().auth.getUser(token);
     if (authError || !user) return res.status(401).json({ error: 'Invalid session.' });
+    callerId = user.id;
   } catch {
     return res.status(401).json({ error: 'Invalid session.' });
+  }
+
+  if (isRateLimited(callerId)) {
+    return res.status(429).json({ error: 'Too many voice notes just now. Give it a minute.' });
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
