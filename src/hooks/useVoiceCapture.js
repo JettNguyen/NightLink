@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '../supabase';
+import NativeSpeech, {
+  getNativeSpeechCapability,
+  isNativeSpeechPlatform,
+  resetNativeSpeechCapability,
+} from '../plugins/nativeSpeech';
 
 const DEFAULT_API_ORIGIN = 'https://www.nightlink.dev';
 
@@ -14,6 +19,7 @@ const resolveTranscribeEndpoint = () => {
 const TRANSCRIBE_ENDPOINT = resolveTranscribeEndpoint();
 
 // Hard stop so a forgotten recording can't run up an unbounded upload or bill.
+// Apple's recogniser also refuses to run a single request much past a minute.
 export const MAX_RECORDING_MS = 60_000;
 // Comfortably inside Vercel's 4.5 MB request ceiling once base64 inflates it ~33%.
 const MAX_BLOB_BYTES = 3_500_000;
@@ -38,10 +44,14 @@ const pickRecordingType = () => {
   return { mimeType: '', extension: 'mp4' };
 };
 
-export const isVoiceCaptureSupported = () => (
+const isUploadCaptureSupported = () => (
   typeof navigator !== 'undefined'
   && Boolean(navigator.mediaDevices?.getUserMedia)
   && typeof MediaRecorder !== 'undefined'
+);
+
+export const isVoiceCaptureSupported = () => (
+  isNativeSpeechPlatform() || isUploadCaptureSupported()
 );
 
 const blobToBase64 = (blob) => new Promise((resolve, reject) => {
@@ -69,22 +79,36 @@ const friendlyMicError = (error) => {
   return 'Could not start recording. Please try again.';
 };
 
+const MIC_DENIED = 'Microphone access was denied. Enable it for Nightlink in your settings.';
+
 /**
- * Records a short voice note and returns the transcript.
+ * Records a voice note and returns the transcript.
  *
- * Deliberately not the Web Speech API: `SpeechRecognition` is unavailable in the
- * iOS WKWebView that Capacitor runs, so this records audio and transcribes it
- * server-side, which behaves the same on web and in the native shell.
+ * Two engines sit behind one interface:
  *
- * `analyserRef` exposes the live Web Audio analyser so a visualiser can read
- * amplitude per frame without pushing state through React.
+ * - `live` (iOS only) drives Apple's `SFSpeechRecognizer` through a local
+ *   Capacitor plugin. Words stream back while the user is still talking, it
+ *   costs nothing per use, and on locales with a downloaded model the audio
+ *   never leaves the phone.
+ * - `upload` records with `MediaRecorder` and posts to `/api/transcribe`. This
+ *   is what the web build uses, and what iOS falls back to if the recogniser is
+ *   unavailable — deliberately not the Web Speech API, which does not exist in
+ *   the WKWebView Capacitor runs.
+ *
+ * `analyserRef` (upload) and `levelRef` (live) both expose live amplitude so a
+ * visualiser can read it per frame without pushing state through React.
  */
 export default function useVoiceCapture({ onTranscript, onError } = {}) {
   const [status, setStatus] = useState('idle'); // idle | starting | recording | transcribing
   const [error, setError] = useState('');
   const [elapsedMs, setElapsedMs] = useState(0);
+  // The words heard so far, while the user is still speaking. Only ever
+  // populated by the live engine.
+  const [interimText, setInterimText] = useState('');
+  const [mode, setMode] = useState('upload'); // upload | live
 
   const analyserRef = useRef(null);
+  const levelRef = useRef(0);
   const streamRef = useRef(null);
   const recorderRef = useRef(null);
   const audioContextRef = useRef(null);
@@ -96,28 +120,47 @@ export default function useVoiceCapture({ onTranscript, onError } = {}) {
   const startedAtRef = useRef(0);
   const unmountedRef = useRef(false);
 
+  const modeRef = useRef('upload');
+  const interimRef = useRef('');
+  const listenersRef = useRef([]);
+  // `start` and `stop` reference each other through the auto-stop timer, so the
+  // timer reads the current stop through a ref instead of closing over it.
+  const stopRef = useRef(null);
+
   const onTranscriptRef = useRef(onTranscript);
   const onErrorRef = useRef(onError);
   useEffect(() => { onTranscriptRef.current = onTranscript; }, [onTranscript]);
   useEffect(() => { onErrorRef.current = onError; }, [onError]);
 
-  const releaseAudio = useCallback(() => {
+  const clearTimers = useCallback(() => {
     if (autoStopRef.current) { clearTimeout(autoStopRef.current); autoStopRef.current = null; }
     if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
+  }, []);
+
+  const releaseAudio = useCallback(() => {
+    clearTimers();
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     analyserRef.current = null;
     const context = audioContextRef.current;
     audioContextRef.current = null;
     if (context && context.state !== 'closed') context.close().catch(() => {});
+  }, [clearTimers]);
+
+  const detachNativeListeners = useCallback(() => {
+    const handles = listenersRef.current;
+    listenersRef.current = [];
+    handles.forEach((handle) => { try { handle?.remove?.(); } catch { /* already gone */ } });
   }, []);
 
   useEffect(() => () => {
     unmountedRef.current = true;
     cancelledRef.current = true;
     try { recorderRef.current?.stop(); } catch { /* already inactive */ }
+    detachNativeListeners();
+    if (modeRef.current === 'live') NativeSpeech.cancel().catch(() => {});
     releaseAudio();
-  }, [releaseAudio]);
+  }, [releaseAudio, detachNativeListeners]);
 
   const fail = useCallback((message) => {
     if (unmountedRef.current) return;
@@ -126,8 +169,121 @@ export default function useVoiceCapture({ onTranscript, onError } = {}) {
     onErrorRef.current?.(message);
   }, []);
 
+  const beginTimers = useCallback(() => {
+    startedAtRef.current = Date.now();
+    tickRef.current = setInterval(() => {
+      setElapsedMs(Date.now() - startedAtRef.current);
+    }, 200);
+    autoStopRef.current = setTimeout(() => { stopRef.current?.(); }, MAX_RECORDING_MS);
+  }, []);
+
+  // ── Live engine (iOS) ────────────────────────────────────────────────────
+
+  const settleLive = useCallback((text) => {
+    clearTimers();
+    detachNativeListeners();
+    interimRef.current = '';
+    levelRef.current = 0;
+    if (unmountedRef.current) return;
+    setInterimText('');
+    setStatus('idle');
+    const trimmed = (text || '').trim();
+    if (!trimmed) { fail('No speech was detected. Try again a little closer to the mic.'); return; }
+    onTranscriptRef.current?.(trimmed);
+  }, [clearTimers, detachNativeListeners, fail]);
+
+  /**
+   * Returns true when the live engine took the recording, false when the caller
+   * should fall back to the upload path.
+   */
+  const startLive = useCallback(async () => {
+    let capability = await getNativeSpeechCapability();
+    if (!capability?.available) return false;
+
+    if (capability.speechPermission !== 'granted' || capability.micPermission !== 'granted') {
+      const granted = await NativeSpeech.requestSpeechPermissions().catch(() => null);
+      resetNativeSpeechCapability();
+      if (granted?.micPermission === 'denied') {
+        // The upload path needs the same microphone, so there is nothing to
+        // fall back to.
+        fail(MIC_DENIED);
+        return true;
+      }
+      if (granted?.speechPermission !== 'granted') return false;
+      capability = { ...capability, ...granted };
+    }
+
+    if (cancelledRef.current || unmountedRef.current) return true;
+
+    try {
+      listenersRef.current = await Promise.all([
+        NativeSpeech.addListener('partialResult', ({ text }) => {
+          interimRef.current = text || '';
+          if (!unmountedRef.current) setInterimText(text || '');
+        }),
+        NativeSpeech.addListener('level', ({ level }) => {
+          levelRef.current = typeof level === 'number' ? level : 0;
+        }),
+        NativeSpeech.addListener('error', ({ message }) => {
+          // Never throw away words the user already said over a mid-recording
+          // fault — keep them and only surface the error when there is nothing.
+          if (interimRef.current.trim()) { settleLive(interimRef.current); return; }
+          clearTimers();
+          detachNativeListeners();
+          setInterimText('');
+          fail(message || 'Dictation stopped unexpectedly.');
+        }),
+      ]);
+
+      await NativeSpeech.start({ onDevice: true });
+    } catch (err) {
+      detachNativeListeners();
+      if (err?.code === 'permission' || err?.code === 'unavailable' || err?.code === 'busy') {
+        return false;
+      }
+      return false;
+    }
+
+    if (cancelledRef.current || unmountedRef.current) {
+      detachNativeListeners();
+      NativeSpeech.cancel().catch(() => {});
+      return true;
+    }
+
+    modeRef.current = 'live';
+    setMode('live');
+    setStatus('recording');
+    beginTimers();
+    return true;
+  }, [fail, settleLive, beginTimers, clearTimers, detachNativeListeners]);
+
+  const stopLive = useCallback(async () => {
+    clearTimers();
+    setStatus('transcribing');
+    let text = interimRef.current;
+    try {
+      const result = await NativeSpeech.stop();
+      if (typeof result?.text === 'string') text = result.text;
+    } catch { /* keep whatever the last partial held */ }
+    settleLive(text);
+  }, [clearTimers, settleLive]);
+
+  const cancelLive = useCallback(() => {
+    clearTimers();
+    detachNativeListeners();
+    NativeSpeech.cancel().catch(() => {});
+    interimRef.current = '';
+    levelRef.current = 0;
+    if (unmountedRef.current) return;
+    setInterimText('');
+    setStatus('idle');
+    setElapsedMs(0);
+  }, [clearTimers, detachNativeListeners]);
+
+  // ── Upload engine (web, and iOS fallback) ────────────────────────────────
+
   const transcribe = useCallback(async (blob, extension) => {
-    if (!blob.size) { fail('Nothing was recorded. Try holding the mic a moment longer.'); return; }
+    if (!blob.size) { fail('Nothing was recorded. Try speaking for a moment longer.'); return; }
     if (blob.size > MAX_BLOB_BYTES) { fail('That recording is too long to transcribe. Try a shorter one.'); return; }
 
     setStatus('transcribing');
@@ -159,14 +315,9 @@ export default function useVoiceCapture({ onTranscript, onError } = {}) {
     }
   }, [fail]);
 
-  const start = useCallback(async () => {
-    if (status !== 'idle') return;
-    if (!isVoiceCaptureSupported()) { fail('Voice input is not supported on this device.'); return; }
+  const startUpload = useCallback(async () => {
+    if (!isUploadCaptureSupported()) { fail('Voice input is not supported on this device.'); return; }
 
-    setError('');
-    setElapsedMs(0);
-    setStatus('starting');
-    cancelledRef.current = false;
     chunksRef.current = [];
 
     let stream;
@@ -249,36 +400,71 @@ export default function useVoiceCapture({ onTranscript, onError } = {}) {
       return;
     }
 
-    startedAtRef.current = Date.now();
+    modeRef.current = 'upload';
+    setMode('upload');
     setStatus('recording');
-    tickRef.current = setInterval(() => {
-      setElapsedMs(Date.now() - startedAtRef.current);
-    }, 200);
-    autoStopRef.current = setTimeout(() => {
-      try { recorderRef.current?.stop(); } catch { /* already stopped */ }
-    }, MAX_RECORDING_MS);
-  }, [status, fail, releaseAudio, transcribe]);
+    beginTimers();
+  }, [fail, releaseAudio, transcribe, beginTimers]);
+
+  // ── Shared interface ─────────────────────────────────────────────────────
+
+  const start = useCallback(async () => {
+    if (status !== 'idle') return;
+    if (!isVoiceCaptureSupported()) { fail('Voice input is not supported on this device.'); return; }
+
+    setError('');
+    setElapsedMs(0);
+    setInterimText('');
+    interimRef.current = '';
+    levelRef.current = 0;
+    setStatus('starting');
+    cancelledRef.current = false;
+
+    if (isNativeSpeechPlatform()) {
+      const handled = await startLive().catch(() => false);
+      if (handled) return;
+    }
+
+    modeRef.current = 'upload';
+    await startUpload();
+  }, [status, fail, startLive, startUpload]);
 
   const stop = useCallback(() => {
+    if (modeRef.current === 'live') { void stopLive(); return; }
     if (recorderRef.current?.state === 'recording') {
       try { recorderRef.current.stop(); return; } catch { /* fall through */ }
     }
     cancelledRef.current = true;
     releaseAudio();
     setStatus('idle');
-  }, [releaseAudio]);
+  }, [releaseAudio, stopLive]);
+
+  useEffect(() => { stopRef.current = stop; }, [stop]);
 
   const cancel = useCallback(() => {
     cancelledRef.current = true;
+    if (modeRef.current === 'live') { cancelLive(); return; }
     if (recorderRef.current?.state === 'recording') {
       try { recorderRef.current.stop(); } catch { /* already stopped */ }
     }
     releaseAudio();
     setStatus('idle');
     setElapsedMs(0);
-  }, [releaseAudio]);
+  }, [releaseAudio, cancelLive]);
 
   const clearError = useCallback(() => setError(''), []);
 
-  return { status, error, elapsedMs, analyserRef, start, stop, cancel, clearError };
+  return {
+    status,
+    error,
+    elapsedMs,
+    interimText,
+    mode,
+    analyserRef,
+    levelRef,
+    start,
+    stop,
+    cancel,
+    clearError,
+  };
 }

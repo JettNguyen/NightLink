@@ -35,6 +35,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Nightlink turns your spoken dream into text as you speak it. Recognition runs on your device whenever your language supports it, and nothing is stored.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Nightlink uses your microphone so you can speak a dream entry instead of typing it. Recordings are transcribed to text and are not stored.</string>
 	<key>LSRequiresIPhoneOS</key>
