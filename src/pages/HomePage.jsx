@@ -21,7 +21,7 @@ export default function HomePage() {
           Built with privacy-first controls so your dreams stay sacred.
         </p>
         <div className="home-cta-row">
-          <Link to="/login" className="home-cta-primary">Create account</Link>
+          <Link to="/login?mode=signup" className="home-cta-primary">Create account</Link>
           <Link to="/login" className="home-cta-secondary">Sign in</Link>
         </div>
       </section>

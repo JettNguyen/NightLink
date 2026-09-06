@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -36,7 +36,10 @@ const friendlyMsg = (e) => {
 };
 
 export default function AuthPage() {
-  const [mode, setMode] = useState('signin');
+  const [searchParams] = useSearchParams();
+  // Landing-page "Create account" links through as ?mode=signup so the form
+  // opens on the tab the user actually asked for.
+  const [mode, setMode] = useState(() => (searchParams.get('mode') === 'signup' ? 'signup' : 'signin'));
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [identifier, setIdentifier] = useState('');

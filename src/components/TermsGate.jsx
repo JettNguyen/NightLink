@@ -8,12 +8,22 @@ import './TermsGate.css';
 export const TERMS_VERSION = 'v2';
 export const TERMS_KEY = `nightlink_terms_${TERMS_VERSION}`;
 
+// localStorage throws outright in some privacy modes. Failing closed here just
+// re-shows the gate; App.jsx restores acceptance from the user's profile.
 export function isTermsAccepted() {
-  return localStorage.getItem(TERMS_KEY) === '1';
+  try {
+    return localStorage.getItem(TERMS_KEY) === '1';
+  } catch {
+    return false;
+  }
 }
 
 export function markTermsAccepted() {
-  localStorage.setItem(TERMS_KEY, '1');
+  try {
+    localStorage.setItem(TERMS_KEY, '1');
+  } catch {
+    // Acceptance is also written to the profile, so this is recoverable.
+  }
 }
 
 export default function TermsGate({ onAccepted }) {
