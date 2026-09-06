@@ -120,6 +120,17 @@ p {
   color: #eef5ff;
 }
 
+.pull-refresh-indicator.is-refreshing {
+  border-color: rgba(201, 167, 240, 0.8);
+  color: #eef5ff;
+  animation: pullRefreshPulse 900ms ease-in-out infinite;
+}
+
+@keyframes pullRefreshPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
 @keyframes slideInUp {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }

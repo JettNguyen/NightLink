@@ -14,6 +14,7 @@ import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import { triggerLightHaptic, triggerSuccessHaptic, triggerErrorHaptic } from '../utils/haptics';
 import useEscapeKey from '../hooks/useEscapeKey';
+import useRefreshSignal from '../hooks/useRefreshSignal';
 import { logActivityEvent } from '../services/ActivityService';
 import Toast from '../components/Toast';
 import { ACCOUNT_VISIBILITY, canViewerSeeDream, normalizeAccountVisibility } from '../utils/privacy';
@@ -58,6 +59,7 @@ export default function Profile({ user }) {
   const [reportBusy, setReportBusy] = useState(false);
   const [followRequestState, setFollowRequestState] = useState('none');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const navigate = useNavigate();
   const viewerId = user?.uid || null;
   const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
@@ -138,7 +140,7 @@ export default function Profile({ user }) {
         setUserData(mapProfile(data));
         setProfileLoading(false);
       });
-  }, [targetUserId, viewerId]);
+  }, [targetUserId, viewerId, refreshKey]);
 
   useEffect(() => {
     if (!targetUserId) return;
@@ -148,7 +150,7 @@ export default function Profile({ user }) {
       setDreams((data || []).map(mapDream));
       setDreamsLoading(false);
     });
-  }, [targetUserId, viewingOwnProfile]);
+  }, [targetUserId, viewingOwnProfile, refreshKey]);
 
   useEffect(() => {
     if (!viewerId || !targetUserId || viewingOwnProfile) {
@@ -340,6 +342,8 @@ export default function Profile({ user }) {
       setFollowAction({ type: null });
     }
   }, [followAction.type, targetUserId, viewerData, viewerId, viewingOwnProfile]);
+
+  useRefreshSignal(useCallback(() => setRefreshKey((n) => n + 1), []));
 
   const closeProfileOverlays = useCallback(() => {
     setProfileMenuOpen(false);

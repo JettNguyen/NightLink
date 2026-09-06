@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import useRefreshSignal from './useRefreshSignal';
 import { supabase } from '../supabase';
 import { mapProfile, mapActivity, mapDream } from '../utils/mappers';
 import { markActivityEntriesRead } from '../services/ActivityService';
@@ -37,6 +38,7 @@ const canViewerSeeDream = (entry, ownerProfile, viewerId) => {
 
 export default function useActivityPreview(viewerId, options = {}) {
   const inboxLimit = options.inboxLimit ?? DEFAULT_INBOX_LIMIT;
+  const [refreshKey, setRefreshKey] = useState(0);
   const [viewerProfile, setViewerProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(Boolean(viewerId));
   const [inboxEntries, setInboxEntries] = useState([]);
@@ -70,7 +72,7 @@ export default function useActivityPreview(viewerId, options = {}) {
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, [viewerId]);
+  }, [viewerId, refreshKey]);
 
   useEffect(() => {
     if (!viewerId) {
@@ -106,7 +108,7 @@ export default function useActivityPreview(viewerId, options = {}) {
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, [viewerId, inboxLimit]);
+  }, [viewerId, inboxLimit, refreshKey]);
 
   useEffect(() => {
     const followingIds = viewerProfile?.followingIds || [];
@@ -219,6 +221,8 @@ export default function useActivityPreview(viewerId, options = {}) {
       return time > latest ? time : latest;
     }, 0)
   ), [followingUpdates]);
+
+  useRefreshSignal(useCallback(() => setRefreshKey((n) => n + 1), []));
 
   return {
     viewerProfile,

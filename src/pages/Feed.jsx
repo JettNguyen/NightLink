@@ -18,6 +18,7 @@ import updateDreamReaction from '../services/ReactionService';
 import fetchUserSummaries from '../services/UserService';
 import { appUserPropType } from '../propTypes';
 import useEscapeKey from '../hooks/useEscapeKey';
+import useRefreshSignal from '../hooks/useRefreshSignal';
 import { triggerLightHaptic, triggerSelectionHaptic, triggerSuccessHaptic, triggerErrorHaptic } from '../utils/haptics';
 import { COMMON_EMOJI_REACTIONS, filterEmojiInput } from '../constants/emojiOptions';
 
@@ -221,6 +222,10 @@ export default function Feed({ user }) {
     if (!followingIdsLoaded || forYouLoaded) return;
     fetchForYouDreams();
   }, [followingIdsLoaded, forYouLoaded, fetchForYouDreams]);
+
+  // The following feed keeps itself current over realtime; For You is a one-shot
+  // ranked query, so that is what a pull needs to re-run.
+  useRefreshSignal(fetchForYouDreams);
 
   const visibleDreams = useMemo(() => {
     if (!rawDreams.length) return [];

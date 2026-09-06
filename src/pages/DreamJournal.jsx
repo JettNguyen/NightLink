@@ -12,6 +12,7 @@ import { triggerLightHaptic, triggerMediumHaptic, triggerSelectionHaptic, trigge
 import { getModerationFeedback } from '../utils/contentModeration';
 import { highlightSnippet } from '../utils/highlight';
 import useEscapeKey from '../hooks/useEscapeKey';
+import useRefreshSignal from '../hooks/useRefreshSignal';
 import VoiceInput from '../components/VoiceInput';
 import './DreamJournal.css';
 import { appUserPropType } from '../propTypes';
@@ -85,6 +86,7 @@ export default function DreamJournal({ user }) {
   const [taggingBusy, setTaggingBusy] = useState(false);
   const [viewerProfile, setViewerProfile] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
   const [selectedCalendarDateKey, setSelectedCalendarDateKey] = useState(null);
   const formScrollRef = useRef(null);
   const [scrollEdge, setScrollEdge] = useState({ top: true, bottom: false });
@@ -103,6 +105,8 @@ export default function DreamJournal({ user }) {
       return () => { document.body.style.overflow = prev; };
     }
   }, [showNewDream]);
+
+  useRefreshSignal(useCallback(() => setRefreshKey((n) => n + 1), []));
 
   const checkScrollEdge = useCallback(() => {
     const el = formScrollRef.current;
@@ -152,7 +156,7 @@ export default function DreamJournal({ user }) {
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, [user?.uid]);
+  }, [user?.uid, refreshKey]);
 
   useEffect(() => {
     if (!user?.uid) {

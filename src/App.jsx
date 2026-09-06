@@ -15,8 +15,9 @@ import LoadingIndicator from './components/LoadingIndicator';
 import ErrorBoundary from './components/ErrorBoundary';
 import useActivityPreview from './hooks/useActivityPreview';
 import { pushActivityLocalNotification, syncDailyDreamReminder } from './utils/notificationHelpers';
-import { triggerMediumHaptic } from './utils/haptics';
+import { triggerMediumHaptic, triggerSuccessHaptic } from './utils/haptics';
 import { initIosTapFix } from './utils/iosTapFix';
+import { requestRefresh } from './hooks/useRefreshSignal';
 import { appUserPropType } from './propTypes';
 import TermsGate, { isTermsAccepted, markTermsAccepted, TERMS_VERSION } from './components/TermsGate';
 import { SubscriptionContext } from './contexts/SubscriptionContext';
@@ -167,6 +168,7 @@ function AppContent({ user, loading, ready }) {
   const pullActiveRef = useRef(false);
   const pullReadyRef = useRef(false);
   const [pullDistance, setPullDistance] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -281,9 +283,13 @@ function AppContent({ user, loading, ready }) {
       lastPullRefreshAtRef.current = now;
       sessionStorage.setItem('nightlink_last_pull_refresh', String(now));
 
-      requestAnimationFrame(() => {
-        window.location.reload();
-      });
+      // Soft refresh: ask the mounted pages to re-fetch rather than reloading
+      // the document. The indicator holds briefly so the gesture resolves
+      // visibly even when the data comes back instantly.
+      setRefreshing(true);
+      void triggerSuccessHaptic();
+      requestRefresh();
+      window.setTimeout(() => setRefreshing(false), 650);
     };
 
     window.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -409,10 +415,12 @@ function AppContent({ user, loading, ready }) {
     <div className="app">
       {pullRefreshEnabled && (
         <div
-          className={`pull-refresh-indicator${pullDistance >= 50 ? ' is-visible' : ''}${pullDistance >= 180 ? ' is-armed' : ''}`}
-          style={{ '--pull-progress': String(Math.min(1, pullDistance / 180)) }}
+          className={`pull-refresh-indicator${(pullDistance >= 50 || refreshing) ? ' is-visible' : ''}${pullDistance >= 180 ? ' is-armed' : ''}${refreshing ? ' is-refreshing' : ''}`}
+          style={{ '--pull-progress': String(refreshing ? 1 : Math.min(1, pullDistance / 180)) }}
+          role="status"
+          aria-live="polite"
         >
-          {pullDistance >= 180 ? 'Release to refresh' : 'Pull to refresh'}
+          {refreshing ? 'Refreshing…' : pullDistance >= 180 ? 'Release to refresh' : 'Pull to refresh'}
         </div>
       )}
       <OfflineIndicator />
