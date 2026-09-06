@@ -1005,6 +1005,46 @@
   }
 }
 
+/* First-analysis style picker. These classes had no CSS at all, so the picker
+   rendered as unstyled text in the page flow and read as a stray expansion
+   rather than as the choice it is.
+
+   It stays inline rather than becoming an overlay on purpose: `.detail-card`
+   has both a backdrop-filter and a `both`-filled animation, and either one
+   makes it the containing block for `position: fixed` descendants — a fixed
+   overlay in here would size itself against the card, not the viewport. */
+.prompt-selector-modal {
+  display: block;
+}
+
+.prompt-selector-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(201, 167, 240, 0.28);
+  background: rgba(201, 167, 240, 0.05);
+  animation: slideInUp 0.22s ease-out backwards;
+}
+
+.prompt-selector-content h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.prompt-selector-hint {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prompt-selector-content {
+    animation: none;
+  }
+}
+
 .prompt-selector-panel {
   position: absolute;
   top: 100%;

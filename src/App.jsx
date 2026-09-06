@@ -49,7 +49,6 @@ const MODAL_SELECTOR = [
   '.modal-overlay',
   '.confirm-modal-backdrop',
   '.crop-modal-backdrop',
-  '.prompt-selector-overlay',
   // Only matches while a recording is actually in flight — reloading the page
   // mid-dictation would throw the audio away.
   '.voice-input.is-recording',

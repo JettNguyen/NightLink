@@ -2417,7 +2417,6 @@ export default function DreamDetail({ user }) {
                   )}
                   {!dream.aiGenerated && firstAnalysisPromptSelector ? (
                     <div className="prompt-selector-modal">
-                      <div className="prompt-selector-overlay" onClick={() => setFirstAnalysisPromptSelector(false)} />
                       <div className="prompt-selector-content">
                         <h3>Choose an insight style</h3>
                         <p className="prompt-selector-hint">You can change this anytime in Settings</p>
@@ -2469,7 +2468,7 @@ export default function DreamDetail({ user }) {
                       </div>
                     </div>
                   ) : null}
-                  {!dream.aiGenerated ? (
+                  {!dream.aiGenerated && !firstAnalysisPromptSelector ? (
                     <button
                       type="button"
                       className="primary-btn"
