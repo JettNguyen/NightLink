@@ -160,12 +160,17 @@ export default function VoiceInput({ onTranscript, onNotice, disabled, label }) 
   // A hold released while the recording was still opening still has to end it,
   // so the release is remembered and applied the moment it is actually live.
   useEffect(() => {
-    if (isRecording && stopWhenReadyRef.current) {
+    if (!stopWhenReadyRef.current) return;
+    if (isRecording) {
       stopWhenReadyRef.current = false;
       void triggerLightHaptic();
       stop();
+    } else if (status === 'idle') {
+      // The start never made it. Drop the pending release, or it would cut the
+      // next recording short the moment it opens.
+      stopWhenReadyRef.current = false;
     }
-  }, [isRecording, stop]);
+  }, [isRecording, status, stop]);
 
   if (!SUPPORTED) return null;
 
