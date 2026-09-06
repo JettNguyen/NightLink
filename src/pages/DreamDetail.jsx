@@ -54,6 +54,19 @@ const PROMPT_LABELS = {
   astrology: 'Astrology guide'
 };
 
+const PROMPT_DESCRIPTIONS = {
+  balanced:  'A grounded, plain-language reading. Picks out a couple of standout symbols, asks one question worth sitting with, and suggests one small thing to try today.',
+  coach:     'Reads the dream for signs of stress, overload or avoidance, explains what your nervous system may be working through, and gives you one practical thing to try tonight.',
+  therapist: 'Starts with how the dream likely felt, names the need or fear underneath it, and offers a gentler way to hold whatever it surfaced.',
+  scientist: 'What your brain was likely doing while this played out — memory consolidation, threat rehearsal, emotional processing — and why this particular scenario surfaced.',
+  mystical:  'Reads the dream through Jungian archetypes and threshold symbols — shadow, guide, death and rebirth — and what the psyche seems to be negotiating.',
+  creative:  'Finds the story hiding in the dream: the wound that starts it, the roles people play, the world it belongs to, and a writing prompt pulled from its strangest detail.',
+  director:  'Pitches your dream as a film — the opening shot, the visual grammar, the question it would leave an audience with.',
+  comedian:  'Finds the genuinely absurd part and lands a joke on it, without losing the real feeling underneath.',
+  astrology: 'Reads the dream against the sky that night — the moon phase and sign, and whichever planets were actually saying something.',
+  custom:    'Your own instructions, exactly as you saved them in Settings.',
+};
+
 const PROMPT_ID_ALIASES = {
   investigator: 'director'
 };
@@ -254,6 +267,14 @@ export default function DreamDetail({ user }) {
     }
     return PROMPT_TEMPLATES[preset] || PROMPT_TEMPLATES.balanced;
   }, [userSettings, aiQuota?.tier]);
+  // Which style Settings is set to. Used both to order the list and to preselect
+  // it when the chooser opens.
+  const resolveCurrentPromptKey = () => {
+    const preset = (userSettings?.aiPromptPreset || '').trim();
+    if (preset === 'custom' && userSettings?.aiPromptCustom) return 'custom';
+    return normalizePromptKey(preset === 'custom' ? 'balanced' : preset || 'balanced');
+  };
+
   const commentLookup = useMemo(() => (
     comments.reduce((acc, entry) => {
       if (entry?.id) {
@@ -1591,6 +1612,7 @@ export default function DreamDetail({ user }) {
 
     // For first analysis, show style selector instead of generating immediately
     if (!dream.aiGenerated && !skipPromptSelector && !customPrompt && !promptKey) {
+      setSelectedPrompt(resolveCurrentPromptKey());
       setFirstAnalysisPromptSelector(true);
       return;
     }
@@ -2105,7 +2127,7 @@ export default function DreamDetail({ user }) {
     const usesCustom = preset === 'custom' && Boolean(userSettings?.aiPromptCustom);
     // A 'custom' preset with nothing saved in it resolves to balanced on the
     // server, so mark balanced rather than leaving the list with no default.
-    const currentKey = usesCustom ? 'custom' : normalizePromptKey(preset === 'custom' ? 'balanced' : preset || 'balanced');
+    const currentKey = resolveCurrentPromptKey();
     const all = Object.keys(PROMPT_TEMPLATES)
       .filter((key) => key !== 'custom')
       .map((key) => ({ key, label: PROMPT_LABELS[key] || key }));
@@ -2113,6 +2135,63 @@ export default function DreamDetail({ user }) {
     const decorated = all.map((option) => ({ ...option, isCurrent: option.key === currentKey }));
     return [...decorated.filter((o) => o.isCurrent), ...decorated.filter((o) => !o.isCurrent)];
   })();
+
+  /**
+   * The style list plus its confirm row.
+   *
+   * Picking a style no longer fires the request. It selects that style and
+   * opens its description — one at a time, so the panel never becomes a wall of
+   * text — and the run only happens when the user confirms. Choosing and acting
+   * were the same click before, which meant reading what a style actually does
+   * required running it.
+   */
+  const renderPromptChooser = ({ confirmLabel, onConfirm, onCancel, busy }) => {
+    const selected = promptOptions.find((option) => option.key === selectedPrompt) || null;
+    return (
+      <>
+        <div className="prompt-options-list">
+          {promptOptions.map((option) => {
+            const locked = isOptionLocked(option.key);
+            const isSelected = selectedPrompt === option.key;
+            return (
+              <button
+                key={option.key}
+                type="button"
+                className={`prompt-option-btn${option.isCurrent ? ' current-prompt' : ''}${locked ? ' locked' : ''}${isSelected ? ' is-selected' : ''}`}
+                onClick={() => { if (!locked) setSelectedPrompt(isSelected ? null : option.key); }}
+                disabled={busy || locked}
+                aria-pressed={isSelected}
+                title={locked ? 'Upgrade to Pro to unlock this style' : undefined}
+              >
+                <span className="prompt-option-head">
+                  {locked && <FontAwesomeIcon icon={faLock} className="prompt-lock-icon" />}
+                  <span className="prompt-option-label">{option.label}</span>
+                  {option.isCurrent && <span className="prompt-current-tag">Your setting</span>}
+                  {locked && <span className="prompt-pro-badge">Pro</span>}
+                </span>
+                <span className="prompt-option-desc">
+                  <span>{PROMPT_DESCRIPTIONS[option.key] || ''}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="prompt-selector-actions">
+          <button type="button" className="ghost-btn" onClick={onCancel} disabled={busy}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => { if (selected) onConfirm(selected); }}
+            disabled={busy || !selected}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </>
+    );
+  };
 
   const isOptionLocked = (key) => (
     key === 'custom'
@@ -2470,38 +2549,16 @@ export default function DreamDetail({ user }) {
                       <div className="prompt-selector-content">
                         <h3>Choose an insight style</h3>
                         <p className="prompt-selector-hint">You can change this anytime in Settings</p>
-                        <div className="prompt-options-grid">
-                          {promptOptions.map((option) => {
-                            const locked = isOptionLocked(option.key);
-                            return (
-                              <button
-                                key={option.key}
-                                type="button"
-                                className={`prompt-option-btn${option.isCurrent ? ' current-prompt' : ''}${locked ? ' locked' : ''}`}
-                                onClick={() => {
-                                  if (locked) return;
-                                  setFirstAnalysisPromptSelector(false);
-                                  if (option.isCurrent) handleAnalyzeDream({ skipPromptSelector: true });
-                                  else handleReanalyze(option.key);
-                                }}
-                                disabled={analyzing || locked}
-                                title={locked ? 'Upgrade to Pro to unlock this style' : undefined}
-                              >
-                                {locked && <FontAwesomeIcon icon={faLock} className="prompt-lock-icon" />}
-                                {option.label}
-                                {option.isCurrent && <span className="prompt-current-tag">Your setting</span>}
-                                {locked ? <span className="prompt-pro-badge">Pro</span> : ''}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <button
-                          type="button"
-                          className="ghost-btn"
-                          onClick={() => setFirstAnalysisPromptSelector(false)}
-                        >
-                          Cancel
-                        </button>
+                        {renderPromptChooser({
+                          confirmLabel: 'Generate',
+                          busy: analyzing,
+                          onCancel: () => setFirstAnalysisPromptSelector(false),
+                          onConfirm: (option) => {
+                            setFirstAnalysisPromptSelector(false);
+                            if (option.isCurrent) handleAnalyzeDream({ skipPromptSelector: true });
+                            else handleReanalyze(option.key);
+                          },
+                        })}
                       </div>
                     </div>
                   ) : null}
@@ -2522,7 +2579,10 @@ export default function DreamDetail({ user }) {
                       <button
                         type="button"
                         className="ghost-btn"
-                        onClick={() => setPromptSelectorOpen(!promptSelectorOpen)}
+                        onClick={() => {
+                          if (!promptSelectorOpen) setSelectedPrompt(resolveCurrentPromptKey());
+                          setPromptSelectorOpen(!promptSelectorOpen);
+                        }}
                         disabled={reanalyzing || analyzing || aiLockedByQuota}
                       >
                         {reanalyzing
@@ -2531,34 +2591,16 @@ export default function DreamDetail({ user }) {
                       </button>
                       {promptSelectorOpen && (
                         <div className="prompt-selector-panel">
-                          <p className="prompt-selector-label">Choose a prompt style:</p>
-                          <div className="prompt-options-grid">
-                            {promptOptions.map((option) => {
-                              const locked = isOptionLocked(option.key);
-                              return (
-                                <button
-                                  key={option.key}
-                                  type="button"
-                                  className={`prompt-option-btn${option.isCurrent ? ' current-prompt' : ''}${locked ? ' locked' : ''}`}
-                                  onClick={() => { if (!locked) handleReanalyze(option.isCurrent ? 'current' : option.key); }}
-                                  disabled={reanalyzing || locked}
-                                  title={locked ? 'Upgrade to Pro to unlock this style' : undefined}
-                                >
-                                  {locked && <FontAwesomeIcon icon={faLock} className="prompt-lock-icon" />}
-                                  {option.label}
-                                  {option.isCurrent && <span className="prompt-current-tag">Your setting</span>}
-                                  {locked ? <span className="prompt-pro-badge">Pro</span> : ''}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <button
-                            type="button"
-                            className="ghost-btn"
-                            onClick={() => setPromptSelectorOpen(false)}
-                          >
-                            Cancel
-                          </button>
+                          <p className="prompt-selector-label">Choose an insight style</p>
+                          {renderPromptChooser({
+                            confirmLabel: 'Regenerate',
+                            busy: reanalyzing,
+                            onCancel: () => setPromptSelectorOpen(false),
+                            onConfirm: (option) => {
+                              setPromptSelectorOpen(false);
+                              handleReanalyze(option.isCurrent ? 'current' : option.key);
+                            },
+                          })}
                         </div>
                       )}
                     </div>

@@ -1075,16 +1075,12 @@
   }
 }
 
-.prompt-options-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.5rem;
-}
-
-@media (max-width: 480px) {
-  .prompt-options-grid {
-    grid-template-columns: 1fr;
-  }
+/* One column, because each row can open a description underneath it. Two
+   columns left the expanded row dragging its neighbour's height with it. */
+.prompt-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
 .prompt-selector-label {
@@ -1096,27 +1092,84 @@
 
 /* Every option is one row of the same rhythm, so the two panels line up with
    each other and the grid does not sit tighter than the button above it. */
-.prompt-options-grid {
-  margin: 0;
+/* Confirm sits right of cancel and carries the filled treatment, so the
+   committing action is the one the eye lands on and the two are never mistaken
+   for each other. Right aligned because it closes the panel. */
+.prompt-selector-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
 }
 
-.prompt-selector-panel .ghost-btn,
-.prompt-selector-content .ghost-btn {
-  align-self: flex-start;
-  padding: 0.5rem 0.9rem;
+.prompt-selector-actions .ghost-btn,
+.prompt-selector-actions .primary-btn {
+  padding: 0.55rem 1.1rem;
+  font-size: var(--fs-sm);
+}
+
+.prompt-selector-actions .primary-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .prompt-option-btn {
   width: 100%;
+  display: flex;
+  flex-direction: column;
   text-align: left;
   padding: 0.6rem 0.85rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
   font-size: var(--fs-sm);
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.prompt-option-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.prompt-option-label {
+  font-weight: 600;
+}
+
+/* Collapsed by default and revealed by selection, so only one description is
+   ever open. max-height rather than a height animation: the text is two lines
+   at most, and auto height cannot be transitioned. */
+.prompt-option-desc {
+  display: block;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  transition: max-height 0.22s ease, opacity 0.18s ease, margin-top 0.22s ease;
+}
+
+.prompt-option-btn.is-selected .prompt-option-desc {
+  max-height: 9rem;
+  opacity: 1;
+  margin-top: 0.4rem;
+}
+
+/* The chosen style. This is a real selected state now — something is picked and
+   nothing has run yet — so it is allowed to look selected. */
+.prompt-option-btn.is-selected {
+  border-color: var(--primary);
+  background: rgba(201, 167, 240, 0.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prompt-option-desc { transition: none; }
 }
 @media (hover: hover) and (pointer: fine) {
   .prompt-option-btn:hover:not(:disabled) {
@@ -1166,12 +1219,7 @@
    read as "already chosen", which is the trap the old separate button fell
    into — it looked selected while being the one thing not yet picked. */
 .prompt-option-btn.current-prompt {
-  grid-column: 1 / -1;
-  border-color: rgba(201, 167, 240, 0.45);
-  background: rgba(201, 167, 240, 0.09);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .prompt-current-tag {
