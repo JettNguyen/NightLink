@@ -117,10 +117,11 @@
   border-color: rgba(201, 167, 240, 0.45);
   box-shadow: 0 8px 22px rgba(4, 12, 20, 0.25);
 }
-
-.activity-card:hover {
-  box-shadow: var(--shadow-soft);
-  border-color: rgba(201, 167, 240, 0.5);
+@media (hover: hover) and (pointer: fine) {
+  .activity-card:hover {
+    box-shadow: var(--shadow-soft);
+    border-color: rgba(201, 167, 240, 0.5);
+  }
 }
 
 .activity-card:disabled,
@@ -274,11 +275,12 @@
   cursor: pointer;
   transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
 }
-
-.activity-clear-btn:hover:not(:disabled) {
-  color: var(--primary);
-  border-color: rgba(201, 167, 240, 0.45);
-  background: rgba(201, 167, 240, 0.08);
+@media (hover: hover) and (pointer: fine) {
+  .activity-clear-btn:hover:not(:disabled) {
+    color: var(--primary);
+    border-color: rgba(201, 167, 240, 0.45);
+    background: rgba(201, 167, 240, 0.08);
+  }
 }
 
 .activity-clear-btn:disabled {

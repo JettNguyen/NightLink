@@ -126,9 +126,10 @@
   padding: 1.1rem 1.25rem;
   transition: border-color 0.2s ease;
 }
-
-.insights-card:hover {
-  border-color: rgba(201, 167, 240, 0.2);
+@media (hover: hover) and (pointer: fine) {
+  .insights-card:hover {
+    border-color: rgba(201, 167, 240, 0.2);
+  }
 }
 
 .insights-card-header {

@@ -68,9 +68,10 @@
   backface-visibility: hidden;
   margin-right: -5px;
 }
-
-.nav-logo:hover {
-  color: var(--primary);
+@media (hover: hover) and (pointer: fine) {
+  .nav-logo:hover {
+    color: var(--primary);
+  }
 }
 
 .nav-links {
@@ -100,9 +101,10 @@
   will-change: transform;
   backface-visibility: hidden;
 }
-
-.nav-links a:hover {
-  color: var(--primary);
+@media (hover: hover) and (pointer: fine) {
+  .nav-links a:hover {
+    color: var(--primary);
+  }
 }
 
 .nav-links a.active {

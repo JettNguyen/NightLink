@@ -72,9 +72,10 @@
   color: var(--primary);
   text-decoration: none;
 }
-
-.terms-gate-check a:hover {
-  text-decoration: underline;
+@media (hover: hover) and (pointer: fine) {
+  .terms-gate-check a:hover {
+    text-decoration: underline;
+  }
 }
 
 .terms-gate-btn {

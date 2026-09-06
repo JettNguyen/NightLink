@@ -42,11 +42,12 @@
   box-shadow: var(--shadow-light);
   transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
 }
-
-.detail-back-btn:hover {
-  border-color: var(--primary);
-  background: rgba(201, 167, 240, 0.12);
-  color: var(--primary);
+@media (hover: hover) and (pointer: fine) {
+  .detail-back-btn:hover {
+    border-color: var(--primary);
+    background: rgba(201, 167, 240, 0.12);
+    color: var(--primary);
+  }
 }
 
 .detail-back-icon {
@@ -129,10 +130,11 @@
   color: var(--text);
   transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
-
-.detail-date-pill--interactive:hover {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(201, 167, 240, 0.15);
+@media (hover: hover) and (pointer: fine) {
+  .detail-date-pill--interactive:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(201, 167, 240, 0.15);
+  }
 }
 
 .detail-date-edit--standalone {
@@ -144,10 +146,10 @@
   font-size: 0.85rem;
   transition: opacity 0.16s ease;
 }
-
-.detail-title-editable:hover .edit-hint,
-.detail-date-pill--interactive:hover .edit-hint {
-  opacity: 1;
+@media (hover: hover) and (pointer: fine) {
+  .detail-title-editable:hover .edit-hint, .detail-date-pill--interactive:hover .edit-hint {
+    opacity: 1;
+  }
 }
 
 .detail-title-edit,
@@ -419,17 +421,20 @@
   cursor: pointer;
   text-decoration: underline;
 }
-
-.comment-reply-btn:hover:not(:disabled) {
-  color: var(--primary);
+@media (hover: hover) and (pointer: fine) {
+  .comment-reply-btn:hover:not(:disabled) {
+    color: var(--primary);
+  }
 }
-
-.comment-report-btn:hover:not(:disabled) {
-  color: var(--primary);
+@media (hover: hover) and (pointer: fine) {
+  .comment-report-btn:hover:not(:disabled) {
+    color: var(--primary);
+  }
 }
-
-.comment-delete-btn:hover:not(:disabled) {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .comment-delete-btn:hover:not(:disabled) {
+    color: var(--text);
+  }
 }
 
 .comment-reply-btn:disabled,
@@ -572,9 +577,10 @@
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
-
-.tag-suggestion-item:hover {
-  background: rgba(201, 167, 240, 0.08);
+@media (hover: hover) and (pointer: fine) {
+  .tag-suggestion-item:hover {
+    background: rgba(201, 167, 240, 0.08);
+  }
 }
 
 .suggestion-name {
@@ -743,10 +749,11 @@
   border-style: dashed;
   opacity: 0.85;
 }
-
-.reaction-button:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.06);
+@media (hover: hover) and (pointer: fine) {
+  .reaction-button:hover:not(:disabled) {
+    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.06);
+  }
 }
 
 .reaction-button:disabled {
@@ -991,10 +998,11 @@
 .reanalyze-controls .ghost-btn {
   transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
-
-.reanalyze-controls .ghost-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--primary);
+@media (hover: hover) and (pointer: fine) {
+  .reanalyze-controls .ghost-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--primary);
+  }
 }
 
 .prompt-selector-panel {
@@ -1058,10 +1066,11 @@
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
-
-.prompt-option-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--primary);
+@media (hover: hover) and (pointer: fine) {
+  .prompt-option-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--primary);
+  }
 }
 
 .prompt-option-btn:disabled:not(.locked) {
@@ -1161,10 +1170,11 @@
   color: #ffe5e5;
   transition: background-color 0.16s ease, transform 0.16s ease;
 }
-
-.danger-btn:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.28);
-  border-color: rgba(239, 68, 68, 0.6);
+@media (hover: hover) and (pointer: fine) {
+  .danger-btn:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.28);
+    border-color: rgba(239, 68, 68, 0.6);
+  }
 }
 
 .danger-btn:disabled {

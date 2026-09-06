@@ -40,9 +40,10 @@
   padding: 0.5rem;
   user-select: none;
 }
-
-.error-details summary:hover {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .error-details summary:hover {
+    color: var(--text);
+  }
 }
 
 .error-details pre {
@@ -69,10 +70,11 @@
   cursor: pointer;
   transition: all 0.2s;
 }
-
-.error-boundary-button:hover {
-  background: #0052cc;
-  transform: translateY(-2px);
+@media (hover: hover) and (pointer: fine) {
+  .error-boundary-button:hover {
+    background: #0052cc;
+    transform: translateY(-2px);
+  }
 }
 
 .error-boundary-button:active {

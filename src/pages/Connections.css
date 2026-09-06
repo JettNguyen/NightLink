@@ -26,10 +26,11 @@
   font-size: 0.92rem;
   transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
-
-.connections-tab:hover {
-  border-color: rgba(201, 167, 240, 0.4);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .connections-tab:hover {
+    border-color: rgba(201, 167, 240, 0.4);
+    color: var(--text);
+  }
 }
 
 .connections-tab.active {
@@ -77,15 +78,17 @@
   cursor: default;
   justify-content: space-between;
 }
-
-.connections-card-request:hover {
-  transform: none;
+@media (hover: hover) and (pointer: fine) {
+  .connections-card-request:hover {
+    transform: none;
+  }
 }
-
-.connections-card:hover {
-  box-shadow: var(--shadow-soft);
-  border-color: rgba(201, 167, 240, 0.5);
-  background: rgba(201, 167, 240, 0.06);
+@media (hover: hover) and (pointer: fine) {
+  .connections-card:hover {
+    box-shadow: var(--shadow-soft);
+    border-color: rgba(201, 167, 240, 0.5);
+    background: rgba(201, 167, 240, 0.06);
+  }
 }
 
 .connections-card:focus-visible {

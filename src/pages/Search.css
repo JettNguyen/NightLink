@@ -60,9 +60,10 @@
   transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: -1;
 }
-
-.chip:hover {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover {
+    color: var(--text);
+  }
 }
 
 .chip-active {
@@ -153,12 +154,19 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, outline 0.2s ease;
   cursor: pointer;
 }
-
-.person-card:hover,
 .person-card:focus-visible {
   box-shadow: var(--shadow-light);
   border-color: rgba(201, 167, 240, 0.5);
   background: rgba(201, 167, 240, 0.06);
+}
+
+
+@media (hover: hover) and (pointer: fine) {
+  .person-card:hover {
+    box-shadow: var(--shadow-light);
+    border-color: rgba(201, 167, 240, 0.5);
+    background: rgba(201, 167, 240, 0.06);
+  }
 }
 
 .person-avatar {
@@ -205,11 +213,12 @@
   box-shadow: var(--shadow-light);
   transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.16s ease;
 }
-
-.search-dream-card:hover {
-  box-shadow: var(--shadow-soft);
-  border-color: rgba(201, 167, 240, 0.45);
-  background: rgba(201, 167, 240, 0.05);
+@media (hover: hover) and (pointer: fine) {
+  .search-dream-card:hover {
+    box-shadow: var(--shadow-soft);
+    border-color: rgba(201, 167, 240, 0.45);
+    background: rgba(201, 167, 240, 0.05);
+  }
 }
 
 .search-dream-meta {

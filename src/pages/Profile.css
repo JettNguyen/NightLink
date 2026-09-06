@@ -41,11 +41,12 @@
   max-width: 60%;
   max-height: 60%;
 }
-
-.avatar-circle:hover {
-  box-shadow: var(--shadow-soft);
-  border-color: var(--primary);
-  transition: 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+@media (hover: hover) and (pointer: fine) {
+  .avatar-circle:hover {
+    box-shadow: var(--shadow-soft);
+    border-color: var(--primary);
+    transition: 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
 }
 
 .profile-info {
@@ -94,11 +95,12 @@
   box-shadow: var(--shadow-light);
   border: 1px solid rgba(201, 167, 240, 0.3);
 }
-
-.edit-profile-btn:hover {
-  background: rgba(201, 167, 240, 0.18);
-  border-color: rgba(201, 167, 240, 0.5);
-  box-shadow: var(--shadow-soft);
+@media (hover: hover) and (pointer: fine) {
+  .edit-profile-btn:hover {
+    background: rgba(201, 167, 240, 0.18);
+    border-color: rgba(201, 167, 240, 0.5);
+    box-shadow: var(--shadow-soft);
+  }
 }
 
 .sign-out-profile-btn {
@@ -114,11 +116,12 @@
   border: 1px solid var(--border);
   transition: color 0.25s ease, border-color 0.25s ease, background-color 0.25s ease;
 }
-
-.sign-out-profile-btn:hover {
-  color: #ff6b6b;
-  border-color: rgba(255, 107, 107, 0.4);
-  background: rgba(255, 107, 107, 0.08);
+@media (hover: hover) and (pointer: fine) {
+  .sign-out-profile-btn:hover {
+    color: #ff6b6b;
+    border-color: rgba(255, 107, 107, 0.4);
+    background: rgba(255, 107, 107, 0.08);
+  }
 }
 
 .profile-btn-row {
@@ -142,11 +145,12 @@
   border: 1px solid var(--border);
   transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
-
-.settings-btn:hover {
-  border-color: rgba(201, 167, 240, 0.4);
-  color: var(--text);
-  box-shadow: var(--shadow-light);
+@media (hover: hover) and (pointer: fine) {
+  .settings-btn:hover {
+    border-color: rgba(201, 167, 240, 0.4);
+    color: var(--text);
+    box-shadow: var(--shadow-light);
+  }
 }
 
 .profile-edit-form {
@@ -332,11 +336,12 @@
   border: 1px solid rgba(201, 167, 240, 0.45);
   box-shadow: 0 12px 28px rgba(157, 111, 212, 0.18);
 }
-
-.follow-action-btn-follow:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 16px 32px rgba(157, 111, 212, 0.24);
-  border-color: rgba(125, 219, 255, 0.65);
+@media (hover: hover) and (pointer: fine) {
+  .follow-action-btn-follow:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 32px rgba(157, 111, 212, 0.24);
+    border-color: rgba(125, 219, 255, 0.65);
+  }
 }
 
 .follow-action-btn-following {
@@ -345,10 +350,11 @@
   border: 1px solid rgba(201, 167, 240, 0.28);
   box-shadow: var(--shadow-light);
 }
-
-.follow-action-btn-following:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(201, 167, 240, 0.48);
+@media (hover: hover) and (pointer: fine) {
+  .follow-action-btn-following:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(201, 167, 240, 0.48);
+  }
 }
 
 .follow-note {
@@ -394,22 +400,24 @@
   font-size: 0.9rem;
   transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
-
-.moderation-action-btn:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.32);
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .moderation-action-btn:hover:not(:disabled) {
+    border-color: rgba(255, 255, 255, 0.32);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text);
+  }
 }
 
 .moderation-action-btn:disabled {
   opacity: 0.6;
   cursor: wait;
 }
-
-.moderation-action-btn-danger:hover:not(:disabled) {
-  border-color: rgba(255, 138, 171, 0.7);
-  background: rgba(255, 138, 171, 0.12);
-  color: #ffdfe9;
+@media (hover: hover) and (pointer: fine) {
+  .moderation-action-btn-danger:hover:not(:disabled) {
+    border-color: rgba(255, 138, 171, 0.7);
+    background: rgba(255, 138, 171, 0.12);
+    color: #ffdfe9;
+  }
 }
 
 .profile-action-modal-backdrop {
@@ -530,11 +538,12 @@
   cursor: pointer;
   transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
-
-.stat-button:hover {
-  background: rgba(201, 167, 240, 0.08);
-  border-color: rgba(201, 167, 240, 0.4);
-  box-shadow: var(--shadow-light);
+@media (hover: hover) and (pointer: fine) {
+  .stat-button:hover {
+    background: rgba(201, 167, 240, 0.08);
+    border-color: rgba(201, 167, 240, 0.4);
+    box-shadow: var(--shadow-light);
+  }
 }
 
 .stat-button:focus-visible {
@@ -565,9 +574,10 @@
   cursor: pointer;
   transition: color 0.2s ease, background-color 0.2s ease;
 }
-
-.close-button:hover {
-  color: var(--primary);
+@media (hover: hover) and (pointer: fine) {
+  .close-button:hover {
+    color: var(--primary);
+  }
 }
 
 .close-button:active {
@@ -599,11 +609,12 @@
   text-align: left;
   transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
 }
-
-.connection-card:hover {
-  box-shadow: var(--shadow-soft);
-  border-color: rgba(201, 167, 240, 0.5);
-  background: rgba(201, 167, 240, 0.06);
+@media (hover: hover) and (pointer: fine) {
+  .connection-card:hover {
+    box-shadow: var(--shadow-soft);
+    border-color: rgba(201, 167, 240, 0.5);
+    background: rgba(201, 167, 240, 0.06);
+  }
 }
 
 .connection-card:focus-visible {
@@ -715,11 +726,12 @@
   color: #f87171;
   border-color: rgba(248, 113, 113, 0.3);
 }
-
-.photo-remove-btn:hover {
-  color: #fca5a5;
-  border-color: rgba(248, 113, 113, 0.5);
-  background-color: rgba(248, 113, 113, 0.08);
+@media (hover: hover) and (pointer: fine) {
+  .photo-remove-btn:hover {
+    color: #fca5a5;
+    border-color: rgba(248, 113, 113, 0.5);
+    background-color: rgba(248, 113, 113, 0.08);
+  }
 }
 
 .photo-upload-error {
@@ -808,9 +820,10 @@
   background-clip: padding-box;
   transition: border-color 0.22s ease, box-shadow 0.22s ease;
 }
-
-.color-swatch:hover {
-  border-color: rgba(255, 255, 255, 0.3);
+@media (hover: hover) and (pointer: fine) {
+  .color-swatch:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+  }
 }
 
 .color-swatch.selected {
@@ -896,10 +909,11 @@
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
-
-.tagged-dream-card:hover {
-  border-color: rgba(69, 172, 220, 0.6);
-  box-shadow: var(--shadow-soft);
+@media (hover: hover) and (pointer: fine) {
+  .tagged-dream-card:hover {
+    border-color: rgba(69, 172, 220, 0.6);
+    box-shadow: var(--shadow-soft);
+  }
 }
 
 .tagged-dream-card:focus-visible {
@@ -935,9 +949,10 @@
   cursor: pointer;
   padding: 0;
 }
-
-.tagged-view-profile:hover {
-  text-decoration: underline;
+@media (hover: hover) and (pointer: fine) {
+  .tagged-view-profile:hover {
+    text-decoration: underline;
+  }
 }
 
 .tagged-summary {
@@ -1050,11 +1065,12 @@
   flex-direction: column;
   gap: 0.45rem;
 }
-
-.profile-dream-card:hover {
-  box-shadow: var(--shadow-soft);
-  border-color: rgba(201, 167, 240, 0.5);
-  background: linear-gradient(180deg, rgba(201, 167, 240, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+@media (hover: hover) and (pointer: fine) {
+  .profile-dream-card:hover {
+    box-shadow: var(--shadow-soft);
+    border-color: rgba(201, 167, 240, 0.5);
+    background: linear-gradient(180deg, rgba(201, 167, 240, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+  }
 }
 
 .profile-dream-card:focus-visible {

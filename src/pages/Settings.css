@@ -287,10 +287,11 @@ html[data-native-platform='ios'] .settings-save-bar {
   color: var(--text-secondary);
   line-height: 1.25;
 }
-
-.prompt-option:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  background-color: rgba(255, 255, 255, 0.05);
+@media (hover: hover) and (pointer: fine) {
+  .prompt-option:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(255, 255, 255, 0.05);
+  }
 }
 
 .prompt-option.selected {
@@ -402,9 +403,10 @@ html[data-native-platform='ios'] .settings-save-bar {
   text-decoration: none;
   transition: opacity 0.15s ease;
 }
-
-.memory-patterns-link:hover {
-  opacity: 0.75;
+@media (hover: hover) and (pointer: fine) {
+  .memory-patterns-link:hover {
+    opacity: 0.75;
+  }
 }
 
 .notification-support {
@@ -497,10 +499,11 @@ html[data-native-platform='ios'] .settings-save-bar {
   text-decoration-color: rgba(255, 255, 255, 0.2);
   transition: color 0.2s ease, text-decoration-color 0.2s ease;
 }
-
-.rc-restore-btn:hover:not(:disabled) {
-  color: var(--text);
-  text-decoration-color: rgba(255, 255, 255, 0.5);
+@media (hover: hover) and (pointer: fine) {
+  .rc-restore-btn:hover:not(:disabled) {
+    color: var(--text);
+    text-decoration-color: rgba(255, 255, 255, 0.5);
+  }
 }
 
 .rc-restore-btn:disabled {
@@ -526,22 +529,24 @@ html[data-native-platform='ios'] .settings-save-bar {
   font-size: 0.9rem;
   transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
 }
-
-.action-buttons .ghost-btn:hover {
-  border-color: rgba(255, 255, 255, 0.25);
-  color: var(--text);
-  background-color: rgba(255, 255, 255, 0.06);
+@media (hover: hover) and (pointer: fine) {
+  .action-buttons .ghost-btn:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    color: var(--text);
+    background-color: rgba(255, 255, 255, 0.06);
+  }
 }
 
 .action-buttons .danger-ghost {
   color: #f87171;
   border-color: rgba(248, 113, 113, 0.3);
 }
-
-.action-buttons .danger-ghost:hover {
-  color: #fca5a5;
-  border-color: rgba(248, 113, 113, 0.5);
-  background-color: rgba(248, 113, 113, 0.08);
+@media (hover: hover) and (pointer: fine) {
+  .action-buttons .danger-ghost:hover {
+    color: #fca5a5;
+    border-color: rgba(248, 113, 113, 0.5);
+    background-color: rgba(248, 113, 113, 0.08);
+  }
 }
 
 .legal-link-btn {
@@ -576,9 +581,10 @@ html[data-native-platform='ios'] .settings-save-bar {
   align-self: flex-start;
   transition: color 0.18s ease;
 }
-
-.more-options-toggle:hover {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .more-options-toggle:hover {
+    color: var(--text);
+  }
 }
 
 .more-options-chevron {

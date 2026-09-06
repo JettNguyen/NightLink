@@ -51,10 +51,11 @@
   background: rgba(201, 167, 240, 0.14);
   color: var(--primary);
 }
-
-.feed-tab:not(.active):hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .feed-tab:not(.active):hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+  }
 }
 
 .feed-tab-count {
@@ -90,11 +91,12 @@
   backdrop-filter: blur(12px);
   animation: slideInUp 0.22s ease-out both;
 }
-
-.feed-card:hover {
-  box-shadow: var(--shadow-soft);
-  border-color: rgba(201, 167, 240, 0.4);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+@media (hover: hover) and (pointer: fine) {
+  .feed-card:hover {
+    box-shadow: var(--shadow-soft);
+    border-color: rgba(201, 167, 240, 0.4);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+  }
 }
 
 .feed-card-head {
@@ -127,11 +129,12 @@
   flex-shrink: 0;
   transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
-
-.feed-card-menu-btn:hover {
-  border-color: rgba(201, 167, 240, 0.38);
-  background: rgba(201, 167, 240, 0.08);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .feed-card-menu-btn:hover {
+    border-color: rgba(201, 167, 240, 0.38);
+    background: rgba(201, 167, 240, 0.08);
+    color: var(--text);
+  }
 }
 
 .feed-card-menu {
@@ -163,17 +166,19 @@
   font-weight: 600;
   min-height: 44px;
 }
-
-.feed-card-menu-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+@media (hover: hover) and (pointer: fine) {
+  .feed-card-menu-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
 }
 
 .feed-card-menu-item-danger {
   color: #ff9fb1;
 }
-
-.feed-card-menu-item-danger:hover {
-  background: rgba(255, 138, 171, 0.12);
+@media (hover: hover) and (pointer: fine) {
+  .feed-card-menu-item-danger:hover {
+    background: rgba(255, 138, 171, 0.12);
+  }
 }
 
 .feed-author-block {
@@ -229,9 +234,10 @@
   text-decoration: none;
   background: rgba(201, 167, 240, 0.18);
 }
-
-.feed-author-handle.feed-author-link:hover {
-  box-shadow: 0 0 0 2px rgba(201, 167, 240, 0.2);
+@media (hover: hover) and (pointer: fine) {
+  .feed-author-handle.feed-author-link:hover {
+    box-shadow: 0 0 0 2px rgba(201, 167, 240, 0.2);
+  }
 }
 
 .feed-visibility {
@@ -338,9 +344,10 @@
   padding: 0;
   flex-shrink: 0;
 }
-
-.feed-discovery-nudge button:hover {
-  text-decoration: underline;
+@media (hover: hover) and (pointer: fine) {
+  .feed-discovery-nudge button:hover {
+    text-decoration: underline;
+  }
 }
 
 /* ── Responsive ────────────────────────────────────────────────────────────── */

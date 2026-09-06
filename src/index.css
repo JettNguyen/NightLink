@@ -820,9 +820,11 @@ html[data-native-platform='ios'].is-scrolling * {
   transition: none !important;
 }
 
-/* 2. Strip pointer-driven visual changes */
-html[data-native-platform='ios'].is-scrolling *:active,
-html[data-native-platform='ios'].is-scrolling *:hover {
+/* 2. Strip pointer-driven visual changes. Split in two now that hover is gated
+      behind `hover: hover`: the :active half still matters on every iOS device
+      (it stops a press state firing mid flick-scroll), while the :hover half
+      only has anything to undo on an iPad driven by a trackpad or mouse. */
+html[data-native-platform='ios'].is-scrolling *:active {
   filter: none !important;
   transform: none !important;
   box-shadow: none !important;
@@ -831,28 +833,58 @@ html[data-native-platform='ios'].is-scrolling *:hover {
   text-decoration-color: inherit !important;
 }
 
+
+@media (hover: hover) and (pointer: fine) {
+  html[data-native-platform='ios'].is-scrolling *:hover {
+    filter: none !important;
+    transform: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    border-color: var(--border) !important;
+    text-decoration-color: inherit !important;
+  }
+}
+
 /* 3. Restore semantic selected states (driven by JS, not pointer) */
-html[data-native-platform='ios'].is-scrolling .reaction-chip.active,
-html[data-native-platform='ios'].is-scrolling .reaction-chip.active:hover,
-html[data-native-platform='ios'].is-scrolling .reaction-chip.active:active {
+html[data-native-platform='ios'].is-scrolling .reaction-chip.active, html[data-native-platform='ios'].is-scrolling .reaction-chip.active:active {
   border-color: var(--primary) !important;
   background-color: rgba(183, 183, 240, 0.12) !important;
   box-shadow: var(--glow-primary) !important;
 }
 
-html[data-native-platform='ios'].is-scrolling .audience-result.active,
-html[data-native-platform='ios'].is-scrolling .audience-result.active:hover,
-html[data-native-platform='ios'].is-scrolling .audience-result.active:active {
+
+@media (hover: hover) and (pointer: fine) {
+  html[data-native-platform='ios'].is-scrolling .reaction-chip.active:hover {
+    border-color: var(--primary) !important;
+    background-color: rgba(183, 183, 240, 0.12) !important;
+    box-shadow: var(--glow-primary) !important;
+  }
+}
+html[data-native-platform='ios'].is-scrolling .audience-result.active, html[data-native-platform='ios'].is-scrolling .audience-result.active:active {
   border-color: var(--primary) !important;
   background-color: rgba(183, 183, 240, 0.1) !important;
 }
 
-html[data-native-platform='ios'].is-scrolling .pill-active,
-html[data-native-platform='ios'].is-scrolling .pill-active:hover,
-html[data-native-platform='ios'].is-scrolling .pill-active:active {
+
+@media (hover: hover) and (pointer: fine) {
+  html[data-native-platform='ios'].is-scrolling .audience-result.active:hover {
+    border-color: var(--primary) !important;
+    background-color: rgba(183, 183, 240, 0.1) !important;
+  }
+}
+html[data-native-platform='ios'].is-scrolling .pill-active, html[data-native-platform='ios'].is-scrolling .pill-active:active {
   border-color: var(--primary) !important;
   background-color: rgba(183, 183, 240, 0.1) !important;
   box-shadow: var(--glow-primary) !important;
+}
+
+
+@media (hover: hover) and (pointer: fine) {
+  html[data-native-platform='ios'].is-scrolling .pill-active:hover {
+    border-color: var(--primary) !important;
+    background-color: rgba(183, 183, 240, 0.1) !important;
+    box-shadow: var(--glow-primary) !important;
+  }
 }
 
 /* ── Interaction feedback ────────────────────────────────────────────────────

@@ -11,9 +11,10 @@
   cursor: pointer;
   min-height: 44px;
 }
-
-.legal-back-btn:hover {
-  opacity: 0.8;
+@media (hover: hover) and (pointer: fine) {
+  .legal-back-btn:hover {
+    opacity: 0.8;
+  }
 }
 
 .legal-page {
