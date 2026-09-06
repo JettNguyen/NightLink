@@ -279,9 +279,11 @@ export default function Connections({ user }) {
     }
   }, [user?.uid, viewingOwnProfile]);
 
-  if (!targetUserId) return <div className="page-container">Connections unavailable.</div>;
   if (profileNotFound) return <div className="page-container">We could not find that dreamer.</div>;
-  if (profileLoading || !userData) {
+  // A handle still being resolved has no target id yet — keep the loader up
+  // rather than flashing "Connections unavailable." on the very first paint.
+  if (profileLoading || !targetUserId || !userData) {
+    if (!targetUserId && !routeHandle) return <div className="page-container">Connections unavailable.</div>;
     return (
       <div className="page-container">
         <div className="connections-loading loading-slot"><LoadingIndicator label="Loading connections…" size="lg" /></div>

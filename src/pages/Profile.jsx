@@ -453,13 +453,17 @@ export default function Profile({ user }) {
       .sort((a, b) => ((b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0)));
   }, [taggedDreams, targetUserId, viewerId, viewerCanSeeTaggedDream]);
 
-  if (!targetUserId) return <div className="page-container">Profile unavailable.</div>;
-  if (profileNotFound)  return <div className="page-container">We could not find that dreamer.</div>;
-  if (profileLoading || !userData) return (
-    <div className="page-container">
-      <ProfilePageSkeleton />
-    </div>
-  );
+  if (profileNotFound) return <div className="page-container">We could not find that dreamer.</div>;
+  // A handle still being resolved has no target id yet — keep the skeleton up
+  // rather than flashing "Profile unavailable." on the very first paint.
+  if (profileLoading || !targetUserId || !userData) {
+    if (!targetUserId && !routeHandle) return <div className="page-container">Profile unavailable.</div>;
+    return (
+      <div className="page-container">
+        <ProfilePageSkeleton />
+      </div>
+    );
+  }
 
   const isTaggedTab = dreamTab === 'tagged';
   const activeDreams = isTaggedTab ? taggedDreamsForProfile : displayedDreams;

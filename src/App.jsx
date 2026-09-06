@@ -362,7 +362,7 @@ function AppContent({ user, loading, ready }) {
           className={`pull-refresh-indicator${pullDistance >= 50 ? ' is-visible' : ''}${pullDistance >= 180 ? ' is-armed' : ''}`}
           style={{ '--pull-progress': String(Math.min(1, pullDistance / 180)) }}
         >
-          {pullDistance >= 250 ? 'Release to refresh' : 'Pull to refresh'}
+          {pullDistance >= 180 ? 'Release to refresh' : 'Pull to refresh'}
         </div>
       )}
       <OfflineIndicator />
