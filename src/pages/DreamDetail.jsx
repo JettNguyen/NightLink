@@ -1556,7 +1556,14 @@ export default function DreamDetail({ user }) {
   };
 
   const handleAnalyzeDream = async ({ customPrompt = null, promptKey = null, skipPromptSelector = false } = {}) => {
-    if (!dream || !isOwner || dream.id.startsWith('local-')) return;
+    if (!dream || !isOwner) return;
+    // A `local-` id means the dream is still an optimistic local copy whose
+    // insert has not come back yet. Returning silently here left the button
+    // looking live while doing nothing at all — no request, no toast, no log.
+    if (dream.id.startsWith('local-')) {
+      setToast('This dream is still saving. Try again in a moment.');
+      return;
+    }
 
     const trimmedContent = (dream.content || '').trim();
     if (!trimmedContent) {
