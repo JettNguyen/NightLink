@@ -2484,7 +2484,6 @@ export default function DreamDetail({ user }) {
                           type="button"
                           className="ghost-btn"
                           onClick={() => setFirstAnalysisPromptSelector(false)}
-                          style={{ marginTop: '0.5rem' }}
                         >
                           Cancel
                         </button>
@@ -2565,7 +2564,6 @@ export default function DreamDetail({ user }) {
                             type="button"
                             className="ghost-btn"
                             onClick={() => setPromptSelectorOpen(false)}
-                            style={{ marginTop: '0.5rem' }}
                           >
                             Cancel
                           </button>

@@ -1050,33 +1050,28 @@
   }
 }
 
+/* Sits in the flow rather than hanging off the button. Absolutely positioned it
+   did not extend the page's scrollable area, so when the button was near the
+   bottom the last options were below everything you could ever scroll to.
+   Inline it pushes the page down and the list is always reachable — and it now
+   matches the first-analysis picker, which is the same choice in the same
+   place. */
 .prompt-selector-panel {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 0.5rem;
-  min-width: 480px;
-  max-width: 520px;
-  background: rgba(6, 15, 27, 0.98);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
-  padding: 1rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
-  z-index: 100;
+  margin-top: 0.25rem;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  padding: 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(201, 167, 240, 0.28);
+  background: rgba(201, 167, 240, 0.05);
+  animation: slideInUp 0.22s ease-out backwards;
 }
 
-@media (max-width: 768px) {
+@media (prefers-reduced-motion: reduce) {
   .prompt-selector-panel {
-    position: absolute;
-    right: auto;
-    left: 0;
-    min-width: auto;
-    max-width: calc(100vw - 2rem);
-    width: max-content;
+    animation: none;
   }
 }
 
@@ -1093,10 +1088,22 @@
 }
 
 .prompt-selector-label {
-  margin: 0 0 0.5rem;
+  margin: 0;
   font-size: var(--fs-base);
   font-weight: 600;
   color: var(--text);
+}
+
+/* Every option is one row of the same rhythm, so the two panels line up with
+   each other and the grid does not sit tighter than the button above it. */
+.prompt-options-grid {
+  margin: 0;
+}
+
+.prompt-selector-panel .ghost-btn,
+.prompt-selector-content .ghost-btn {
+  align-self: flex-start;
+  padding: 0.5rem 0.9rem;
 }
 
 .prompt-option-btn {
@@ -1153,16 +1160,18 @@
   letter-spacing: 0.03em;
 }
 
+/* Deliberately not tinted. A primary border over a primary wash is exactly how
+   this app draws a selected pill or the chosen calendar day, so this read as
+   "already picked" when it is one of the choices on offer. It keeps a slightly
+   brighter edge to mark it as the default, and nothing more. */
 .prompt-option-btn.current-prompt {
-  border-color: var(--primary);
-  background: rgba(201, 167, 240, 0.1);
-  margin-bottom: 10px;
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .prompt-option-btn.current-prompt strong {
   display: block;
   margin-bottom: 0.2rem;
-  color: var(--primary);
+  color: var(--text);
 }
 
 .prompt-option-btn.current-prompt span {

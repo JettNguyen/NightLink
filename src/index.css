@@ -1351,13 +1351,6 @@ html[data-native-platform='ios'] .legal-page {
   animation: popoverIn 150ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
 }
 
-/* Anchored right on desktop and left on narrow screens, so grow from the top
-   edge rather than pick a corner that is wrong half the time. */
-.prompt-selector-panel {
-  transform-origin: top center;
-  animation: popoverIn 150ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
-}
-
 /* Opacity only, deliberately. This card is measured with getBoundingClientRect
    in a layout effect to place itself next to its anchor, and a scale would be
    folded into that measurement and put the popover in the wrong spot. */
@@ -1367,7 +1360,6 @@ html[data-native-platform='ios'] .legal-page {
 
 @media (prefers-reduced-motion: reduce) {
   .feed-card-menu,
-  .prompt-selector-panel,
   .reaction-popover-card {
     animation: none;
   }
