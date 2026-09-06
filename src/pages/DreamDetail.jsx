@@ -1985,6 +1985,7 @@ export default function DreamDetail({ user }) {
                 }}
                 disabled={heartDisabled}
                 aria-pressed={viewerHearted}
+                aria-label={viewerHearted ? 'Remove like from comment' : 'Like comment'}
                 onMouseEnter={(event) => handleCommentHeartHoverStart(event, entry)}
                 onMouseLeave={scheduleModalAutoClose}
                 onTouchStart={(event) => handleCommentHeartTouchStart(event, entry)}
@@ -2264,6 +2265,7 @@ export default function DreamDetail({ user }) {
                 <input
                   type="date"
                   className="detail-date-input"
+                  aria-label="Dream date"
                   value={dateInput}
                   onChange={(e) => setDateInput(e.target.value)}
                 />

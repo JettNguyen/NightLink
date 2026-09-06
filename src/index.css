@@ -234,6 +234,27 @@ html[data-native-platform='ios'] [data-nav-direction='tab'] .insights-page {
   to { transform: rotate(360deg); }
 }
 
+/* Small round controls sit below the 44px minimum a finger actually needs. The
+   fix is an invisible overlay rather than a bigger circle: the design keeps the
+   size it was drawn at, the target grows, and nothing on the page shifts. */
+.voice-input-btn,
+.close-btn,
+.feed-card-menu-btn {
+  position: relative;
+}
+
+.voice-input-btn::after,
+.close-btn::after,
+.feed-card-menu-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
 .btn-loading {
   display: inline-flex;
   align-items: center;

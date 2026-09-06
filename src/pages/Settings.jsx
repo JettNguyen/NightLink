@@ -1053,6 +1053,7 @@ export default function Settings({ user }) {
                   <input
                     type="time"
                     className="settings-time-input"
+                    aria-label="Dream reminder time"
                     value={`${String(settings.reminderHour ?? 9).padStart(2, '0')}:00`}
                     step={3600}
                     onChange={(e) => {
