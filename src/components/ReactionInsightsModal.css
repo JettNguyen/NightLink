@@ -50,13 +50,13 @@
   margin: 0;
   color: var(--text, #fff);
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
 }
 
 .reaction-popover-subtitle {
   margin: 0;
   color: var(--text-secondary, rgba(255, 255, 255, 0.75));
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   display: flex;
   align-items: center;
   gap: 0.35rem;
@@ -124,11 +124,11 @@
 .reaction-popover-name {
   color: var(--text, #fff);
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
 }
 
 .reaction-popover-username {
   color: var(--primary, #5ac8fa);
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
 }

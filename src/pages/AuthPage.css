@@ -47,7 +47,7 @@ html[data-native-platform='ios'] .auth-page {
 }
 
 .auth-title {
-  font-size: 1.9rem;
+  font-size: var(--fs-2xl);
   color: var(--text);
   margin-bottom: 0.4rem;
   letter-spacing: -0.02em;
@@ -147,7 +147,7 @@ html[data-native-platform='ios'] .auth-page {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);
-  font-size: 1rem;
+  font-size: var(--fs-base);
   transition: border-color 0.25s ease, background-color 0.25s ease, transform 0.25s ease;
 }
 
@@ -187,7 +187,7 @@ html[data-native-platform='ios'] .auth-page {
 }
 
 .auth-password-hint {
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   color: var(--text-secondary);
   margin: -0.4rem 0 0;
 }
@@ -197,7 +197,7 @@ html[data-native-platform='ios'] .auth-page {
   align-items: flex-start;
   gap: 0.55rem;
   color: var(--text-secondary);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   line-height: 1.45;
 }
 
@@ -214,7 +214,7 @@ html[data-native-platform='ios'] .auth-page {
   background: none;
   border: none;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   text-align: right;
   align-self: flex-end;
   padding: 0;
@@ -229,14 +229,14 @@ html[data-native-platform='ios'] .auth-page {
 
 .auth-forgot-desc {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   line-height: 1.5;
   margin: 0;
 }
 
 .auth-success {
   color: var(--success);
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   margin: -0.5rem 0 0;
 }
 
@@ -244,7 +244,7 @@ html[data-native-platform='ios'] .auth-page {
   background: none;
   border: none;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   text-align: center;
   padding: 0.25rem;
   transition: color 0.2s ease;
@@ -261,7 +261,7 @@ html[data-native-platform='ios'] .auth-page {
   background: rgba(157, 111, 212, 0.08);
   border: 1px solid rgba(157, 111, 212, 0.2);
   border-radius: 10px;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
   text-align: center;
   line-height: 1.5;
@@ -278,7 +278,7 @@ html[data-native-platform='ios'] .auth-page {
   justify-content: center;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
 }
 
@@ -293,7 +293,7 @@ html[data-native-platform='ios'] .auth-page {
 
 .auth-error {
   color: var(--error);
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   margin: -0.5rem 0 0;
 }
 
@@ -303,7 +303,7 @@ html[data-native-platform='ios'] .auth-page {
   color: #f4fbff;
   border-radius: 14px;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: var(--fs-base);
   border: 1px solid rgba(15, 54, 105, 0.8);
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease, opacity 0.2s ease;
   box-shadow: none;
@@ -324,7 +324,7 @@ html[data-native-platform='ios'] .auth-page {
   align-items: center;
   text-align: center;
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   margin: 0.5rem 0;
   gap: 1rem;
 }
@@ -343,7 +343,7 @@ html[data-native-platform='ios'] .auth-page {
   color: #f5f7ff;
   border-radius: 12px;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
   border: 1px solid rgba(255, 255, 255, 0.08);
   transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
@@ -375,7 +375,7 @@ html[data-native-platform='ios'] .auth-page {
   color: #fff;
   border-radius: 12px;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
   border: 1px solid rgba(255, 255, 255, 0.12);
   transition: background-color 0.2s ease, box-shadow 0.2s ease;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
@@ -433,7 +433,7 @@ html[data-native-platform='ios'] .auth-page {
   }
 
   .auth-tabs button {
-    font-size: 0.95rem;
+    font-size: var(--fs-base);
   }
 }
 

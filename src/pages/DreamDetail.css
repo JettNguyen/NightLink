@@ -120,7 +120,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
   margin-bottom: 5px;
 }
 
@@ -143,7 +143,7 @@
 
 .edit-hint {
   opacity: 0;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   transition: opacity 0.16s ease;
 }
 @media (hover: hover) and (pointer: fine) {
@@ -167,7 +167,7 @@
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-size: 1.4rem;
+  font-size: var(--fs-xl);
   font-weight: 600;
   flex: 1;
   min-width: 200px;
@@ -184,7 +184,7 @@
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
 }
 
 .detail-date-input:focus {
@@ -201,7 +201,7 @@
 .detail-hint {
     margin: 0;
     color: var(--text-secondary);
-    font-size: 1rem;
+    font-size: var(--fs-base);
 }
 
 .detail-audience,
@@ -303,7 +303,7 @@
   background: transparent;
   color: var(--primary);
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   cursor: pointer;
   padding: 0.15rem 0;
 }
@@ -339,12 +339,12 @@
 
 .comment-handle {
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .comment-time {
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
 }
 
 .comment-body {
@@ -379,7 +379,7 @@
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-secondary);
   padding: 0.25rem 0.75rem;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   font-weight: 600;
   cursor: pointer;
   transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
@@ -406,13 +406,13 @@
 }
 
 .comment-heart-count {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .comment-reply-context {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   font-style: italic;
 }
 
@@ -422,7 +422,7 @@
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   cursor: pointer;
   text-decoration: underline;
 }
@@ -468,7 +468,7 @@
 
 .reply-context span {
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .reply-context button {
@@ -477,7 +477,7 @@
   color: var(--primary);
   font-weight: 600;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .comment-composer textarea {
@@ -594,14 +594,14 @@
 }
 
 .suggestion-username {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
 }
 
 .detail-label {
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   color: var(--text-secondary);
   margin-bottom: 0.6rem;
 }
@@ -669,7 +669,7 @@
 
 .detail-author-name {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
   color: var(--text);
   display: flex;
   align-items: center;
@@ -677,7 +677,7 @@
 }
 
 .detail-author-handle {
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
 }
 
@@ -745,7 +745,7 @@
   align-items: center;
   gap: 0.35rem;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   margin-right: 5px;
   transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 }
@@ -777,7 +777,7 @@
 }
 
 .clear-reaction {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   padding: 0.2rem 0.55rem;
 }
 
@@ -788,7 +788,7 @@
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-size: 1rem;
+  font-size: var(--fs-base);
   padding: 0.9rem 1rem;
   line-height: 1.5;
   margin-bottom: 1rem;
@@ -845,7 +845,7 @@
   background: none;
   border: none;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   cursor: pointer;
 }
 
@@ -914,7 +914,7 @@
 .ai-disclaimer {
   margin: 0.55rem 0 0;
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   line-height: 1.3;
 }
 
@@ -927,7 +927,7 @@
 }
 
 .detail-connections-label {
-  font-size: 0.72rem;
+  font-size: var(--fs-micro);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -946,7 +946,7 @@
 }
 
 .detail-connections-item {
-  font-size: 0.84rem;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
   padding-left: 1rem;
   position: relative;
@@ -959,7 +959,7 @@
   left: 0;
   color: var(--primary);
   opacity: 0.7;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   top: 0.05em;
 }
 
@@ -970,7 +970,7 @@
   border-left: 3px solid rgba(157, 111, 212, 0.4);
   border-radius: 6px;
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   line-height: 1.3;
 }
 
@@ -982,13 +982,13 @@
 .detail-status-message {
   margin: 0.25rem 0 0.5rem;
   color: var(--primary);
-  font-size: 0.92rem;
+  font-size: var(--fs-base);
   font-weight: 500;
 }
 
 .ai-quota-badge {
   margin: 0 0 0.5rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   color: var(--text-secondary);
   font-style: italic;
 }
@@ -1035,12 +1035,12 @@
 
 .prompt-selector-content h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--fs-base);
 }
 
 .prompt-selector-hint {
   margin: 0 0 0.35rem;
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
 }
 
@@ -1094,7 +1094,7 @@
 
 .prompt-selector-label {
   margin: 0 0 0.5rem;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   font-weight: 600;
   color: var(--text);
 }
@@ -1107,7 +1107,7 @@
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
@@ -1142,7 +1142,7 @@
 .prompt-pro-badge {
   display: inline-block;
   margin-left: 0.4rem;
-  font-size: 0.68rem;
+  font-size: var(--fs-micro);
   font-weight: 600;
   padding: 0.1rem 0.35rem;
   border-radius: 0.25rem;
@@ -1166,7 +1166,7 @@
 }
 
 .prompt-option-btn.current-prompt span {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
 }
 
@@ -1179,7 +1179,7 @@
 
 .ai-upgrade-cta p {
   margin: 0;
-  font-size: 0.86rem;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
 }
 
@@ -1291,14 +1291,14 @@
 }
 
 .report-modal h3 {
-  font-size: 1.1rem;
+  font-size: var(--fs-md);
   font-weight: 600;
   color: var(--text);
   text-transform: capitalize;
 }
 
 .report-modal-desc {
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
   margin: 0;
 }
@@ -1315,7 +1315,7 @@
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   cursor: pointer;
   transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
   min-height: 44px;

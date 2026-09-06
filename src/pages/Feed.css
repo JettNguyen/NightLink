@@ -33,7 +33,7 @@
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
   padding: 0.38rem 1rem;
   border-radius: 999px;
@@ -59,7 +59,7 @@
 }
 
 .feed-tab-count {
-  font-size: 0.72rem;
+  font-size: var(--fs-micro);
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-secondary);
   padding: 0.1rem 0.42rem;
@@ -222,7 +222,7 @@
 
 .feed-author-handle {
   color: var(--primary);
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   background: rgba(201, 167, 240, 0.10);
   padding: 0.2rem 0.6rem;
@@ -242,12 +242,12 @@
 
 .feed-visibility {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
 }
 
 .feed-date {
   color: var(--text-secondary);
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
   height: 38px;
   display: flex;
   align-items: center;
@@ -258,7 +258,7 @@
   overflow-wrap: break-word;
   overflow-wrap: anywhere;
   margin: 0.35rem 0;
-  font-size: 1.1rem;
+  font-size: var(--fs-md);
 }
 
 .feed-summary {
@@ -329,7 +329,7 @@
 
 .feed-discovery-nudge p {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
 }
 
@@ -337,7 +337,7 @@
   border: none;
   background: transparent;
   color: var(--primary);
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -391,8 +391,8 @@
 @media (min-width: 480px) {
   .report-modal { border-radius: 20px; padding: 1.75rem 1.5rem; }
 }
-.report-modal h3 { font-size: 1.1rem; font-weight: 600; color: var(--text); text-transform: capitalize; }
-.report-modal-desc { font-size: 0.875rem; color: var(--text-secondary); margin: 0; }
+.report-modal h3 { font-size: var(--fs-md); font-weight: 600; color: var(--text); text-transform: capitalize; }
+.report-modal-desc { font-size: var(--fs-sm); color: var(--text-secondary); margin: 0; }
 .report-reasons { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .report-reason-btn {
   padding: 0.5rem 0.9rem;
@@ -400,7 +400,7 @@
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   cursor: pointer;
   transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
   min-height: 44px;

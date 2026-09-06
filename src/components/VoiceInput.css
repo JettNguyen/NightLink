@@ -26,7 +26,7 @@
   border: 1px solid var(--border);
   background: rgba(20, 14, 35, 0.85);
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   cursor: pointer;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -112,7 +112,7 @@
   border-radius: 999px;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   cursor: pointer;
   transition: color 0.16s ease;
 }
@@ -152,7 +152,7 @@
 }
 
 .voice-input-clock {
-  font-size: 0.72rem;
+  font-size: var(--fs-micro);
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
   flex-shrink: 0;

@@ -26,14 +26,14 @@
 }
 
 .crop-modal-title {
-  font-size: 1.05rem;
+  font-size: var(--fs-md);
   font-weight: 600;
   margin: 0;
   text-align: center;
 }
 
 .crop-modal-hint {
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
   margin: -0.75rem 0 0;
   text-align: center;
@@ -91,7 +91,7 @@
 }
 
 .crop-zoom-label {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--text-secondary);
   white-space: nowrap;
 }
@@ -140,7 +140,7 @@
 }
 
 .crop-error {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: #f87171;
   margin: 0;
   text-align: center;

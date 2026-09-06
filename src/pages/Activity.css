@@ -40,7 +40,7 @@
 }
 
 .activity-section {
-  font-size: 1rem;
+  font-size: var(--fs-base);
   border-radius: 0.9rem;
   padding: 1.25rem;
   background: rgba(255, 255, 255, 0.05);
@@ -149,7 +149,7 @@
   border-radius: 100px;
   padding: 0.2rem 0.75rem;
   margin-bottom: 0.3rem;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   border: 2px solid rgba(255, 255, 255, 0.15);
   color: var(--text-secondary);
 }
@@ -210,7 +210,7 @@
   align-items: center;
   gap: 0.35rem;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 }
 
@@ -231,7 +231,7 @@
 }
 
 .reaction-count {
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   color: var(--text-secondary);
 }
 
@@ -256,12 +256,12 @@
 
 
 .clear-reaction {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   padding: 0.2rem 0.55rem;
 }
 
 .reaction-total {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
 }
 
@@ -271,7 +271,7 @@
   color: var(--text-secondary);
   border-radius: 999px;
   padding: 0.3rem 0.9rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   cursor: pointer;
   transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
 }

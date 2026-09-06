@@ -18,7 +18,7 @@
 }
 
 .error-boundary-content h1 {
-  font-size: 1.75rem;
+  font-size: var(--fs-2xl);
   margin-bottom: 1rem;
   color: var(--error);
 }
@@ -53,7 +53,7 @@
   padding: 1rem;
   margin-top: 1rem;
   overflow-x: auto;
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   color: var(--error);
   white-space: pre-wrap;
   word-break: break-word;
@@ -65,7 +65,7 @@
   border: none;
   padding: 0.75rem 2rem;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: var(--fs-base);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;

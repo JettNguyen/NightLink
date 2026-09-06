@@ -27,7 +27,7 @@
 }
 
 .terms-gate-title {
-  font-size: 1.3rem;
+  font-size: var(--fs-lg);
   font-weight: 600;
   color: var(--text);
   margin: 0;
@@ -35,7 +35,7 @@
 }
 
 .terms-gate-desc {
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   color: var(--text-secondary);
   margin: 0;
   text-align: center;
@@ -53,7 +53,7 @@
   display: flex;
   align-items: flex-start;
   gap: 0.65rem;
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
   line-height: 1.5;
   cursor: pointer;

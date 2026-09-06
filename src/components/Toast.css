@@ -6,7 +6,7 @@
   background: rgba(20, 26, 36, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #e8eef8;
-  font-size: 0.875rem;
+  font-size: var(--fs-sm);
   line-height: 1.45;
   padding: 0.7rem 1.2rem;
   border-radius: 14px;

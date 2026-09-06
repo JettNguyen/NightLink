@@ -30,7 +30,7 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .chip {
@@ -96,7 +96,7 @@
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-size: 1rem;
+  font-size: var(--fs-base);
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
@@ -107,7 +107,7 @@
 
 .hint {
   color: var(--text-secondary);
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
 }
 
 .search-results {
@@ -196,7 +196,7 @@
 
 .person-username {
   color: var(--text-secondary);
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
 }
 
 .dream-grid {
@@ -242,7 +242,7 @@
 
 .search-dream-card h3 {
   margin: 0 0 0.35rem;
-  font-size: 1.05rem;
+  font-size: var(--fs-md);
 }
 
 .dream-summary {

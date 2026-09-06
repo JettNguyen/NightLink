@@ -126,7 +126,7 @@
 
 .home-feature-card h3 {
   margin: 0 0 0.4rem;
-  font-size: 1.02rem;
+  font-size: var(--fs-base);
 }
 
 .home-feature-card p {

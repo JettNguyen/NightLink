@@ -25,6 +25,32 @@
   --error: #ff5050;
   --success: #2cd44e;
   --app-background-gradient: linear-gradient(180deg, #0d0d11 0%, #110f1c 55%, #0d0d11 100%);
+
+  /* Type scale. One step per role — if two things are the same size they are
+     meant to read as the same rank. Anything not on this scale was drift.
+     Note the root shrinks to 14px under 768px, so every step scales with it.
+
+     micro  count and status badges
+     xs     timestamps, footnotes, helper text
+     sm     secondary text, meta rows, small controls
+     base   body copy and standard controls
+     md     lead paragraphs, card titles, h3
+     lg     sub-section headings
+     xl     section headings, h2
+     2xl    page titles, h1
+     3xl    display
+
+     Sizing a glyph, avatar or emoji is not typography — those keep their own
+     font-size values and are deliberately off this scale. */
+  --fs-micro: 0.7rem;
+  --fs-xs: 0.78rem;
+  --fs-sm: 0.85rem;
+  --fs-base: 0.95rem;
+  --fs-md: 1.1rem;
+  --fs-lg: 1.3rem;
+  --fs-xl: 1.55rem;
+  --fs-2xl: 1.85rem;
+  --fs-3xl: 2.25rem;
 }
 
 html {
@@ -75,6 +101,14 @@ h1 {
   font-style: italic;
 }
 
+/* Headings carried no font-size at all, so any heading without a page specific
+   rule fell through to the browser default — 2em/1.5em/1.17em, in em, which
+   compounds with whatever it is nested in. That was the main reason the same
+   rank of heading came out different sizes on different pages. */
+h1 { font-size: var(--fs-2xl); }
+h2 { font-size: var(--fs-xl); }
+h3 { font-size: var(--fs-md); }
+
 .dream-title,
 .entry-title,
 .card-title {
@@ -104,7 +138,7 @@ p {
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(14, 10, 20, 0.86);
   color: #d7dfed;
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   letter-spacing: 0.01em;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -265,14 +299,14 @@ html[data-native-platform='ios'].keyboard-open .app-main {
 }
 
 .page-header h1 {
-  font-size: 2.25rem;
+  font-size: var(--fs-3xl);
   letter-spacing: -0.02em;
   color: #eef2fb;
 }
 
 .page-subtitle {
   color: var(--text-secondary);
-  font-size: 1rem;
+  font-size: var(--fs-base);
 }
 
 .action-group {
@@ -352,7 +386,7 @@ html[data-native-platform='ios'].keyboard-open .app-main {
   padding: 0.25rem 0.6rem;
   border-radius: 100px;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   border: 1px solid var(--border);
   line-height: 1;
 }
@@ -474,7 +508,7 @@ html[data-native-platform='ios'] .profile-ai-badge {
   align-items: center;
   padding: 0.2rem 0.42rem;
   border-radius: 5px;
-  font-size: 0.62rem;
+  font-size: var(--fs-micro);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -498,7 +532,7 @@ html[data-native-platform='ios'] .profile-ai-badge {
   padding: 0.35rem 0.75rem;
   border-radius: 100px;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   border: 1px solid var(--border);
 }
 
@@ -525,7 +559,7 @@ html[data-native-platform='ios'] .profile-ai-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
   font-weight: 600;
   cursor: pointer;
   transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
@@ -635,7 +669,7 @@ html[data-native-platform='ios'] .profile-ai-badge {
   align-items: center;
   gap: 0.3rem;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .reaction-summary-item .reaction-emoji-icon {
@@ -692,7 +726,7 @@ html[data-native-platform='ios'] .profile-ai-badge {
 
 .pending-title {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   font-style: italic;
   margin: 0 0 0.4rem;
 }
@@ -764,12 +798,12 @@ html[data-native-platform='ios'] .profile-ai-badge {
 }
 
 .result-handle {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
 }
 
 .result-status {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
 }
 
@@ -792,7 +826,7 @@ html[data-native-platform='ios'] .profile-ai-badge {
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface-muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--text);
 }
 
@@ -801,7 +835,7 @@ html[data-native-platform='ios'] .profile-ai-badge {
   background: transparent;
   color: inherit;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   line-height: 1;
 }
 
