@@ -214,6 +214,9 @@ function AppContent({ user, loading, ready }) {
       if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"]')) return;
       if (isInsideScrollable(target)) return;
       if (document.querySelector(MODAL_SELECTOR)) return;
+      // With the keyboard up a downward drag is someone dismissing it, not
+      // asking for a refresh.
+      if (document.documentElement.classList.contains('keyboard-open')) return;
       // Only arm PTR when the page is truly at the top at touch-start.
       if (window.scrollY > 2) return;
       if (!event.touches || event.touches.length !== 1) return;
@@ -425,7 +428,7 @@ function AppContent({ user, loading, ready }) {
       )}
       <OfflineIndicator />
       {showNav && <Navigation user={user} activityPreview={activity} />}
-    <main className={mainClassName} data-nav-direction={navDirection} style={{ minHeight: '100dvh', paddingBottom: isNativeIOS ? 'calc(49px + env(safe-area-inset-bottom))' : 'env(safe-area-inset-bottom)' }}>
+    <main className={mainClassName} data-nav-direction={navDirection} style={{ minHeight: '100dvh' }}>
         <Routes>
           <Route path="/" element={user ? <Navigate to="/journal" replace /> : <HomePage />} />
           <Route path="/login" element={user ? <Navigate to="/journal" replace /> : <AuthPage />} />

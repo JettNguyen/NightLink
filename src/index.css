@@ -233,6 +233,21 @@ html[data-native-platform='ios'] .app-main--with-nav {
   padding-top: calc(52px + env(safe-area-inset-top));
 }
 
+/* Reserve the tab bar's height on iOS, the home indicator's everywhere else. */
+html[data-native-platform='ios'] .app-main {
+  padding-bottom: calc(49px + env(safe-area-inset-bottom));
+}
+
+html:not([data-native-platform='ios']) .app-main {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* The keyboard hides the tab bar, so stop holding space for it — otherwise the
+   last line of a long entry sits behind a gap that no longer has anything in it. */
+html[data-native-platform='ios'].keyboard-open .app-main {
+  padding-bottom: 0;
+}
+
 .page-container {
   max-width: 1100px;
   margin: 0 auto;

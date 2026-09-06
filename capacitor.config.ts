@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from '@capacitor/cli';
+import { KeyboardResize, KeyboardStyle } from '@capacitor/keyboard';
 
 const config: CapacitorConfig = {
   appId: 'dev.nightlink',
@@ -13,6 +14,18 @@ const config: CapacitorConfig = {
       launchAutoHide: true,
       backgroundColor: '#17112b',
       showSpinner: false,
+    },
+    Keyboard: {
+      // Shrink the web view itself, so 100dvh and every fixed element track the
+      // keyboard the way a native view does and a focused input is never left
+      // hidden underneath it.
+      resize: KeyboardResize.Native,
+      // The app is dark only. Without this the keyboard follows the device
+      // appearance and comes up white under a dark UI.
+      style: KeyboardStyle.Dark,
+      // Tint the strip behind the keyboard with the real body background so the
+      // show/hide animation never flashes the system colour.
+      autoBackdropColor: 'dom',
     },
   },
 };
