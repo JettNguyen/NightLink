@@ -580,7 +580,16 @@ export default function Settings({ user }) {
     }
   };
 
-  const handleReset = () => setSettings(DEFAULT_SETTINGS);
+  // Sits next to "You have unsaved changes", so it discards those edits rather
+  // than wiping every setting back to the app defaults.
+  const handleReset = () => {
+    try {
+      setSettings(JSON.parse(savedRef.current));
+    } catch {
+      setSettings(DEFAULT_SETTINGS);
+    }
+    setPromptError('');
+  };
 
   const handleStartCheckout = async (mode, priceId, paymentLink) => {
     if (!uid || checkoutBusy) return;
@@ -843,7 +852,7 @@ export default function Settings({ user }) {
           <div className="btn-group">
             {status === 'saved' && <span className="settings-status success">Saved</span>}
             {status === 'error' && <span className="settings-status error">Failed</span>}
-            <button type="button" className="ghost-btn" onClick={handleReset} disabled={saving}>Reset</button>
+            <button type="button" className="ghost-btn" onClick={handleReset} disabled={saving || !hasChanges}>Discard</button>
             <button type="button" className={`primary-btn${saving ? ' is-loading' : ''}`} onClick={handleSave} disabled={!canSave || saving} style={saving ? { cursor: 'wait' } : undefined}>
               {saving ? 'Saving...' : 'Save'}
             </button>
