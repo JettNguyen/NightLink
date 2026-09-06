@@ -487,6 +487,9 @@ export default function DreamJournal({ user }) {
 
   const showCalendarView = () => {
     void triggerLightHaptic();
+    // Search only filters the list, so carrying a query into the calendar
+    // would leave it empty with no visible input to clear.
+    setSearchQuery('');
     setViewMode('calendar');
   };
 
@@ -578,7 +581,7 @@ export default function DreamJournal({ user }) {
       </div>
 
 
-      {!initialLoading && dreams.length > 0 && (
+      {!initialLoading && dreams.length > 0 && viewMode === 'list' && (
         <div className="journal-search-row">
           <input
             type="search"
@@ -827,7 +830,7 @@ export default function DreamJournal({ user }) {
                     ))}
                   </div>
                 )}
-                {taggingStatus && <p className="hint status-hint">{taggingStatus}</p>}
+                {taggingStatus && <p className="hint status-hint" role="status">{taggingStatus}</p>}
                 {taggedUsers.length ? (
                   <div className="tagged-pill-row">
                     {taggedUsers.map((entry) => (
