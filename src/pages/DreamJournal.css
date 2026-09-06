@@ -139,6 +139,42 @@
   font-size: 1.05rem;
 }
 
+/* Month arrows. They were ← and → glyphs in a text button: about the size of a
+   word, with the standard 0.965 button press that is far too subtle on
+   something this small. Now a 44px circle — the iOS minimum — around a centred
+   svg chevron, with the chip-tier press and a colour flash so a tap reads. */
+.calendar-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 0.95rem;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .calendar-nav-btn:hover {
+    background: rgba(201, 167, 240, 0.14);
+    border-color: rgba(201, 167, 240, 0.4);
+    color: var(--primary);
+  }
+}
+
+.calendar-nav-btn:active {
+  transform: scale(0.93);
+  background: rgba(201, 167, 240, 0.22);
+  border-color: rgba(201, 167, 240, 0.5);
+  color: var(--primary);
+  transition: transform 70ms ease, background-color 70ms ease, border-color 70ms ease;
+}
+
 .calendar-weekdays {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));

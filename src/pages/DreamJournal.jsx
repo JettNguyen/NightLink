@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../supabase';
 import { mapDream, mapProfile } from '../utils/mappers';
 import LoadingIndicator from '../components/LoadingIndicator';
@@ -505,13 +507,13 @@ export default function DreamJournal({ user }) {
   };
 
   const goToPreviousMonth = () => {
-    void triggerLightHaptic();
+    void triggerSelectionHaptic();
     setMonthDirection('prev');
     setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
   };
 
   const goToNextMonth = () => {
-    void triggerLightHaptic();
+    void triggerSelectionHaptic();
     setMonthDirection('next');
     setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
   };
@@ -634,11 +636,15 @@ export default function DreamJournal({ user }) {
           <div className="journal-calendar-shell">
             <div className="journal-calendar" aria-label="Dream journal calendar">
               <div className="calendar-toolbar">
-                <button type="button" className="ghost-btn" onClick={goToPreviousMonth} aria-label="Previous month">←</button>
+                <button type="button" className="calendar-nav-btn" onClick={goToPreviousMonth} aria-label="Previous month">
+                  <FontAwesomeIcon icon={faChevronLeft} />
+                </button>
                 <h2 key={monthPrefixFromDate(calendarMonth)} data-month-direction={monthDirection}>
                   {monthLabel(calendarMonth)}
                 </h2>
-                <button type="button" className="ghost-btn" onClick={goToNextMonth} aria-label="Next month">→</button>
+                <button type="button" className="calendar-nav-btn" onClick={goToNextMonth} aria-label="Next month">
+                  <FontAwesomeIcon icon={faChevronRight} />
+                </button>
               </div>
               <div className="calendar-weekdays">
                 {CALENDAR_WEEKDAYS.map((label) => (
