@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { compressImage } from '../utils/imageUtils';
+import useEscapeKey from '../hooks/useEscapeKey';
 import './PhotoCropModal.css';
 
 const MASK_SIZE = 240;
@@ -146,6 +147,8 @@ export default function PhotoCropModal({ file, onConfirm, onCancel }) {
       mask.removeEventListener('touchend', onTouchEnd);
     };
   }, [naturalSize, scale, offset, applyScale]);
+
+  useEscapeKey(onCancel, !loading);
 
   const handleConfirm = async () => {
     if (!naturalSize || !file) return;

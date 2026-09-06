@@ -17,6 +17,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import updateDreamReaction from '../services/ReactionService';
 import fetchUserSummaries from '../services/UserService';
 import { appUserPropType } from '../propTypes';
+import useEscapeKey from '../hooks/useEscapeKey';
 import { COMMON_EMOJI_REACTIONS, filterEmojiInput } from '../constants/emojiOptions';
 
 const DEFAULT_API_ORIGIN = 'https://www.nightlink.dev';
@@ -311,6 +312,13 @@ export default function Feed({ user }) {
     setReportReason('');
     setReportModal({ dream });
   }, []);
+
+  const closeReportModal = useCallback(() => {
+    setReportModal(null);
+    setReportReason('');
+  }, []);
+
+  useEscapeKey(closeReportModal, Boolean(reportModal));
 
   const toggleFeedMenu = useCallback((event, dreamId) => {
     event.preventDefault(); event.stopPropagation();
@@ -742,7 +750,7 @@ export default function Feed({ user }) {
         />
       )}
       {reportModal && (
-        <div className="report-modal-backdrop" onClick={() => setReportModal(null)}>
+        <div className="report-modal-backdrop" onClick={closeReportModal}>
           <div className="report-modal" onClick={(e) => e.stopPropagation()}>
             <h3>Report dream</h3>
             <p className="report-modal-desc">Select the reason that best describes the issue. Reports are reviewed within 24 hours.</p>
@@ -752,7 +760,7 @@ export default function Feed({ user }) {
               ))}
             </div>
             <div className="report-modal-actions">
-              <button type="button" className="secondary-btn" onClick={() => setReportModal(null)}>Cancel</button>
+              <button type="button" className="secondary-btn" onClick={closeReportModal}>Cancel</button>
               <button type="button" className="danger-btn" onClick={handleSubmitReport} disabled={!reportReason.trim() || reportBusy}>{reportBusy ? 'Submitting…' : 'Submit report'}</button>
             </div>
           </div>

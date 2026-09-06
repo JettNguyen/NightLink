@@ -13,6 +13,7 @@ import { ProfilePageSkeleton, ProfileDreamsLoadingSkeleton } from '../components
 import { formatDreamDate } from '../utils/dates';
 import { buildProfilePath, buildDreamPath } from '../utils/urlHelpers';
 import { triggerLightHaptic } from '../utils/haptics';
+import useEscapeKey from '../hooks/useEscapeKey';
 import { logActivityEvent } from '../services/ActivityService';
 import Toast from '../components/Toast';
 import { ACCOUNT_VISIBILITY, canViewerSeeDream, normalizeAccountVisibility } from '../utils/privacy';
@@ -335,6 +336,13 @@ export default function Profile({ user }) {
       setFollowAction({ type: null });
     }
   }, [followAction.type, targetUserId, viewerData, viewerId, viewingOwnProfile]);
+
+  const closeProfileOverlays = useCallback(() => {
+    setProfileMenuOpen(false);
+    setReportModal(false);
+  }, []);
+
+  useEscapeKey(closeProfileOverlays, reportModal || profileMenuOpen);
 
   const handleReportUser = useCallback(() => {
     if (!viewerId || !targetUserId || viewingOwnProfile) return;

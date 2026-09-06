@@ -18,6 +18,7 @@ import { formatDateInputValue, formatDreamDate, parseDateInputValue } from '../u
 import { getModerationFeedback, sanitizeAiGeneratedContent } from '../utils/contentModeration';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
+import useEscapeKey from '../hooks/useEscapeKey';
 import AvatarDisplay from '../components/AvatarDisplay';
 import ProBadge from '../components/ProBadge';
 import { buildProfilePath } from '../utils/urlHelpers';
@@ -1778,6 +1779,13 @@ export default function DreamDetail({ user }) {
     }
   }, [viewerId, user]);
 
+  const closeReportModal = useCallback(() => {
+    setReportModal(null);
+    setReportReason('');
+  }, []);
+
+  useEscapeKey(closeReportModal, Boolean(reportModal));
+
   const handleReportDream = useCallback(() => {
     if (!dream?.id || !viewerId) return;
     setReportReason('');
@@ -2747,7 +2755,7 @@ export default function DreamDetail({ user }) {
       />
 
       {reportModal && (
-        <div className="report-modal-backdrop" onClick={() => setReportModal(null)}>
+        <div className="report-modal-backdrop" onClick={closeReportModal}>
           <div className="report-modal" onClick={(e) => e.stopPropagation()}>
             <h3>Report {reportModal.targetType === 'comment' ? 'comment' : 'dream'}</h3>
             <p className="report-modal-desc">Select the reason that best describes the issue. Reports are reviewed within 24 hours.</p>
@@ -2764,7 +2772,7 @@ export default function DreamDetail({ user }) {
               ))}
             </div>
             <div className="report-modal-actions">
-              <button type="button" className="secondary-btn" onClick={() => setReportModal(null)}>Cancel</button>
+              <button type="button" className="secondary-btn" onClick={closeReportModal}>Cancel</button>
               <button
                 type="button"
                 className="danger-btn"

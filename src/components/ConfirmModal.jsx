@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types';
+import useEscapeKey from '../hooks/useEscapeKey';
 import './ConfirmModal.css';
 
 export default function ConfirmModal({
@@ -15,6 +16,8 @@ export default function ConfirmModal({
   onCancel,
   confirmDisabled = false,
 }) {
+  useEscapeKey(onCancel);
+
   return (
     <div className="confirm-modal-backdrop" onClick={onCancel}>
       <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>

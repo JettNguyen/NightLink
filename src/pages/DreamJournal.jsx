@@ -11,6 +11,7 @@ import { buildDreamPath } from '../utils/urlHelpers';
 import { triggerLightHaptic, triggerMediumHaptic } from '../utils/haptics';
 import { getModerationFeedback } from '../utils/contentModeration';
 import { highlightSnippet } from '../utils/highlight';
+import useEscapeKey from '../hooks/useEscapeKey';
 import './DreamJournal.css';
 import { appUserPropType } from '../propTypes';
 
@@ -374,9 +375,15 @@ export default function DreamJournal({ user }) {
     setTaggedUsers([]); setTagHandle(''); setTaggingStatus('');
   };
 
-  const closeModal = () => { if (loading) return; void triggerLightHaptic(); setShowNewDream(false); resetForm(); };
+  const closeModal = useCallback(() => {
+    if (loading) return;
+    void triggerLightHaptic();
+    setShowNewDream(false);
+    resetForm();
+  }, [loading]);
   const handleOverlayClick = (e) => { if (e.target === e.currentTarget) closeModal(); };
-  const handleOverlayKeyDown = (e) => { if (e.key === 'Escape') { e.preventDefault(); closeModal(); } };
+
+  useEscapeKey(closeModal, showNewDream);
 
   const handleSaveDream = async (event) => {
     event.preventDefault();
@@ -670,14 +677,7 @@ export default function DreamJournal({ user }) {
       )}
 
       {showNewDream && (
-        <div
-          className="modal-overlay"
-          role="button"
-          tabIndex={0}
-          aria-label="Close modal"
-          onClick={handleOverlayClick}
-          onKeyDown={handleOverlayKeyDown}
-        >
+        <div className="modal-overlay" onClick={handleOverlayClick}>
           <div className="modal-content" role="dialog" aria-modal="true" aria-labelledby="new-dream-heading">
             <div className="modal-header">
               <h2 id="new-dream-heading">New Dream</h2>
