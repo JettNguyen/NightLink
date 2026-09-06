@@ -134,16 +134,33 @@ export default function DreamInsights({ user }) {
     load();
   }, [user?.uid]);
 
+  // RevenueCat customer info can land after the initial load — without this a
+  // Pro subscriber who opens Insights directly stays stuck behind the gate.
+  useEffect(() => {
+    if (IS_RC_SUPPORTED && isProFromCustomerInfo(rcCustomerInfo)) setIsPro(true);
+  }, [rcCustomerInfo]);
+
+  const backButton = !isNativeIOS && (
+    <button type="button" className="detail-back-btn insights-back-btn" onClick={() => navigate(-1)}>
+      <span className="detail-back-icon" aria-hidden="true">&larr;</span>
+      <span>Go back</span>
+    </button>
+  );
+
   if (loading) return <InsightsSkeleton />;
 
   if (!isPro) {
     return (
       <div className="insights-page">
+        {backButton}
         <div className="insights-gate">
           <div className="insights-gate-icon">◈</div>
           <h2>Dream Pattern Intelligence</h2>
           <p>Pro members build a private memory file across every dream they analyze. Over time, the AI surfaces recurring symbols, emotional patterns, and life themes — giving you a living map of your inner world.</p>
-          <p className="insights-gate-sub">Upgrade to Pro in Settings to unlock this feature.</p>
+          <p className="insights-gate-sub">Upgrade to Pro to unlock this feature.</p>
+          <button type="button" className="primary-btn" onClick={() => navigate('/settings')}>
+            Go to Settings
+          </button>
         </div>
       </div>
     );
@@ -154,12 +171,7 @@ export default function DreamInsights({ user }) {
 
   return (
     <div className="insights-page">
-      {!isNativeIOS && (
-        <button type="button" className="detail-back-btn insights-back-btn" onClick={() => navigate(-1)}>
-          <span className="detail-back-icon" aria-hidden="true">&larr;</span>
-          <span>Go back</span>
-        </button>
-      )}
+      {backButton}
       <div className="insights-header">
         <h1 className="insights-title">Dream Patterns</h1>
         {updatedAt ? (

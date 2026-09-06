@@ -76,6 +76,10 @@
   opacity: 0.85;
 }
 
+.insights-gate .primary-btn {
+  margin-top: 1.25rem;
+}
+
 /* ── Empty state ────────────────────────────────────────── */
 
 .insights-empty {
