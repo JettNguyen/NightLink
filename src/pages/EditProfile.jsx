@@ -18,6 +18,10 @@ import { appUserPropType } from '../propTypes';
 import './Profile.css';
 import './Legal.css';
 
+// Matches the rule enforced at sign-up; `normalized_username` is unique in the
+// schema, so an invalid or taken handle otherwise fails with a generic error.
+const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
+
 export default function EditProfile({ user }) {
   const navigate = useNavigate();
   const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
@@ -40,6 +44,7 @@ export default function EditProfile({ user }) {
   const [removePhotoFlag, setRemovePhotoFlag] = useState(false);
   const [cropModalOpen, setCropModalOpen] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [usernameError, setUsernameError] = useState('');
   const fileInputRef = useRef(null);
   const privateAccountEnabled = accountVisibility === 'private';
 
@@ -104,9 +109,33 @@ export default function EditProfile({ user }) {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!user?.uid || !userData) return;
+
+    const nextUsername = username.trim() || userData.username;
+    const nextNormalized = nextUsername.toLowerCase();
+    const usernameChanged = nextNormalized !== (userData.username || '').toLowerCase();
+
+    if (!USERNAME_RE.test(nextUsername)) {
+      setUsernameError('3–20 chars: letters, numbers, underscores.');
+      return;
+    }
+
     setSaving(true);
     setUploadError('');
+    setUsernameError('');
     try {
+      if (usernameChanged) {
+        const { data: taken } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('normalized_username', nextNormalized)
+          .maybeSingle();
+        if (taken && taken.id !== user.uid) {
+          setUsernameError('That username is already taken.');
+          setSaving(false);
+          return;
+        }
+      }
+
       if (photoBlob) {
         await uploadAvatar({ userId: user.uid, blob: photoBlob });
         clearUserSummaryCache();
@@ -117,8 +146,8 @@ export default function EditProfile({ user }) {
 
       const { error } = await supabase.from('profiles').update({
         display_name:        displayName.trim(),
-        username:            username.trim() || userData.username,
-        normalized_username: (username.trim() || userData.username).toLowerCase(),
+        username:            nextUsername,
+        normalized_username: nextNormalized,
         avatar_icon:         avatarIcon,
         avatar_background:   avatarBackground,
         avatar_color:        avatarColor,
@@ -128,8 +157,11 @@ export default function EditProfile({ user }) {
       if (error) throw error;
       void triggerMediumHaptic();
       navigate('/profile', { replace: true });
-    } catch {
-      setToast('Failed to update profile.');
+    } catch (err) {
+      // 23505 = unique violation, i.e. the handle was claimed between the
+      // availability check and the write.
+      if (err?.code === '23505') setUsernameError('That username is already taken.');
+      else setToast('Failed to update profile.');
     }
     setSaving(false);
   };
@@ -177,10 +209,15 @@ export default function EditProfile({ user }) {
             id="ep-username"
             type="text"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => { setUsername(e.target.value); setUsernameError(''); }}
             placeholder="your_username"
             className="profile-input"
+            aria-invalid={Boolean(usernameError)}
+            aria-describedby="ep-username-hint"
           />
+          <p id="ep-username-hint" className={usernameError ? 'photo-upload-error' : 'page-subtitle'}>
+            {usernameError || '3–20 characters: letters, numbers, and underscores.'}
+          </p>
         </div>
         {userData?.email && (
           <div className="profile-field">
@@ -281,6 +318,7 @@ export default function EditProfile({ user }) {
                 key={option.id}
                 type="button"
                 className={`avatar-option${avatarIcon === option.id ? ' selected' : ''}`}
+                aria-pressed={avatarIcon === option.id}
                 onClick={() => setAvatarIcon(option.id)}
               >
                 <FontAwesomeIcon icon={option.icon} /><span>{option.label}</span>
@@ -297,6 +335,7 @@ export default function EditProfile({ user }) {
                 className={`color-swatch${avatarBackground === color ? ' selected' : ''}`}
                 style={{ background: color }}
                 onClick={() => setAvatarBackground(color)}
+                aria-pressed={avatarBackground === color}
                 aria-label={`Select background ${color}`}
               />
             ))}
@@ -311,6 +350,7 @@ export default function EditProfile({ user }) {
                 className={`color-swatch${avatarColor === color ? ' selected' : ''}`}
                 style={{ background: color }}
                 onClick={() => setAvatarColor(color)}
+                aria-pressed={avatarColor === color}
                 aria-label={`Select icon color ${color}`}
               />
             ))}
