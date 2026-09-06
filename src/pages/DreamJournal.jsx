@@ -692,6 +692,7 @@ export default function DreamJournal({ user }) {
                 type="text"
                 className="dream-title-input"
                 placeholder="Title (optional)"
+                aria-label="Dream title (optional)"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 disabled={loading}
@@ -710,6 +711,7 @@ export default function DreamJournal({ user }) {
               <textarea
                 className="dream-textarea"
                 placeholder="Describe everything you remember…"
+                aria-label="Dream description"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 disabled={loading}
@@ -752,6 +754,7 @@ export default function DreamJournal({ user }) {
                       <input
                         type="text"
                         placeholder="Search your following"
+                        aria-label="Search your following"
                         value={audienceQuery}
                         onChange={(e) => setAudienceQuery(e.target.value)}
                         disabled={loading}
@@ -811,6 +814,7 @@ export default function DreamJournal({ user }) {
                   <input
                     type="text"
                     placeholder="@username"
+                    aria-label="Tag a dreamer by username"
                     value={tagHandle}
                     onChange={(e) => { setTagHandle(e.target.value); setTaggingStatus(''); }}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTaggedPerson(); } }}

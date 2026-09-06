@@ -2519,6 +2519,7 @@ export default function DreamDetail({ user }) {
               <textarea
                 ref={commentInputRef}
                 placeholder="Add a thoughtful note"
+                aria-label="Write a comment"
                 value={commentInput}
                 onChange={(e) => {
                   setCommentInput(e.target.value);
@@ -2575,6 +2576,7 @@ export default function DreamDetail({ user }) {
                         type="button"
                         className={(dream.visibility === option.value || (option.value === 'mutuals' && dream.visibility === 'following')) ? 'pill pill-active' : 'pill'}
                         onClick={() => handleVisibilityChange(option.value)}
+                        aria-pressed={dream.visibility === option.value || (option.value === 'mutuals' && dream.visibility === 'following')}
                         disabled={updatingVisibility}
                       >
                         {option.label}
@@ -2601,6 +2603,7 @@ export default function DreamDetail({ user }) {
                           <input
                             type="text"
                             placeholder="Search your following"
+                            aria-label="Search your following"
                             value={audienceQuery}
                             onChange={(e) => setAudienceQuery(e.target.value)}
                           />
@@ -2668,6 +2671,7 @@ export default function DreamDetail({ user }) {
                     <input
                       type="text"
                       placeholder="@username"
+                      aria-label="Tag a dreamer by username"
                       value={tagHandle}
                       onChange={(e) => {
                         setTagHandle(e.target.value);
