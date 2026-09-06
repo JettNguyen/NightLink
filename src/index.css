@@ -139,6 +139,35 @@ p {
   animation: pageEnter 200ms ease-out backwards;
 }
 
+/* iOS: replace the vertical fade with a directional slide, so a push reads as
+   coming from the right and a back gesture as returning from the left — the
+   single strongest cue that this is an app rather than a page. The curve is
+   UIKit's navigation ease. Tabs keep the plain fade. */
+@keyframes pageEnterForward {
+  from { opacity: 0; transform: translate3d(20px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes pageEnterBack {
+  from { opacity: 0; transform: translate3d(-20px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+html[data-native-platform='ios'] [data-nav-direction='forward'] .page-container,
+html[data-native-platform='ios'] [data-nav-direction='forward'] .insights-page {
+  animation: pageEnterForward 260ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+}
+
+html[data-native-platform='ios'] [data-nav-direction='back'] .page-container,
+html[data-native-platform='ios'] [data-nav-direction='back'] .insights-page {
+  animation: pageEnterBack 260ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+}
+
+html[data-native-platform='ios'] [data-nav-direction='tab'] .page-container,
+html[data-native-platform='ios'] [data-nav-direction='tab'] .insights-page {
+  animation: pageEnter 170ms ease-out backwards;
+}
+
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 @keyframes glowSweep {
@@ -1037,7 +1066,9 @@ button:disabled:active {
 @media (prefers-reduced-motion: reduce) {
   .page-container,
   .insights-page,
-  .home-page {
+  .home-page,
+  [data-nav-direction] .page-container,
+  [data-nav-direction] .insights-page {
     animation: none;
   }
 }
@@ -1099,4 +1130,42 @@ button:disabled:active {
   .nav-logo:hover {
     filter: brightness(1.15);
   }
+}
+
+/* ── Native touch behaviour (iOS shell only) ─────────────────────────────────
+ * Without these, a long press anywhere pops WebKit's Copy / Look Up / Share
+ * callout and drags start selecting UI text — the clearest tell that an app is
+ * a web view. Chrome is locked down; anything the user might genuinely want to
+ * copy is opted back in below, and text entry is restored explicitly because
+ * inheriting `user-select: none` into a field breaks selection in WKWebView.
+ * ------------------------------------------------------------------------- */
+
+html[data-native-platform='ios'] body {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+html[data-native-platform='ios'] input,
+html[data-native-platform='ios'] textarea,
+html[data-native-platform='ios'] [contenteditable='true'] {
+  -webkit-touch-callout: default;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Real content — a dream, a comment, an analysis — stays long-pressable so it
+   can be copied, the way selectable text behaves in a native app. */
+html[data-native-platform='ios'] .detail-body,
+html[data-native-platform='ios'] .detail-insight,
+html[data-native-platform='ios'] .detail-connections-item,
+html[data-native-platform='ios'] .comment-body,
+html[data-native-platform='ios'] .feed-content,
+html[data-native-platform='ios'] .feed-summary,
+html[data-native-platform='ios'] .insights-entry-text,
+html[data-native-platform='ios'] .profile-bio,
+html[data-native-platform='ios'] .legal-page {
+  -webkit-touch-callout: default;
+  -webkit-user-select: text;
+  user-select: text;
 }

@@ -79,6 +79,9 @@ const DreamInsights = lazy(() => import('./pages/DreamInsights'));
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 
+// Tab roots cross-fade instead of sliding — matching how a native tab bar behaves.
+const TAB_ROOT_PATHS = new Set(['/journal', '/feed', '/search', '/activity', '/profile']);
+
 function ProtectedRoute({ user, children }) {
   return user ? children : <Navigate to="/login" replace />;
 }
@@ -120,6 +123,7 @@ function LegacyRedirect() {
 
 function AppContent({ user, loading, ready }) {
   const { pathname } = useLocation();
+  const navigationType = useNavigationType();
   const [termsAccepted, setTermsAccepted] = useState(() => isTermsAccepted());
   const showNav = user && pathname !== '/login' && termsAccepted;
 
@@ -141,6 +145,16 @@ function AppContent({ user, loading, ready }) {
       .catch(() => {});
   }, [user?.uid, termsAccepted]);
   const mainClassName = showNav ? 'app-main app-main--with-nav' : 'app-main app-main--no-nav';
+
+  // Drives the iOS page transition. Switching tabs is a lateral move, so it
+  // cross-fades the way a native tab bar does; everything else is a push or a
+  // pop and slides in from the side it came from. Set as a prop on <main> so the
+  // attribute lands in the same commit as the incoming page, which a layout
+  // effect could not guarantee before the animation's first frame.
+  const navDirection = useMemo(() => {
+    if (TAB_ROOT_PATHS.has(pathname)) return 'tab';
+    return navigationType === 'POP' ? 'back' : 'forward';
+  }, [pathname, navigationType]);
   const home = useMemo(() => (user ? '/journal' : '/'), [user]);
   const activity = useActivityPreview(user?.uid);
   const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
@@ -403,7 +417,7 @@ function AppContent({ user, loading, ready }) {
       )}
       <OfflineIndicator />
       {showNav && <Navigation user={user} activityPreview={activity} />}
-    <main className={mainClassName} style={{ minHeight: '100dvh', paddingBottom: isNativeIOS ? 'calc(49px + env(safe-area-inset-bottom))' : 'env(safe-area-inset-bottom)' }}>
+    <main className={mainClassName} data-nav-direction={navDirection} style={{ minHeight: '100dvh', paddingBottom: isNativeIOS ? 'calc(49px + env(safe-area-inset-bottom))' : 'env(safe-area-inset-bottom)' }}>
         <Routes>
           <Route path="/" element={user ? <Navigate to="/journal" replace /> : <HomePage />} />
           <Route path="/login" element={user ? <Navigate to="/journal" replace /> : <AuthPage />} />
